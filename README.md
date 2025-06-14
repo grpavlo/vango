@@ -21,15 +21,3 @@ npm run seed
 npm run dev
 ```
 
-## Mobile App (Expo)
-
-A minimal React Native client is located in the `mobile` folder. To run it you need Expo CLI:
-
-```bash
-npm install -g expo-cli # if not installed
-cd mobile
-npm install
-npm run start
-```
-
-The app allows users to log in and view available orders from the backend API.
