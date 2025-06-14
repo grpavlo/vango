@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
+import { SERVER_URL } from '../config';
 
 export default function OrdersScreen({ token }) {
   const [orders, setOrders] = useState([]);
@@ -7,7 +8,7 @@ export default function OrdersScreen({ token }) {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('http://localhost:3000/orders', {
+        const res = await fetch(`${SERVER_URL}/orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
