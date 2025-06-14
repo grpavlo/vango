@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text } from 'react-native';
+import { SERVER_URL } from '../config';
 
 export default function LoginScreen({ navigation, setToken }) {
   const [email, setEmail] = useState('');
@@ -8,7 +9,7 @@ export default function LoginScreen({ navigation, setToken }) {
 
   const login = async () => {
     try {
-      const res = await fetch('http://localhost:3000/auth/login', {
+      const res = await fetch(`${SERVER_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
