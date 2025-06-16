@@ -6,6 +6,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const financialRoutes = require('./routes/financialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
+const favoriteRoutes = require('./routes/favoriteRoutes');
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/finance', financialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ratings', ratingRoutes);
+app.use('/api/favorites', favoriteRoutes);
 
 const PORT = process.env.PORT || 3000;
 

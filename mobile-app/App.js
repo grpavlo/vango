@@ -11,6 +11,8 @@ import AdminScreen from './src/screens/AdminScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import RateUserScreen from './src/screens/RateUserScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import FavoriteDriversScreen from './src/screens/FavoriteDriversScreen';
+import MyOrdersScreen from './src/screens/MyOrdersScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,11 +25,13 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Orders" component={OrderListScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+        <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
         <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
         <Stack.Screen name="Balance" component={BalanceScreen} />
         <Stack.Screen name="Admin" component={AdminScreen} />
         <Stack.Screen name="Analytics" component={AnalyticsScreen} />
         <Stack.Screen name="RateUser" component={RateUserScreen} />
+        <Stack.Screen name="Favorites" component={FavoriteDriversScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

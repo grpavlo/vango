@@ -33,6 +33,17 @@ async function listAvailableOrders(req, res) {
   res.json({ available: orders, taken: takenOrders });
 }
 
+async function listMyOrders(req, res) {
+  const where = {};
+  if (req.user.role === 'CUSTOMER') {
+    where.customerId = req.user.id;
+  } else if (req.user.role === 'DRIVER') {
+    where.driverId = req.user.id;
+  }
+  const orders = await Order.findAll({ where });
+  res.json(orders);
+}
+
 async function acceptOrder(req, res) {
   const orderId = req.params.id;
   try {
@@ -84,4 +95,4 @@ async function updateStatus(req, res) {
   }
 }
 
-module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus };
+module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders };
