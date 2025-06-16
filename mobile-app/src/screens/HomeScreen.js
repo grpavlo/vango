@@ -10,6 +10,8 @@ export default function HomeScreen({ navigation, route }) {
       <Button title="Balance" onPress={() => navigation.navigate('Balance', { token })} />
       <Button title="Admin" onPress={() => navigation.navigate('Admin', { token })} />
       <Button title="Analytics" onPress={() => navigation.navigate('Analytics', { token })} />
+      <Button title="Favorites" onPress={() => navigation.navigate('Favorites', { token })} />
+      <Button title="My Orders" onPress={() => navigation.navigate('MyOrders', { token })} />
     </View>
   );
 }

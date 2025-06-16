@@ -17,12 +17,26 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  async function addFavorite() {
+    try {
+      await apiFetch(`/favorites/${order.driverId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text>Pickup: {order.pickupLocation}</Text>
       <Text>Dropoff: {order.dropoffLocation}</Text>
       <Text>Price: {order.price}</Text>
       <Button title="Accept" onPress={accept} />
+      {order.driverId && (
+        <Button title="Add Favorite" onPress={addFavorite} />
+      )}
     </View>
   );
 }
