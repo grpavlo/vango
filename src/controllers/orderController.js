@@ -4,6 +4,7 @@ const { SERVICE_FEE_PERCENT } = require('../config');
 
 async function createOrder(req, res) {
   const { pickupLocation, dropoffLocation, cargoType, dimensions, weight, timeWindow, insurance, price, city } = req.body;
+  console.log(pickupLocation)
   try {
     const order = await Order.create({
       customerId: req.user.id,
