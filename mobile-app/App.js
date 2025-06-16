@@ -10,6 +10,7 @@ import BalanceScreen from './src/screens/BalanceScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import RateUserScreen from './src/screens/RateUserScreen';
+import HomeScreen from './src/screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,7 @@ export default function App() {
       <Stack.Navigator initialRouteName="Login">
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Orders" component={OrderListScreen} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
         <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
