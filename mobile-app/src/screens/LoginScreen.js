@@ -13,7 +13,7 @@ export default function LoginScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ email, password })
       });
-      navigation.navigate('Orders', { token: data.token });
+      navigation.navigate('Home', { token: data.token });
     } catch (err) {
       setError('Login failed');
     }
