@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function AnalyticsScreen({ route }) {
-  const { token } = route.params;
+export default function AnalyticsScreen() {
+  const { token } = useAuth();
   const [data, setData] = useState(null);
 
   useEffect(() => {

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function MyOrdersScreen({ route, navigation }) {
-  const { token } = route.params;
+export default function MyOrdersScreen({ navigation }) {
+  const { token } = useAuth();
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {

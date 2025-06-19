@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function CreateOrderScreen({ route, navigation }) {
-  const { token } = route.params;
+export default function CreateOrderScreen({ navigation }) {
+  const { token } = useAuth();
+
   const [pickupQuery, setPickupQuery] = useState('');
   const [pickup, setPickup] = useState(null);
   const [pickupSuggestions, setPickupSuggestions] = useState([]);
