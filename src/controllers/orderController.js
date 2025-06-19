@@ -20,7 +20,7 @@ async function createOrder(req, res) {
     });
     res.json(order);
   } catch (err) {
-    res.status(400).json({ message: 'Order creation failed', error: err });
+    res.status(400).send('Не вдалося створити замовлення');
   }
 }
 
@@ -34,11 +34,16 @@ async function listAvailableOrders(req, res) {
 }
 
 async function listMyOrders(req, res) {
-  const where = {};
+  const { Op } = require('sequelize');
+  let where = {};
   if (req.user.role === 'CUSTOMER') {
     where.customerId = req.user.id;
   } else if (req.user.role === 'DRIVER') {
     where.driverId = req.user.id;
+  } else if (req.user.role === 'BOTH') {
+    where = {
+      [Op.or]: [{ customerId: req.user.id }, { driverId: req.user.id }],
+    };
   }
   const orders = await Order.findAll({ where });
   res.json(orders);
@@ -49,7 +54,7 @@ async function acceptOrder(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order || order.status !== 'CREATED') {
-      res.status(400).json({ message: 'Order not available' });
+      res.status(400).send('Замовлення недоступне');
       return;
     }
     order.driverId = req.user.id;
@@ -59,7 +64,7 @@ async function acceptOrder(req, res) {
     await Transaction.create({ orderId: order.id, driverId: req.user.id, amount: order.price, serviceFee });
     res.json(order);
   } catch (err) {
-    res.status(400).json({ message: 'Accept failed', error: err });
+    res.status(400).send('Не вдалося прийняти замовлення');
   }
 }
 
@@ -69,7 +74,7 @@ async function updateStatus(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order) {
-      res.status(404).json({ message: 'Order not found' });
+      res.status(404).send('Замовлення не знайдено');
       return;
     }
     order.status = status;
@@ -91,7 +96,7 @@ async function updateStatus(req, res) {
     }
     res.json(order);
   } catch (err) {
-    res.status(400).json({ message: 'Update failed', error: err });
+    res.status(400).send('Не вдалося оновити замовлення');
   }
 }
 

@@ -6,7 +6,7 @@ async function rateUser(req, res) {
     const rate = await Rating.create({ orderId, fromUserId: req.user.id, toUserId, rating, comment });
     res.json(rate);
   } catch (err) {
-    res.status(400).json({ message: 'Rating failed', error: err });
+    res.status(400).send('Rating failed');
   }
 }
 

@@ -5,7 +5,7 @@ async function getBalance(req, res) {
 async function requestWithdrawal(req, res) {
   const { amount } = req.body;
   if (amount > req.user.balance) {
-    res.status(400).json({ message: 'Insufficient balance' });
+    res.status(400).send('Insufficient balance');
     return;
   }
   req.user.balance -= amount;

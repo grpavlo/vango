@@ -1,40 +1,71 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import AppText from '../components/AppText';
+import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
+import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
+import { useToast } from '../components/Toast';
 
 export default function LoginScreen({ navigation }) {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
 
   async function handleLogin() {
+    if (!email || !password) {
+      toast.show('Введіть email та пароль');
+      return;
+    }
     try {
       const data = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-      navigation.navigate('Home', { token: data.token });
+      toast.show('Вхід виконано');
+      navigation.reset({ index: 0, routes: [{ name: 'Home', params: { token: data.token } }] });
     } catch (err) {
-      setError('Login failed');
+      const msg = err.message || 'Помилка входу';
+      setError(msg);
+      toast.show(msg);
     }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Email</Text>
-      <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" />
-      <Text style={styles.label}>Password</Text>
-      <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <Button title="Login" onPress={handleLogin} />
-      <Button title="Register" onPress={() => navigation.navigate('Register')} />
+      <AppText style={styles.label}>Електронна пошта</AppText>
+      <AppInput
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        placeholder="example@email.com"
+      />
+      <AppText style={styles.label}>Пароль</AppText>
+      <AppInput
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="********"
+      />
+      {error && <AppText style={styles.error}>{error}</AppText>}
+      <AppButton title="Увійти" onPress={handleLogin} />
+      <AppButton
+        title="Реєстрація"
+        color={colors.orange}
+        onPress={() => navigation.navigate('Register')}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  label: { marginTop: 8 },
-  input: { borderWidth: 1, padding: 8, borderRadius: 4 },
-  error: { color: 'red', marginTop: 8 }
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  label: { marginTop: 8, color: colors.orange },
+  error: { color: 'red', marginTop: 8 },
 });
