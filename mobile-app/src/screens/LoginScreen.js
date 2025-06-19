@@ -81,6 +81,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  label: { marginTop: 8, color: colors.orange },
+  label: { marginTop: 8, color: colors.text },
   error: { color: 'red', marginTop: 8 },
 });

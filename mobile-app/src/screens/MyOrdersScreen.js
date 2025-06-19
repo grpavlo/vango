@@ -26,7 +26,10 @@ export default function MyOrdersScreen({ navigation }) {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={styles.item}>
-          <Text>{item.pickupLocation} -> {item.dropoffLocation} ({item.status})</Text>
+          <Text style={styles.route}>
+            {item.pickupLocation} ➔ {item.dropoffLocation}
+          </Text>
+          <Text style={styles.status}>{item.status}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -58,7 +61,20 @@ export default function MyOrdersScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  item: { padding: 12, borderBottomWidth: 1 },
+  item: {
+    padding: 12,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  route: { fontSize: 16, fontWeight: '500', color: '#333' },
+  status: { color: '#666', marginTop: 4 },
   filters: { flexDirection: 'row', justifyContent: 'space-around', margin: 8 },
   filterBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
   activeFilter: { backgroundColor: '#333' },
