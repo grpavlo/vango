@@ -105,4 +105,21 @@ async function updateStatus(req, res) {
   }
 }
 
-module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders };
+async function deleteOrder(req, res) {
+  const id = req.params.id;
+  try {
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).send('Замовлення не знайдено');
+    }
+    if (order.customerId !== req.user.id || order.status !== 'CREATED') {
+      return res.status(400).send('Неможливо видалити');
+    }
+    await order.destroy();
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    res.status(400).send('Помилка видалення');
+  }
+}
+
+module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders, deleteOrder };
