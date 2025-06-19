@@ -22,6 +22,7 @@ async function seed() {
     unloadFrom: new Date(Date.now() + 86400000),
     unloadTo: new Date(Date.now() + 90000000),
     insurance: false,
+    systemPrice: 100,
     price: 100,
     photos: [],
     city: 'NYC',
