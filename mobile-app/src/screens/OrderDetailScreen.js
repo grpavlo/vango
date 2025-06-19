@@ -7,6 +7,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const { token, role } = useAuth();
 
+
   async function accept() {
     try {
       await apiFetch(`/orders/${order.id}/accept`, {

@@ -16,6 +16,7 @@ import { useAuth } from '../AuthContext';
 
 export default function CreateOrderScreen({ navigation }) {
   const { token } = useAuth();
+
   const [pickupQuery, setPickupQuery] = useState('');
   const [pickup, setPickup] = useState(null);
   const [pickupSuggestions, setPickupSuggestions] = useState([]);
