@@ -13,16 +13,17 @@ export function AuthProvider({ children }) {
     async function load() {
       try {
         const storedToken = await AsyncStorage.getItem('token');
-        const storedRole = await AsyncStorage.getItem('role');
         if (storedToken) {
           try {
-            await apiFetch('/orders/my', {
+            const me = await apiFetch('/auth/me', {
               headers: { Authorization: `Bearer ${storedToken}` },
             });
             setToken(storedToken);
-            setRole(storedRole);
+            setRole(me.role);
+            await AsyncStorage.setItem('role', me.role);
           } catch {
             await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('role');
           }
         }
       } finally {
@@ -32,9 +33,26 @@ export function AuthProvider({ children }) {
     load();
   }, []);
 
-  const login = async (tok) => {
+  const login = async (tok, r) => {
     await AsyncStorage.setItem('token', tok);
     setToken(tok);
+    if (r) {
+      await AsyncStorage.setItem('role', r);
+      setRole(r);
+    } else {
+      try {
+        const me = await apiFetch('/auth/me', {
+          headers: { Authorization: `Bearer ${tok}` },
+        });
+        await AsyncStorage.setItem('role', me.role);
+        setRole(me.role);
+      } catch {
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('role');
+        setToken(null);
+        setRole(null);
+      }
+    }
   };
 
   const logout = async () => {
@@ -44,6 +62,12 @@ export function AuthProvider({ children }) {
   };
 
   const selectRole = async (r) => {
+    if (!token) return;
+    await apiFetch('/auth/role', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role: r }),
+    });
     await AsyncStorage.setItem('role', r);
     setRole(r);
   };

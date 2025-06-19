@@ -12,7 +12,7 @@ import { useAuth } from '../AuthContext';
 
 export default function LoginScreen({ navigation }) {
   const toast = useToast();
-  const { login, role } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -37,13 +37,9 @@ export default function LoginScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      await login(data.token);
+      await login(data.token, data.role);
       toast.show('Вхід виконано');
-      if (role) {
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-      } else {
-        navigation.reset({ index: 0, routes: [{ name: 'Role' }] });
-      }
+      // Navigation is handled by root navigator based on auth state
     } catch (err) {
       const msg = err.message || 'Помилка входу';
       setError(msg);
