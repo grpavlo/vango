@@ -34,11 +34,16 @@ async function listAvailableOrders(req, res) {
 }
 
 async function listMyOrders(req, res) {
-  const where = {};
+  const { Op } = require('sequelize');
+  let where = {};
   if (req.user.role === 'CUSTOMER') {
     where.customerId = req.user.id;
   } else if (req.user.role === 'DRIVER') {
     where.driverId = req.user.id;
+  } else if (req.user.role === 'BOTH') {
+    where = {
+      [Op.or]: [{ customerId: req.user.id }, { driverId: req.user.id }],
+    };
   }
   const orders = await Order.findAll({ where });
   res.json(orders);

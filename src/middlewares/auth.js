@@ -20,10 +20,19 @@ async function authenticate(req, res, next) {
 
 function authorize(roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    next();
+    if (roles.includes(req.user.role)) {
+      return next();
+    }
+    if (
+      req.user.role === 'BOTH' &&
+      (roles.includes('DRIVER') || roles.includes('CUSTOMER'))
+    ) {
+      return next();
+    }
+    return res.status(403).json({ message: 'Forbidden' });
   };
 }
 
