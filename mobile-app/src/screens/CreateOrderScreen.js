@@ -11,6 +11,8 @@ import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import DateTimeInput from '../components/DateTimeInput';
+import DateInput from '../components/DateInput';
+import TimeInput from '../components/TimeInput';
 import { colors } from '../components/Colors';
 import PhotoPicker from '../components/PhotoPicker';
 import { apiFetch } from '../api';
@@ -205,14 +207,39 @@ export default function CreateOrderScreen({ navigation }) {
         </Modal>
       )}
 
-      <AppText style={styles.label}>Завантаження з</AppText>
-      <DateTimeInput value={loadFrom} onChange={setLoadFrom} />
-      <AppText style={styles.label}>Завантаження до</AppText>
-      <DateTimeInput value={loadTo} onChange={setLoadTo} />
-      <AppText style={styles.label}>Вивантаження з</AppText>
-      <DateTimeInput value={unloadFrom} onChange={setUnloadFrom} />
-      <AppText style={styles.label}>Вивантаження до</AppText>
-      <DateTimeInput value={unloadTo} onChange={setUnloadTo} />
+      <AppText style={styles.label}>Завантаження</AppText>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TimeInput value={loadFrom} onChange={setLoadFrom} />
+        <DateInput
+          value={loadFrom}
+          onChange={(d) => {
+            const from = new Date(loadFrom);
+            from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+            const to = new Date(loadTo);
+            to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+            setLoadFrom(from);
+            setLoadTo(to);
+          }}
+        />
+        <TimeInput value={loadTo} onChange={setLoadTo} />
+      </View>
+
+      <AppText style={styles.label}>Вивантаження</AppText>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TimeInput value={unloadFrom} onChange={setUnloadFrom} />
+        <DateInput
+          value={unloadFrom}
+          onChange={(d) => {
+            const from = new Date(unloadFrom);
+            from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+            const to = new Date(unloadTo);
+            to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+            setUnloadFrom(from);
+            setUnloadTo(to);
+          }}
+        />
+        <TimeInput value={unloadTo} onChange={setUnloadTo} />
+      </View>
 
       <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
       <View style={{ flexDirection: 'row', gap: 8 }}>
