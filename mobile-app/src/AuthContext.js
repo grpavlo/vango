@@ -19,8 +19,13 @@ export function AuthProvider({ children }) {
               headers: { Authorization: `Bearer ${storedToken}` },
             });
             setToken(storedToken);
-            setRole(me.role);
-            await AsyncStorage.setItem('role', me.role);
+            const r = me.role === 'BOTH' ? null : me.role;
+            setRole(r);
+            if (r) {
+              await AsyncStorage.setItem('role', r);
+            } else {
+              await AsyncStorage.removeItem('role');
+            }
           } catch {
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('role');
@@ -37,15 +42,25 @@ export function AuthProvider({ children }) {
     await AsyncStorage.setItem('token', tok);
     setToken(tok);
     if (r) {
-      await AsyncStorage.setItem('role', r);
-      setRole(r);
+      const roleVal = r === 'BOTH' ? null : r;
+      if (roleVal) {
+        await AsyncStorage.setItem('role', roleVal);
+      } else {
+        await AsyncStorage.removeItem('role');
+      }
+      setRole(roleVal);
     } else {
       try {
         const me = await apiFetch('/auth/me', {
           headers: { Authorization: `Bearer ${tok}` },
         });
-        await AsyncStorage.setItem('role', me.role);
-        setRole(me.role);
+        const roleVal = me.role === 'BOTH' ? null : me.role;
+        if (roleVal) {
+          await AsyncStorage.setItem('role', roleVal);
+        } else {
+          await AsyncStorage.removeItem('role');
+        }
+        setRole(roleVal);
       } catch {
         await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('role');
