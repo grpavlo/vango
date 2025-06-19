@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
@@ -18,6 +19,7 @@ export default function RegisterScreen({ navigation }) {
   async function handleRegister() {
     if (!name || !email || !password) {
       toast.show('Заповніть всі поля');
+
       return;
     }
     try {
@@ -31,6 +33,7 @@ export default function RegisterScreen({ navigation }) {
       const msg = err.message || 'Помилка реєстрації';
       setError(msg);
       toast.show(msg);
+
     }
   }
 

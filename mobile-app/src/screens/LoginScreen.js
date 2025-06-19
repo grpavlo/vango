@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
@@ -16,6 +17,7 @@ export default function LoginScreen({ navigation }) {
   async function handleLogin() {
     if (!email || !password) {
       toast.show('Введіть email та пароль');
+
       return;
     }
     try {
@@ -29,6 +31,7 @@ export default function LoginScreen({ navigation }) {
       const msg = err.message || 'Помилка входу';
       setError(msg);
       toast.show(msg);
+
     }
   }
 

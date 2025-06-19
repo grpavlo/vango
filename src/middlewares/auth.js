@@ -22,6 +22,7 @@ function authorize(roles) {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(403).send('Доступ заборонено');
+
     }
     if (roles.includes(req.user.role)) {
       return next();
@@ -33,6 +34,7 @@ function authorize(roles) {
       return next();
     }
     return res.status(403).send('Доступ заборонено');
+
   };
 }
 

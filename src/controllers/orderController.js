@@ -21,6 +21,7 @@ async function createOrder(req, res) {
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося створити замовлення');
+
   }
 }
 
@@ -55,6 +56,7 @@ async function acceptOrder(req, res) {
     const order = await Order.findByPk(orderId);
     if (!order || order.status !== 'CREATED') {
       res.status(400).send('Замовлення недоступне');
+
       return;
     }
     order.driverId = req.user.id;
@@ -65,6 +67,7 @@ async function acceptOrder(req, res) {
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося прийняти замовлення');
+
   }
 }
 
@@ -75,6 +78,7 @@ async function updateStatus(req, res) {
     const order = await Order.findByPk(orderId);
     if (!order) {
       res.status(404).send('Замовлення не знайдено');
+
       return;
     }
     order.status = status;
@@ -97,6 +101,7 @@ async function updateStatus(req, res) {
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося оновити замовлення');
+
   }
 }
 
