@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  Image,
   Alert,
   ScrollView,
 } from 'react-native';
@@ -13,7 +11,7 @@ import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import DateTimeInput from '../components/DateTimeInput';
 import { colors } from '../components/Colors';
-import * as ImagePicker from 'expo-image-picker';
+import PhotoPicker from '../components/PhotoPicker';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 
@@ -106,28 +104,7 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
 
-  async function pickImage() {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5 });
-    if (!res.canceled) {
-      setPhoto(res.assets[0].uri);
-    }
-  }
 
-  function renderSuggestion({ item }, setter, querySetter) {
-    return (
-      <TouchableOpacity
-        style={styles.suggestion}
-        onPress={() => {
-          setter({ text: item.display_name, lat: item.lat, lon: item.lon });
-          querySetter(item.display_name);
-          setPickupSuggestions([]);
-          setDropoffSuggestions([]);
-        }}
-      >
-        <AppText>{item.display_name}</AppText>
-      </TouchableOpacity>
-    );
-  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -140,11 +117,20 @@ export default function CreateOrderScreen({ navigation }) {
           loadSuggestions(t, setPickupSuggestions);
         }}
       />
-      <FlatList
-        data={pickupSuggestions}
-        renderItem={(it) => renderSuggestion(it, setPickup, setPickupQuery)}
-        keyExtractor={(item) => item.place_id.toString()}
-      />
+      {pickupSuggestions.map((item) => (
+        <TouchableOpacity
+          key={item.place_id}
+          style={styles.suggestion}
+          onPress={() => {
+            setPickup({ text: item.display_name, lat: item.lat, lon: item.lon });
+            setPickupQuery(item.display_name);
+            setPickupSuggestions([]);
+            setDropoffSuggestions([]);
+          }}
+        >
+          <AppText>{item.display_name}</AppText>
+        </TouchableOpacity>
+      ))}
 
       <AppText style={styles.label}>Куди</AppText>
       <AppInput
@@ -155,11 +141,20 @@ export default function CreateOrderScreen({ navigation }) {
           loadSuggestions(t, setDropoffSuggestions);
         }}
       />
-      <FlatList
-        data={dropoffSuggestions}
-        renderItem={(it) => renderSuggestion(it, setDropoff, setDropoffQuery)}
-        keyExtractor={(item) => item.place_id.toString()}
-      />
+      {dropoffSuggestions.map((item) => (
+        <TouchableOpacity
+          key={item.place_id}
+          style={styles.suggestion}
+          onPress={() => {
+            setDropoff({ text: item.display_name, lat: item.lat, lon: item.lon });
+            setDropoffQuery(item.display_name);
+            setPickupSuggestions([]);
+            setDropoffSuggestions([]);
+          }}
+        >
+          <AppText>{item.display_name}</AppText>
+        </TouchableOpacity>
+      ))}
 
       <AppText style={styles.label}>Дата завантаження</AppText>
       <DateTimeInput value={loadDate} onChange={setLoadDate} />
@@ -174,14 +169,15 @@ export default function CreateOrderScreen({ navigation }) {
       </View>
 
       <AppText style={styles.label}>Опис вантажу</AppText>
-      <AppInput value={description} onChangeText={setDescription} />
+      <AppInput
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={4}
+        style={{ height: 100, textAlignVertical: 'top' }}
+      />
 
-      <AppButton title="Додати фото" onPress={pickImage} />
-      {photo && (
-        <TouchableOpacity onPress={() => setPhoto(null)}>
-          <Image source={{ uri: photo }} style={{ width: 100, height: 100 }} />
-        </TouchableOpacity>
-      )}
+      <PhotoPicker photo={photo} onChange={setPhoto} />
 
       <AppButton title="Створити" onPress={confirmCreate} />
     </ScrollView>
