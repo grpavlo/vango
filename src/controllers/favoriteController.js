@@ -5,7 +5,7 @@ async function addFavorite(req, res) {
   const driverId = req.params.driverId;
   try {
     const driver = await User.findByPk(driverId);
-    if (!driver || driver.role !== 'DRIVER') {
+    if (!driver || (driver.role !== 'DRIVER' && driver.role !== 'BOTH')) {
       return res.status(404).json({ message: 'Driver not found' });
     }
     await Favorite.findOrCreate({ where: { customerId: req.user.id, driverId } });
