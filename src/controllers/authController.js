@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const { UserRole } = require('../models/user');
 const { JWT_SECRET } = require('../config');
 
 async function register(req, res) {
@@ -31,11 +32,27 @@ async function login(req, res) {
       return;
     }
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token });
+    res.json({ token, role: user.role });
   } catch (err) {
     res.status(400).send('Помилка входу');
 
   }
 }
 
-module.exports = { register, login };
+async function profile(req, res) {
+  res.json(req.user);
+}
+
+async function updateRole(req, res) {
+  const { role } = req.body;
+  if (!role || ![UserRole.DRIVER, UserRole.CUSTOMER, UserRole.BOTH].includes(role)) {
+    res.status(400).send('Invalid role');
+
+    return;
+  }
+  req.user.role = role;
+  await req.user.save();
+  res.json({ role: req.user.role });
+}
+
+module.exports = { register, login, profile, updateRole };
