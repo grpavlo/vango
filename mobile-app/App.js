@@ -2,40 +2,43 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ToastProvider } from './src/components/Toast';
+import { AuthProvider, useAuth } from './src/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import OrderListScreen from './src/screens/OrderListScreen';
-import OrderDetailScreen from './src/screens/OrderDetailScreen';
-import CreateOrderScreen from './src/screens/CreateOrderScreen';
-import BalanceScreen from './src/screens/BalanceScreen';
-import AdminScreen from './src/screens/AdminScreen';
-import AnalyticsScreen from './src/screens/AnalyticsScreen';
-import RateUserScreen from './src/screens/RateUserScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import FavoriteDriversScreen from './src/screens/FavoriteDriversScreen';
-import MyOrdersScreen from './src/screens/MyOrdersScreen';
+import RoleScreen from './src/screens/RoleScreen';
+import MainTabs from './src/screens/MainTabs';
 
 const Stack = createNativeStackNavigator();
+
+function RootNavigator() {
+  const { token, role, loading } = useAuth();
+
+  if (loading) return null;
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {token == null ? (
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+        </>
+      ) : role == null ? (
+        <Stack.Screen name="Role" component={RoleScreen} />
+      ) : (
+        <Stack.Screen name="Main" component={MainTabs} />
+      )}
+    </Stack.Navigator>
+  );
+}
 
 export default function App() {
   return (
     <ToastProvider>
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Orders" component={OrderListScreen} />
-          <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-          <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
-          <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
-          <Stack.Screen name="Balance" component={BalanceScreen} />
-          <Stack.Screen name="Admin" component={AdminScreen} />
-          <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-          <Stack.Screen name="RateUser" component={RateUserScreen} />
-          <Stack.Screen name="Favorites" component={FavoriteDriversScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <AuthProvider>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </AuthProvider>
     </ToastProvider>
   );
 }
