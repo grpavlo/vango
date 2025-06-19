@@ -208,8 +208,7 @@ export default function CreateOrderScreen({ navigation }) {
       )}
 
       <AppText style={styles.label}>Завантаження</AppText>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TimeInput value={loadFrom} onChange={setLoadFrom} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <DateInput
           value={loadFrom}
           onChange={(d) => {
@@ -220,13 +219,17 @@ export default function CreateOrderScreen({ navigation }) {
             setLoadFrom(from);
             setLoadTo(to);
           }}
+          style={{ marginVertical: 0 }}
         />
-        <TimeInput value={loadTo} onChange={setLoadTo} />
+        <View style={{ flexDirection: 'column' }}>
+          <TimeInput value={loadFrom} onChange={setLoadFrom} style={{ marginVertical: 0 }} />
+          <TimeInput value={loadTo} onChange={setLoadTo} style={{ marginVertical: 0 }} />
+        </View>
       </View>
 
       <AppText style={styles.label}>Вивантаження</AppText>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TimeInput value={unloadFrom} onChange={setUnloadFrom} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+
         <DateInput
           value={unloadFrom}
           onChange={(d) => {
@@ -237,8 +240,13 @@ export default function CreateOrderScreen({ navigation }) {
             setUnloadFrom(from);
             setUnloadTo(to);
           }}
+          style={{ marginVertical: 0 }}
         />
-        <TimeInput value={unloadTo} onChange={setUnloadTo} />
+        <View style={{ flexDirection: 'column' }}>
+          <TimeInput value={unloadFrom} onChange={setUnloadFrom} style={{ marginVertical: 0 }} />
+          <TimeInput value={unloadTo} onChange={setUnloadTo} style={{ marginVertical: 0 }} />
+        </View>
+
       </View>
 
       <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>

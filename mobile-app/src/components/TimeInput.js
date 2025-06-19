@@ -3,7 +3,8 @@ import { View, TouchableOpacity } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppInput from './AppInput';
 
-export default function TimeInput({ value, onChange }) {
+export default function TimeInput({ value, onChange, style }) {
+
   const [showTime, setShowTime] = useState(false);
 
   function onChangeTime(_e, selected) {
@@ -18,7 +19,13 @@ export default function TimeInput({ value, onChange }) {
   return (
     <View>
       <TouchableOpacity onPress={() => setShowTime(true)}>
-        <AppInput value={formatTime(value)} editable={false} pointerEvents="none" />
+        <AppInput
+          value={formatTime(value)}
+          editable={false}
+          pointerEvents="none"
+          style={style}
+        />
+
       </TouchableOpacity>
       {showTime && (
         <DateTimePicker value={value} mode="time" is24Hour onChange={onChangeTime} />
