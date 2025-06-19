@@ -26,6 +26,10 @@ export default function CreateOrderScreen({ navigation }) {
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
+  const [loadFrom, setLoadFrom] = useState('');
+  const [loadTo, setLoadTo] = useState('');
+  const [unloadFrom, setUnloadFrom] = useState('');
+  const [unloadTo, setUnloadTo] = useState('');
   const [photo, setPhoto] = useState(null);
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -41,7 +45,7 @@ export default function CreateOrderScreen({ navigation }) {
           cargoType: description,
           dimensions: `${length}x${width}x${height}`,
           weight: 0,
-          timeWindow: '',
+          timeWindow: `${loadFrom}-${loadTo};${unloadFrom}-${unloadTo}`,
           insurance: false,
           price,
         }),
@@ -152,6 +156,15 @@ export default function CreateOrderScreen({ navigation }) {
         renderItem={(it) => renderSuggestion(it, setDropoff, setDropoffQuery)}
         keyExtractor={(item) => item.place_id.toString()}
       />
+
+      <Text>Дата завантаження від</Text>
+      <TextInput style={styles.input} value={loadFrom} onChangeText={setLoadFrom} placeholder="YYYY-MM-DD HH:mm" />
+      <Text>Дата завантаження до</Text>
+      <TextInput style={styles.input} value={loadTo} onChangeText={setLoadTo} placeholder="YYYY-MM-DD HH:mm" />
+      <Text>Дата вивантаження від</Text>
+      <TextInput style={styles.input} value={unloadFrom} onChangeText={setUnloadFrom} placeholder="YYYY-MM-DD HH:mm" />
+      <Text>Дата вивантаження до</Text>
+      <TextInput style={styles.input} value={unloadTo} onChangeText={setUnloadTo} placeholder="YYYY-MM-DD HH:mm" />
 
       <Text>Габарити (Д x Ш x В, м)</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>

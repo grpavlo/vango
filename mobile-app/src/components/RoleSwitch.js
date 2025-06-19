@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from './Colors';
 
 export default function RoleSwitch({ value, onChange, style }) {
@@ -9,13 +10,15 @@ export default function RoleSwitch({ value, onChange, style }) {
         style={[styles.option, value === 'CUSTOMER' && styles.activeLeft]}
         onPress={() => onChange('CUSTOMER')}
       >
-        <Text style={[styles.text, value === 'CUSTOMER' && styles.activeText]}>Замовник</Text>
+        <Ionicons name="person" size={20} color={value === 'CUSTOMER' ? '#fff' : colors.text} />
+        <Text style={[styles.text, value === 'CUSTOMER' && styles.activeText]}> Замовник</Text>
       </Pressable>
       <Pressable
         style={[styles.option, value === 'DRIVER' && styles.activeRight]}
         onPress={() => onChange('DRIVER')}
       >
-        <Text style={[styles.text, value === 'DRIVER' && styles.activeText]}>Водій</Text>
+        <Ionicons name="car" size={20} color={value === 'DRIVER' ? '#fff' : colors.text} />
+        <Text style={[styles.text, value === 'DRIVER' && styles.activeText]}> Водій</Text>
       </Pressable>
     </View>
   );
@@ -34,6 +37,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   activeLeft: {
     backgroundColor: colors.green,
