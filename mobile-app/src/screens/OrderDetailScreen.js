@@ -4,8 +4,8 @@ import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 
 export default function OrderDetailScreen({ route, navigation }) {
-  const { order, token } = route.params;
-  const { role } = useAuth();
+  const { order } = route.params;
+  const { token, role } = useAuth();
 
   async function accept() {
     try {

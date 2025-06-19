@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Button, StyleSheet } from 'react-native';
+import { useAuth } from '../AuthContext';
 
-export default function HomeScreen({ navigation, route }) {
-  const { token } = route.params;
+export default function HomeScreen({ navigation }) {
+  const { token } = useAuth();
   return (
     <View style={styles.container}>
       <Button title="Orders" onPress={() => navigation.navigate('Orders', { token })} />

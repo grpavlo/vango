@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function FavoriteDriversScreen({ route }) {
-  const { token } = route.params;
+export default function FavoriteDriversScreen() {
+  const { token } = useAuth();
   const [drivers, setDrivers] = useState([]);
 
   useEffect(() => {
