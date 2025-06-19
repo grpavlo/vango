@@ -22,10 +22,12 @@ Order.init(
     cargoType: { type: DataTypes.STRING, allowNull: false },
     dimensions: { type: DataTypes.STRING, allowNull: false },
     weight: { type: DataTypes.FLOAT, allowNull: false },
-    timeWindow: { type: DataTypes.STRING, allowNull: false },
+    loadDate: { type: DataTypes.DATE, allowNull: false },
+    unloadDate: { type: DataTypes.DATE, allowNull: false },
     insurance: { type: DataTypes.BOOLEAN, defaultValue: false },
     status: { type: DataTypes.ENUM(...Object.values(OrderStatus)), defaultValue: OrderStatus.CREATED },
     price: { type: DataTypes.FLOAT, allowNull: false },
+    photo: { type: DataTypes.STRING },
     city: { type: DataTypes.STRING },
   },
   { sequelize: db, modelName: 'order' }

@@ -17,9 +17,11 @@ async function seed() {
     cargoType: 'Boxes',
     dimensions: '1x1x1',
     weight: 100,
-    timeWindow: '9-12',
+    loadDate: new Date(),
+    unloadDate: new Date(Date.now() + 86400000),
     insurance: false,
     price: 100,
+    photo: null,
     city: 'NYC',
   });
 

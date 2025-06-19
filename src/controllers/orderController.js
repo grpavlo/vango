@@ -3,9 +3,33 @@ const Transaction = require('../models/transaction');
 const { SERVICE_FEE_PERCENT } = require('../config');
 
 async function createOrder(req, res) {
-  const { pickupLocation, dropoffLocation, cargoType, dimensions, weight, timeWindow, insurance, price, city } = req.body;
-  console.log(pickupLocation)
+  const {
+    pickupLocation,
+    dropoffLocation,
+    cargoType,
+    dimensions,
+    weight,
+    loadDate,
+    unloadDate,
+    pickupLat,
+    pickupLon,
+    dropoffLat,
+    dropoffLon,
+    insurance,
+    city,
+  } = req.body;
+  let price = 0;
   try {
+    if (pickupLat && pickupLon && dropoffLat && dropoffLon) {
+      const resRoute = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${dropoffLon},${dropoffLat}?overview=false`
+      );
+      const data = await resRoute.json();
+      if (data.routes && data.routes[0]) {
+        const km = data.routes[0].distance / 1000;
+        price = km * 50 * (Math.random() < 0.5 ? 0.95 : 1.15);
+      }
+    }
     const order = await Order.create({
       customerId: req.user.id,
       pickupLocation,
@@ -13,10 +37,12 @@ async function createOrder(req, res) {
       cargoType,
       dimensions,
       weight,
-      timeWindow,
+      loadDate,
+      unloadDate,
       insurance,
       price,
       city,
+      photo: req.file ? `/uploads/${req.file.filename}` : null,
     });
     res.json(order);
   } catch (err) {

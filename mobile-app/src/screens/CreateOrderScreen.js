@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  Button,
   StyleSheet,
   FlatList,
   TouchableOpacity,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
+import AppText from '../components/AppText';
+import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
+import DateTimeInput from '../components/DateTimeInput';
+import { colors } from '../components/Colors';
 import * as ImagePicker from 'expo-image-picker';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
@@ -26,29 +29,40 @@ export default function CreateOrderScreen({ navigation }) {
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
-  const [loadFrom, setLoadFrom] = useState('');
-  const [loadTo, setLoadTo] = useState('');
-  const [unloadFrom, setUnloadFrom] = useState('');
-  const [unloadTo, setUnloadTo] = useState('');
+  const [loadDate, setLoadDate] = useState(new Date());
+  const [unloadDate, setUnloadDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const [photo, setPhoto] = useState(null);
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
 
   async function create() {
     try {
+      const fd = new FormData();
+      if (pickup) {
+        fd.append('pickupLocation', pickup.text);
+        fd.append('pickupLat', pickup.lat);
+        fd.append('pickupLon', pickup.lon);
+      }
+      if (dropoff) {
+        fd.append('dropoffLocation', dropoff.text);
+        fd.append('dropoffLat', dropoff.lat);
+        fd.append('dropoffLon', dropoff.lon);
+      }
+      fd.append('cargoType', description);
+      fd.append('dimensions', `${length}x${width}x${height}`);
+      fd.append('weight', '0');
+      fd.append('loadDate', loadDate.toISOString());
+      fd.append('unloadDate', unloadDate.toISOString());
+      fd.append('insurance', 'false');
+      if (photo) {
+        const filename = photo.split('/').pop();
+        const match = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+        fd.append('photo', { uri: photo, name: filename, type });
+      }
       await apiFetch('/orders', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          pickupLocation: pickup?.text,
-          dropoffLocation: dropoff?.text,
-          cargoType: description,
-          dimensions: `${length}x${width}x${height}`,
-          weight: 0,
-          timeWindow: `${loadFrom}-${loadTo};${unloadFrom}-${unloadTo}`,
-          insurance: false,
-          price,
-        }),
+        body: fd,
       });
       navigation.goBack();
     } catch (err) {
@@ -57,6 +71,18 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
   async function confirmCreate() {
+    if (!pickup || !dropoff) {
+      Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
+      return;
+    }
+    if (loadDate < new Date()) {
+      Alert.alert('Помилка', 'Дата завантаження не може бути в минулому');
+      return;
+    }
+    if (unloadDate <= loadDate) {
+      Alert.alert('Помилка', 'Дата розвантаження повинна бути пізніше дати завантаження');
+      return;
+    }
     Alert.alert('Підтвердження', 'Ви впевнені що хочете розмістити вантаж?', [
       { text: 'Скасувати' },
       { text: 'OK', onPress: create },
@@ -79,26 +105,6 @@ export default function CreateOrderScreen({ navigation }) {
     } catch {}
   }
 
-  useEffect(() => {
-    if (pickup && dropoff) {
-      async function calc() {
-        try {
-          const res = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
-          );
-          const data = await res.json();
-          if (data.routes && data.routes[0]) {
-            const km = data.routes[0].distance / 1000;
-            let cost = km * 50;
-            const factor = Math.random() < 0.5 ? 0.95 : 1.15;
-            cost = cost * factor;
-            setPrice(cost.toFixed(0));
-          }
-        } catch {}
-      }
-      calc();
-    }
-  }, [pickup, dropoff]);
 
   async function pickImage() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5 });
@@ -118,16 +124,15 @@ export default function CreateOrderScreen({ navigation }) {
           setDropoffSuggestions([]);
         }}
       >
-        <Text>{item.display_name}</Text>
+        <AppText>{item.display_name}</AppText>
       </TouchableOpacity>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text>Звідки</Text>
-      <TextInput
-        style={styles.input}
+    <ScrollView contentContainerStyle={styles.container}>
+      <AppText style={styles.label}>Звідки</AppText>
+      <AppInput
         value={pickupQuery}
         onChangeText={(t) => {
           setPickupQuery(t);
@@ -141,9 +146,8 @@ export default function CreateOrderScreen({ navigation }) {
         keyExtractor={(item) => item.place_id.toString()}
       />
 
-      <Text>Куди</Text>
-      <TextInput
-        style={styles.input}
+      <AppText style={styles.label}>Куди</AppText>
+      <AppInput
         value={dropoffQuery}
         onChangeText={(t) => {
           setDropoffQuery(t);
@@ -157,39 +161,35 @@ export default function CreateOrderScreen({ navigation }) {
         keyExtractor={(item) => item.place_id.toString()}
       />
 
-      <Text>Дата завантаження від</Text>
-      <TextInput style={styles.input} value={loadFrom} onChangeText={setLoadFrom} placeholder="YYYY-MM-DD HH:mm" />
-      <Text>Дата завантаження до</Text>
-      <TextInput style={styles.input} value={loadTo} onChangeText={setLoadTo} placeholder="YYYY-MM-DD HH:mm" />
-      <Text>Дата вивантаження від</Text>
-      <TextInput style={styles.input} value={unloadFrom} onChangeText={setUnloadFrom} placeholder="YYYY-MM-DD HH:mm" />
-      <Text>Дата вивантаження до</Text>
-      <TextInput style={styles.input} value={unloadTo} onChangeText={setUnloadTo} placeholder="YYYY-MM-DD HH:mm" />
+      <AppText style={styles.label}>Дата завантаження</AppText>
+      <DateTimeInput value={loadDate} onChange={setLoadDate} />
+      <AppText style={styles.label}>Дата вивантаження</AppText>
+      <DateTimeInput value={unloadDate} onChange={setUnloadDate} />
 
-      <Text>Габарити (Д x Ш x В, м)</Text>
+      <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TextInput style={[styles.input, styles.dim]} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
-        <TextInput style={[styles.input, styles.dim]} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
-        <TextInput style={[styles.input, styles.dim]} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
+        <AppInput style={styles.dim} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
+        <AppInput style={styles.dim} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
+        <AppInput style={styles.dim} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
       </View>
 
-      <Text>Опис вантажу</Text>
-      <TextInput style={styles.input} value={description} onChangeText={setDescription} />
+      <AppText style={styles.label}>Опис вантажу</AppText>
+      <AppInput value={description} onChangeText={setDescription} />
 
-      <Button title="Додати фото" onPress={pickImage} />
-      {photo && <Image source={{ uri: photo }} style={{ width: 100, height: 100 }} />}
+      <AppButton title="Додати фото" onPress={pickImage} />
+      {photo && (
+        <TouchableOpacity onPress={() => setPhoto(null)}>
+          <Image source={{ uri: photo }} style={{ width: 100, height: 100 }} />
+        </TouchableOpacity>
+      )}
 
-      <Text>Ціна (розраховується автоматично)</Text>
-      <TextInput style={styles.input} value={price} onChangeText={setPrice} keyboardType="numeric" />
-
-      <Button title="Створити" onPress={confirmCreate} />
-    </View>
+      <AppButton title="Створити" onPress={confirmCreate} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  input: { borderWidth: 1, padding: 8, marginVertical: 4, flex: 1 },
   dim: { flex: 1 },
   suggestion: {
     padding: 8,
