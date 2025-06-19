@@ -4,24 +4,25 @@ const User = require('../models/user');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ message: 'Токен відсутній' });
+  if (!authHeader) return res.status(401).send('Токен відсутній');
   const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = await User.findByPk(payload.id);
-    if (!user) return res.status(401).json({ message: 'Недійсний токен' });
-    if (user.blocked) return res.status(403).json({ message: 'Користувача заблоковано' });
+    if (!user) return res.status(401).send('Недійсний токен');
+    if (user.blocked) return res.status(403).send('Користувача заблоковано');
     req.user = user;
     next();
   } catch (err) {
-    res.status(401).json({ message: 'Невірний токен' });
+    res.status(401).send('Невірний токен');
   }
 }
 
 function authorize(roles) {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(403).json({ message: 'Доступ заборонено' });
+      return res.status(403).send('Доступ заборонено');
+
     }
     if (roles.includes(req.user.role)) {
       return next();
@@ -32,7 +33,8 @@ function authorize(roles) {
     ) {
       return next();
     }
-    return res.status(403).json({ message: 'Доступ заборонено' });
+    return res.status(403).send('Доступ заборонено');
+
   };
 }
 

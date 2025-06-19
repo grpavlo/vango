@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
+import { useToast } from '../components/Toast';
 
 export default function RegisterScreen({ navigation }) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +18,8 @@ export default function RegisterScreen({ navigation }) {
 
   async function handleRegister() {
     if (!name || !email || !password) {
-      Alert.alert('Помилка', 'Заповніть всі поля');
+      toast.show('Заповніть всі поля');
+
       return;
     }
     try {
@@ -23,13 +27,13 @@ export default function RegisterScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ name, email, password, city }),
       });
-      Alert.alert('Успіх', 'Реєстрація успішна', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
+      toast.show('Реєстрація успішна');
+      navigation.goBack();
     } catch (err) {
       const msg = err.message || 'Помилка реєстрації';
       setError(msg);
-      Alert.alert('Помилка', msg);
+      toast.show(msg);
+
     }
   }
 

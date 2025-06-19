@@ -11,7 +11,8 @@ async function blockDriver(req, res) {
   const { id } = req.params;
   const user = await User.findByPk(id);
   if (!user || (user.role !== 'DRIVER' && user.role !== 'BOTH')) {
-    res.status(404).json({ message: 'Водія не знайдено' });
+    res.status(404).send('Водія не знайдено');
+
     return;
   }
   user.blocked = true;
@@ -23,7 +24,8 @@ async function unblockDriver(req, res) {
   const { id } = req.params;
   const user = await User.findByPk(id);
   if (!user || (user.role !== 'DRIVER' && user.role !== 'BOTH')) {
-    res.status(404).json({ message: 'Водія не знайдено' });
+    res.status(404).send('Водія не знайдено');
+
     return;
   }
   user.blocked = false;
