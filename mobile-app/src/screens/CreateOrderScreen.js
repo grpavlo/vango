@@ -27,8 +27,11 @@ export default function CreateOrderScreen({ navigation }) {
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
-  const [loadDate, setLoadDate] = useState(new Date());
-  const [unloadDate, setUnloadDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const now = new Date();
+  const [loadFrom, setLoadFrom] = useState(now);
+  const [loadTo, setLoadTo] = useState(new Date(now.getTime() + 60 * 60 * 1000));
+  const [unloadFrom, setUnloadFrom] = useState(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const [unloadTo, setUnloadTo] = useState(new Date(now.getTime() + 25 * 60 * 60 * 1000));
   const [photo, setPhoto] = useState(null);
   const [description, setDescription] = useState('');
 
@@ -48,8 +51,10 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append('cargoType', description);
       fd.append('dimensions', `${length}x${width}x${height}`);
       fd.append('weight', '0');
-      fd.append('loadDate', loadDate.toISOString());
-      fd.append('unloadDate', unloadDate.toISOString());
+      fd.append('loadFrom', loadFrom.toISOString());
+      fd.append('loadTo', loadTo.toISOString());
+      fd.append('unloadFrom', unloadFrom.toISOString());
+      fd.append('unloadTo', unloadTo.toISOString());
       fd.append('insurance', 'false');
       if (photo) {
         const filename = photo.split('/').pop();
@@ -73,12 +78,20 @@ export default function CreateOrderScreen({ navigation }) {
       Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
       return;
     }
-    if (loadDate < new Date()) {
+    if (loadFrom < new Date()) {
       Alert.alert('Помилка', 'Дата завантаження не може бути в минулому');
       return;
     }
-    if (unloadDate <= loadDate) {
-      Alert.alert('Помилка', 'Дата розвантаження повинна бути пізніше дати завантаження');
+    if (loadTo <= loadFrom) {
+      Alert.alert('Помилка', 'Кінцева дата завантаження повинна бути пізніше початкової');
+      return;
+    }
+    if (unloadFrom <= loadTo) {
+      Alert.alert('Помилка', 'Дата початку розвантаження повинна бути після закінчення завантаження');
+      return;
+    }
+    if (unloadTo <= unloadFrom) {
+      Alert.alert('Помилка', 'Кінцева дата розвантаження повинна бути пізніше початкової');
       return;
     }
     Alert.alert('Підтвердження', 'Ви впевнені що хочете розмістити вантаж?', [
@@ -96,7 +109,8 @@ export default function CreateOrderScreen({ navigation }) {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           text
-        )}&format=json&limit=5`
+        )}&format=json&limit=5`,
+        { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
       setter(data);
@@ -107,7 +121,7 @@ export default function CreateOrderScreen({ navigation }) {
 
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <AppText style={styles.label}>Звідки</AppText>
       <AppInput
         value={pickupQuery}
@@ -156,10 +170,14 @@ export default function CreateOrderScreen({ navigation }) {
         </TouchableOpacity>
       ))}
 
-      <AppText style={styles.label}>Дата завантаження</AppText>
-      <DateTimeInput value={loadDate} onChange={setLoadDate} />
-      <AppText style={styles.label}>Дата вивантаження</AppText>
-      <DateTimeInput value={unloadDate} onChange={setUnloadDate} />
+      <AppText style={styles.label}>Завантаження з</AppText>
+      <DateTimeInput value={loadFrom} onChange={setLoadFrom} />
+      <AppText style={styles.label}>Завантаження до</AppText>
+      <DateTimeInput value={loadTo} onChange={setLoadTo} />
+      <AppText style={styles.label}>Вивантаження з</AppText>
+      <DateTimeInput value={unloadFrom} onChange={setUnloadFrom} />
+      <AppText style={styles.label}>Вивантаження до</AppText>
+      <DateTimeInput value={unloadTo} onChange={setUnloadTo} />
 
       <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -185,11 +203,12 @@ export default function CreateOrderScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { padding: 16 },
   dim: { flex: 1 },
   suggestion: {
     padding: 8,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
+  label: { marginTop: 8, color: colors.orange },
 });
