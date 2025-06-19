@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -131,20 +132,37 @@ export default function CreateOrderScreen({ navigation }) {
           loadSuggestions(t, setPickupSuggestions);
         }}
       />
-      {pickupSuggestions.map((item) => (
-        <TouchableOpacity
-          key={item.place_id}
-          style={styles.suggestion}
-          onPress={() => {
-            setPickup({ text: item.display_name, lat: item.lat, lon: item.lon });
-            setPickupQuery(item.display_name);
-            setPickupSuggestions([]);
-            setDropoffSuggestions([]);
-          }}
-        >
-          <AppText>{item.display_name}</AppText>
-        </TouchableOpacity>
-      ))}
+      {pickupSuggestions.length > 0 && (
+        <Modal transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setPickupSuggestions([])}
+          >
+            <View style={styles.suggestionsBox}>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {pickupSuggestions.map((item) => (
+                  <TouchableOpacity
+                    key={item.place_id}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setPickup({
+                        text: item.display_name,
+                        lat: item.lat,
+                        lon: item.lon,
+                      });
+                      setPickupQuery(item.display_name);
+                      setPickupSuggestions([]);
+                      setDropoffSuggestions([]);
+                    }}
+                  >
+                    <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
 
       <AppText style={styles.label}>Куди</AppText>
       <AppInput
@@ -155,20 +173,37 @@ export default function CreateOrderScreen({ navigation }) {
           loadSuggestions(t, setDropoffSuggestions);
         }}
       />
-      {dropoffSuggestions.map((item) => (
-        <TouchableOpacity
-          key={item.place_id}
-          style={styles.suggestion}
-          onPress={() => {
-            setDropoff({ text: item.display_name, lat: item.lat, lon: item.lon });
-            setDropoffQuery(item.display_name);
-            setPickupSuggestions([]);
-            setDropoffSuggestions([]);
-          }}
-        >
-          <AppText>{item.display_name}</AppText>
-        </TouchableOpacity>
-      ))}
+      {dropoffSuggestions.length > 0 && (
+        <Modal transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setDropoffSuggestions([])}
+          >
+            <View style={styles.suggestionsBox}>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {dropoffSuggestions.map((item) => (
+                  <TouchableOpacity
+                    key={item.place_id}
+                    style={styles.suggestionItem}
+                    onPress={() => {
+                      setDropoff({
+                        text: item.display_name,
+                        lat: item.lat,
+                        lon: item.lon,
+                      });
+                      setDropoffQuery(item.display_name);
+                      setPickupSuggestions([]);
+                      setDropoffSuggestions([]);
+                    }}
+                  >
+                    <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
 
       <AppText style={styles.label}>Завантаження з</AppText>
       <DateTimeInput value={loadFrom} onChange={setLoadFrom} />
@@ -205,10 +240,23 @@ export default function CreateOrderScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 16 },
   dim: { flex: 1 },
-  suggestion: {
-    padding: 8,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  suggestionsBox: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    padding: 12,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  label: { marginTop: 8, color: colors.orange },
+  suggestionMain: { fontSize: 16 },
+  label: { marginTop: 8, color: colors.text },
 });
