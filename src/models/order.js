@@ -28,6 +28,7 @@ Order.init(
     unloadTo: { type: DataTypes.DATE, allowNull: false },
     insurance: { type: DataTypes.BOOLEAN, defaultValue: false },
     status: { type: DataTypes.ENUM(...Object.values(OrderStatus)), defaultValue: OrderStatus.CREATED },
+    systemPrice: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
     price: { type: DataTypes.FLOAT, allowNull: false },
     photos: { type: DataTypes.JSON },
     city: { type: DataTypes.STRING },

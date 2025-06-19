@@ -20,6 +20,7 @@ async function createOrder(req, res) {
     insurance,
     city,
   } = req.body;
+  let systemPrice = 0;
   let price = 0;
   try {
     if (pickupLat && pickupLon && dropoffLat && dropoffLon) {
@@ -29,7 +30,8 @@ async function createOrder(req, res) {
       const data = await resRoute.json();
       if (data.routes && data.routes[0]) {
         const km = data.routes[0].distance / 1000;
-        price = km * 50 * (Math.random() < 0.5 ? 0.95 : 1.15);
+        systemPrice = km * 50;
+        price = parseFloat(req.body.price || systemPrice);
       }
     }
     const order = await Order.create({
@@ -44,6 +46,7 @@ async function createOrder(req, res) {
       unloadFrom,
       unloadTo,
       insurance,
+      systemPrice,
       price,
       city,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],

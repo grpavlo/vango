@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,6 +13,7 @@ import DateTimeInput from '../components/DateTimeInput';
 import DateInput from '../components/DateInput';
 import TimeInput from '../components/TimeInput';
 import { colors } from '../components/Colors';
+import Slider from '@react-native-community/slider';
 import PhotoPicker from '../components/PhotoPicker';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
@@ -39,6 +40,29 @@ export default function CreateOrderScreen({ navigation }) {
   const [unloadTo, setUnloadTo] = useState(new Date(now.getTime() + 25 * 60 * 60 * 1000));
   const [photos, setPhotos] = useState([]);
   const [description, setDescription] = useState('');
+  const [systemPrice, setSystemPrice] = useState(null);
+  const [adjust, setAdjust] = useState(0);
+
+  useEffect(() => {
+    async function calcPrice() {
+      if (pickup && dropoff) {
+        try {
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
+          );
+          const data = await res.json();
+          if (data.routes && data.routes[0]) {
+            const km = data.routes[0].distance / 1000;
+            const base = km * 50;
+            setSystemPrice(base);
+          }
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    }
+    calcPrice();
+  }, [pickup, dropoff]);
 
   async function create() {
     try {
@@ -61,6 +85,8 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append('unloadFrom', unloadFrom.toISOString());
       fd.append('unloadTo', unloadTo.toISOString());
       fd.append('insurance', 'false');
+      const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
+      fd.append('price', finalPrice.toString());
       if (photos && photos.length > 0) {
         photos.forEach((p) => {
           const filename = p.split('/').pop();
@@ -85,6 +111,8 @@ export default function CreateOrderScreen({ navigation }) {
       setHeight('');
       setDescription('');
       setPhotos([]);
+      setSystemPrice(null);
+      setAdjust(0);
       navigation.navigate('MyOrders');
     } catch (err) {
       console.log(err);
@@ -94,6 +122,10 @@ export default function CreateOrderScreen({ navigation }) {
   async function confirmCreate() {
     if (!pickup || !dropoff) {
       Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
+      return;
+    }
+    if (systemPrice === null) {
+      Alert.alert('Помилка', 'Не вдалося розрахувати ціну');
       return;
     }
     if (loadFrom < new Date()) {
@@ -280,6 +312,26 @@ export default function CreateOrderScreen({ navigation }) {
       />
 
       <PhotoPicker photos={photos} onChange={setPhotos} />
+
+      {systemPrice !== null && (
+        <View style={{ marginTop: 16 }}>
+          <AppText style={styles.label}>
+            Ціна: {Math.round(systemPrice * (1 + adjust / 100))} грн
+          </AppText>
+          <Slider
+            minimumValue={-5}
+            maximumValue={15}
+            step={1}
+            value={adjust}
+            onValueChange={setAdjust}
+            thumbTintColor={colors.green}
+          />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <AppText>-5%</AppText>
+            <AppText>+15%</AppText>
+          </View>
+        </View>
+      )}
 
       <AppButton title="Створити" onPress={confirmCreate} />
     </ScrollView>

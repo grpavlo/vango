@@ -29,6 +29,9 @@ export default function MyOrdersScreen({ navigation }) {
           <Text style={styles.route}>
             {item.pickupLocation} ➔ {item.dropoffLocation}
           </Text>
+          <Text style={styles.status}>
+            {new Date(item.loadFrom).toLocaleString()} • {Math.round(item.price)} грн
+          </Text>
           <Text style={styles.status}>{item.status}</Text>
         </View>
       </TouchableOpacity>
