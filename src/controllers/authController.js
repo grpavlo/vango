@@ -44,7 +44,7 @@ async function profile(req, res) {
 }
 
 async function updateRole(req, res) {
-  const { role } = req.body;
+  const role = req.body && req.body.role;
   if (!role || ![UserRole.DRIVER, UserRole.CUSTOMER, UserRole.BOTH].includes(role)) {
     res.status(400).send('Invalid role');
 

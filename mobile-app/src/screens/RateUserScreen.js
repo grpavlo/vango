@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
 export default function RateUserScreen({ route }) {
-  const { token, toUserId, orderId } = route.params;
+  const { token } = useAuth();
+  const { toUserId, orderId } = route.params;
   const [rating, setRating] = useState('5');
   const [comment, setComment] = useState('');
 

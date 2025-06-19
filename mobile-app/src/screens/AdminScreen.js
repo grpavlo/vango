@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function AdminScreen({ route }) {
-  const { token } = route.params;
+export default function AdminScreen() {
+  const { token } = useAuth();
   const [users, setUsers] = useState([]);
 
   useEffect(() => {

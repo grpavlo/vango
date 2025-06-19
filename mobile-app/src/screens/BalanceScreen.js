@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
-export default function BalanceScreen({ route }) {
-  const { token } = route.params;
+export default function BalanceScreen() {
+  const { token } = useAuth();
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {

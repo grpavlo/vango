@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button, StyleSheet, Alert } from 'react-native';
 import { apiFetch } from '../api';
+import { useAuth } from '../AuthContext';
 
 export default function OrderDetailScreen({ route, navigation }) {
-  const { order, token } = route.params;
+  const { order } = route.params;
+  const { token, role } = useAuth();
+
 
   async function accept() {
     try {
@@ -28,14 +31,36 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  async function remove() {
+    try {
+      await apiFetch(`/orders/${order.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      navigation.goBack();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  function confirmDelete() {
+    Alert.alert('Підтвердження', 'Видалити вантаж?', [
+      { text: 'Скасувати' },
+      { text: 'OK', onPress: remove },
+    ]);
+  }
+
   return (
     <View style={styles.container}>
       <Text>Pickup: {order.pickupLocation}</Text>
       <Text>Dropoff: {order.dropoffLocation}</Text>
       <Text>Price: {order.price}</Text>
-      <Button title="Accept" onPress={accept} />
-      {order.driverId && (
-        <Button title="Add Favorite" onPress={addFavorite} />
+      {role === 'DRIVER' && !order.driverId && (
+        <Button title="Accept" onPress={accept} />
+      )}
+      {order.driverId && <Button title="Add Favorite" onPress={addFavorite} />}
+      {role === 'CUSTOMER' && !order.driverId && (
+        <Button title="Delete" color="red" onPress={confirmDelete} />
       )}
     </View>
   );
