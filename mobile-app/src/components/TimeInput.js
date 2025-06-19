@@ -4,6 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import AppInput from './AppInput';
 
 export default function TimeInput({ value, onChange, style }) {
+
   const [showTime, setShowTime] = useState(false);
 
   function onChangeTime(_e, selected) {
@@ -24,6 +25,7 @@ export default function TimeInput({ value, onChange, style }) {
           pointerEvents="none"
           style={style}
         />
+
       </TouchableOpacity>
       {showTime && (
         <DateTimePicker value={value} mode="time" is24Hour onChange={onChangeTime} />

@@ -229,6 +229,7 @@ export default function CreateOrderScreen({ navigation }) {
 
       <AppText style={styles.label}>Вивантаження</AppText>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+
         <DateInput
           value={unloadFrom}
           onChange={(d) => {
@@ -245,6 +246,7 @@ export default function CreateOrderScreen({ navigation }) {
           <TimeInput value={unloadFrom} onChange={setUnloadFrom} style={{ marginVertical: 0 }} />
           <TimeInput value={unloadTo} onChange={setUnloadTo} style={{ marginVertical: 0 }} />
         </View>
+
       </View>
 
       <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
