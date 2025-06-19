@@ -14,11 +14,11 @@ export function AuthProvider({ children }) {
       try {
         const storedToken = await AsyncStorage.getItem('token');
         if (storedToken) {
+          setToken(storedToken);
           try {
             const me = await apiFetch('/auth/me', {
               headers: { Authorization: `Bearer ${storedToken}` },
             });
-            setToken(storedToken);
             const r = me.role === 'BOTH' ? null : me.role;
             setRole(r);
             if (r) {
@@ -27,8 +27,8 @@ export function AuthProvider({ children }) {
               await AsyncStorage.removeItem('role');
             }
           } catch {
-            await AsyncStorage.removeItem('token');
-            await AsyncStorage.removeItem('role');
+            const storedRole = await AsyncStorage.getItem('role');
+            if (storedRole) setRole(storedRole);
           }
         }
       } finally {
@@ -78,11 +78,15 @@ export function AuthProvider({ children }) {
 
   const selectRole = async (r) => {
     if (!token) return;
-    await apiFetch('/auth/role', {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ role: r }),
-    });
+    try {
+      await apiFetch('/auth/role', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ role: r }),
+      });
+    } catch (e) {
+      console.log('selectRole error', e.message);
+    }
     await AsyncStorage.setItem('role', r);
     setRole(r);
   };
