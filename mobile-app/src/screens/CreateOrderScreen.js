@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Alert,
   ScrollView,
-  Modal,
 } from 'react-native';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -30,6 +29,9 @@ export default function CreateOrderScreen({ navigation }) {
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
+
+  const pickupTimer = useRef(null);
+  const dropoffTimer = useRef(null);
   const now = new Date();
   const [loadFrom, setLoadFrom] = useState(now);
   const [loadTo, setLoadTo] = useState(new Date(now.getTime() + 60 * 60 * 1000));
@@ -112,7 +114,7 @@ export default function CreateOrderScreen({ navigation }) {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           text
-        )}&format=json&limit=5`,
+        )}&format=json&limit=5&countrycodes=ua`,
         { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
@@ -126,86 +128,85 @@ export default function CreateOrderScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <AppText style={styles.label}>Звідки</AppText>
-      <AppInput
-        value={pickupQuery}
-        onChangeText={(t) => {
-          setPickupQuery(t);
-          setPickup(null);
-          loadSuggestions(t, setPickupSuggestions);
-        }}
-      />
-      {pickupSuggestions.length > 0 && (
-        <Modal transparent animationType="fade">
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            onPress={() => setPickupSuggestions([])}
-          >
-            <View style={styles.suggestionsBox}>
-              <ScrollView keyboardShouldPersistTaps="handled">
-                {pickupSuggestions.map((item) => (
-                  <TouchableOpacity
-                    key={item.place_id}
-                    style={styles.suggestionItem}
-                    onPress={() => {
-                      setPickup({
-                        text: item.display_name,
-                        lat: item.lat,
-                        lon: item.lon,
-                      });
-                      setPickupQuery(item.display_name);
-                      setPickupSuggestions([]);
-                      setDropoffSuggestions([]);
-                    }}
-                  >
-                    <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      <View style={{ position: 'relative', zIndex: 10 }}>
+        <AppInput
+          value={pickupQuery}
+          onChangeText={(t) => {
+            setPickupQuery(t);
+            setPickup(null);
+            if (pickupTimer.current) clearTimeout(pickupTimer.current);
+            pickupTimer.current = setTimeout(
+              () => loadSuggestions(t, setPickupSuggestions),
+              1000
+            );
+          }}
+        />
+        {pickupSuggestions.length > 0 && (
+          <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {pickupSuggestions.map((item) => (
+                <TouchableOpacity
+                  key={item.place_id}
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setPickup({
+                      text: item.display_name,
+                      lat: item.lat,
+                      lon: item.lon,
+                    });
+                    setPickupQuery(item.display_name);
+                    setPickupSuggestions([]);
+                    setDropoffSuggestions([]);
+                  }}
+                >
+                  <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
 
       <AppText style={styles.label}>Куди</AppText>
-      <AppInput
-        value={dropoffQuery}
-        onChangeText={(t) => {
-          setDropoffQuery(t);
-          setDropoff(null);
-          loadSuggestions(t, setDropoffSuggestions);
-        }}
-      />
-      {dropoffSuggestions.length > 0 && (
-        <Modal transparent animationType="fade">
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            onPress={() => setDropoffSuggestions([])}
-          >
-            <View style={styles.suggestionsBox}>
-              <ScrollView keyboardShouldPersistTaps="handled">
-                {dropoffSuggestions.map((item) => (
-                  <TouchableOpacity
-                    key={item.place_id}
-                    style={styles.suggestionItem}
-                    onPress={() => {
-                      setDropoff({
-                        text: item.display_name,
-                        lat: item.lat,
-                        lon: item.lon,
-                      });
-                      setDropoffQuery(item.display_name);
-                      setPickupSuggestions([]);
-                      setDropoffSuggestions([]);
-                    }}
-                  >
-                    <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      <View style={{ position: 'relative', zIndex: 9 }}>
+        <AppInput
+          value={dropoffQuery}
+          onChangeText={(t) => {
+            setDropoffQuery(t);
+            setDropoff(null);
+            if (dropoffTimer.current) clearTimeout(dropoffTimer.current);
+            dropoffTimer.current = setTimeout(
+              () => loadSuggestions(t, setDropoffSuggestions),
+              1000
+            );
+          }}
+        />
+        {dropoffSuggestions.length > 0 && (
+          <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {dropoffSuggestions.map((item) => (
+                <TouchableOpacity
+                  key={item.place_id}
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setDropoff({
+                      text: item.display_name,
+                      lat: item.lat,
+                      lon: item.lon,
+                    });
+                    setDropoffQuery(item.display_name);
+                    setPickupSuggestions([]);
+                    setDropoffSuggestions([]);
+                  }}
+                >
+                  <AppText style={styles.suggestionMain}>{item.display_name}</AppText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
 
       <AppText style={styles.label}>Завантаження</AppText>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -275,12 +276,6 @@ export default function CreateOrderScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 16 },
   dim: { flex: 1 },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    padding: 16,
-  },
   suggestionsBox: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -294,4 +289,12 @@ const styles = StyleSheet.create({
   },
   suggestionMain: { fontSize: 16 },
   label: { marginTop: 8, color: colors.text },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    elevation: 5,
+  },
 });
