@@ -1,8 +1,12 @@
 export const API_URL = 'http://78.137.7.91:20004/api';
 
 export async function apiFetch(path, options = {}) {
+  const headers = options.headers || {};
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers,
     ...options,
   });
   if (!res.ok) {
