@@ -46,7 +46,7 @@ async function createOrder(req, res) {
       insurance,
       price,
       city,
-      photo: req.file ? `/uploads/${req.file.filename}` : null,
+      photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
     });
     res.json(order);
   } catch (err) {

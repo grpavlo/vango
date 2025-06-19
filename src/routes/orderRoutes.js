@@ -13,7 +13,7 @@ const { UserRole } = require('../models/user');
 
 const router = Router();
 
-router.post('/', authenticate, authorize([UserRole.CUSTOMER]), upload.single('photo'), createOrder);
+router.post('/', authenticate, authorize([UserRole.CUSTOMER]), upload.array('photos', 10), createOrder);
 router.get('/', authenticate, authorize([UserRole.DRIVER]), listAvailableOrders);
 router.get('/my', authenticate, listMyOrders);
 router.post('/:id/accept', authenticate, authorize([UserRole.DRIVER]), acceptOrder);
