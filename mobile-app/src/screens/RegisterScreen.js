@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
+import PasswordInput from '../components/PasswordInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
@@ -15,6 +16,17 @@ export default function RegisterScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [city, setCity] = useState('');
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setName('');
+      setEmail('');
+      setPassword('');
+      setCity('');
+      setError(null);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   async function handleRegister() {
     if (!name || !email || !password) {
@@ -49,10 +61,9 @@ export default function RegisterScreen({ navigation }) {
         placeholder="example@email.com"
       />
       <AppText style={styles.label}>Пароль</AppText>
-      <AppInput
+      <PasswordInput
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         placeholder="********"
       />
       <AppText style={styles.label}>Місто</AppText>

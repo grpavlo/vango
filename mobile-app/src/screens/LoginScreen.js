@@ -1,18 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
+import PasswordInput from '../components/PasswordInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../AuthContext';
 
 export default function LoginScreen({ navigation }) {
   const toast = useToast();
+  const { login, role } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setEmail('');
+      setPassword('');
+      setError(null);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -25,8 +37,13 @@ export default function LoginScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      await login(data.token);
       toast.show('Вхід виконано');
-      navigation.reset({ index: 0, routes: [{ name: 'Home', params: { token: data.token } }] });
+      if (role) {
+        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+      } else {
+        navigation.reset({ index: 0, routes: [{ name: 'Role' }] });
+      }
     } catch (err) {
       const msg = err.message || 'Помилка входу';
       setError(msg);
@@ -45,10 +62,9 @@ export default function LoginScreen({ navigation }) {
         placeholder="example@email.com"
       />
       <AppText style={styles.label}>Пароль</AppText>
-      <AppInput
+      <PasswordInput
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         placeholder="********"
       />
       {error && <AppText style={styles.error}>{error}</AppText>}
