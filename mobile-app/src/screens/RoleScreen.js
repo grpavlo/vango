@@ -3,12 +3,11 @@ import { View, StyleSheet } from 'react-native';
 import AppButton from '../components/AppButton';
 import { useAuth } from '../AuthContext';
 
-export default function RoleScreen({ navigation }) {
+export default function RoleScreen() {
   const { selectRole } = useAuth();
 
   async function choose(r) {
     await selectRole(r);
-    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
   }
 
   return (
