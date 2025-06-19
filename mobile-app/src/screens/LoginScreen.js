@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
+import { useToast } from '../components/Toast';
 
 export default function LoginScreen({ navigation }) {
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert('Помилка', 'Введіть email та пароль');
+      toast.show('Введіть email та пароль');
       return;
     }
     try {
@@ -21,12 +23,12 @@ export default function LoginScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      Alert.alert('Успіх', 'Вхід виконано');
-      navigation.navigate('Home', { token: data.token });
+      toast.show('Вхід виконано');
+      navigation.reset({ index: 0, routes: [{ name: 'Home', params: { token: data.token } }] });
     } catch (err) {
       const msg = err.message || 'Помилка входу';
       setError(msg);
-      Alert.alert('Помилка', msg);
+      toast.show(msg);
     }
   }
 
