@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import AppButton from '../components/AppButton';
 import { useAuth } from '../AuthContext';
+import RoleSwitch from '../components/RoleSwitch';
 
 export default function RoleScreen() {
   const { selectRole } = useAuth();
@@ -12,12 +12,12 @@ export default function RoleScreen() {
 
   return (
     <View style={styles.container}>
-      <AppButton title="Я водій" onPress={() => choose('DRIVER')} />
-      <AppButton title="Я замовник" onPress={() => choose('CUSTOMER')} />
+      <RoleSwitch value={null} onChange={choose} style={styles.switch} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  switch: { width: '80%' },
 });
