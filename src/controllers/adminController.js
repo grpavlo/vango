@@ -10,7 +10,7 @@ async function listUsers(_req, res) {
 async function blockDriver(req, res) {
   const { id } = req.params;
   const user = await User.findByPk(id);
-  if (!user || (user.role !== 'DRIVER' && user.role !== 'BOTH')) {
+  if (!user || user.role !== 'DRIVER') {
     res.status(404).json({ message: 'Driver not found' });
     return;
   }
@@ -22,7 +22,7 @@ async function blockDriver(req, res) {
 async function unblockDriver(req, res) {
   const { id } = req.params;
   const user = await User.findByPk(id);
-  if (!user || (user.role !== 'DRIVER' && user.role !== 'BOTH')) {
+  if (!user || user.role !== 'DRIVER') {
     res.status(404).json({ message: 'Driver not found' });
     return;
   }
