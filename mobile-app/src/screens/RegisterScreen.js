@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Alert, StyleSheet } from 'react-native';
+import AppText from '../components/AppText';
+import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
+import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
 
 export default function RegisterScreen({ navigation }) {
@@ -10,13 +14,17 @@ export default function RegisterScreen({ navigation }) {
   const [error, setError] = useState(null);
 
   async function handleRegister() {
+    if (!name || !email || !password) {
+      Alert.alert('Помилка', 'Заповніть всі поля');
+      return;
+    }
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password, city })
+        body: JSON.stringify({ name, email, password, city }),
       });
       Alert.alert('Успіх', 'Реєстрація успішна', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
+        { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
     } catch (err) {
       const msg = err.message || 'Помилка реєстрації';
@@ -27,26 +35,37 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Ім\'я</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
-      <Text style={styles.label}>Електронна пошта</Text>
-      <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" />
-      <Text style={styles.label}>Пароль</Text>
-      <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
-      <Text style={styles.label}>Місто</Text>
-      <TextInput style={styles.input} value={city} onChangeText={setCity} />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.buttonContainer}>
-        <Button title="Зареєструватися" color="#2ecc71" onPress={handleRegister} />
-      </View>
+      <AppText style={styles.label}>Ім'я</AppText>
+      <AppInput value={name} onChangeText={setName} placeholder="Ваше ім'я" />
+      <AppText style={styles.label}>Електронна пошта</AppText>
+      <AppInput
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        placeholder="example@email.com"
+      />
+      <AppText style={styles.label}>Пароль</AppText>
+      <AppInput
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="********"
+      />
+      <AppText style={styles.label}>Місто</AppText>
+      <AppInput value={city} onChangeText={setCity} placeholder="Київ" />
+      {error && <AppText style={styles.error}>{error}</AppText>}
+      <AppButton title="Зареєструватися" onPress={handleRegister} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  label: { marginTop: 8, color: '#e67e22' },
-  input: { borderWidth: 1, borderColor: '#2ecc71', padding: 8, borderRadius: 4 },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  label: { marginTop: 8, color: colors.orange },
   error: { color: 'red', marginTop: 8 },
-  buttonContainer: { marginTop: 16 }
 });

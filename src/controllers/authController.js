@@ -10,7 +10,7 @@ async function register(req, res) {
     const user = await User.create({ name, email, password: hashed, city });
     res.json(user);
   } catch (err) {
-    res.status(400).json({ message: 'Registration failed', error: err });
+    res.status(400).json({ message: 'Помилка реєстрації', error: err });
   }
 }
 
@@ -19,18 +19,18 @@ async function login(req, res) {
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      res.status(400).json({ message: 'Invalid credentials' });
+      res.status(400).json({ message: 'Невірна електронна пошта або пароль' });
       return;
     }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      res.status(400).json({ message: 'Invalid credentials' });
+      res.status(400).json({ message: 'Невірна електронна пошта або пароль' });
       return;
     }
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token });
   } catch (err) {
-    res.status(400).json({ message: 'Login failed', error: err });
+    res.status(400).json({ message: 'Помилка входу', error: err });
   }
 }
 

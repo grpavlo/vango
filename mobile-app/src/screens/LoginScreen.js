@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Alert, StyleSheet } from 'react-native';
+import AppText from '../components/AppText';
+import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
+import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
 
 export default function LoginScreen({ navigation }) {
@@ -8,10 +12,14 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState(null);
 
   async function handleLogin() {
+    if (!email || !password) {
+      Alert.alert('Помилка', 'Введіть email та пароль');
+      return;
+    }
     try {
       const data = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
       Alert.alert('Успіх', 'Вхід виконано');
       navigation.navigate('Home', { token: data.token });
@@ -24,25 +32,38 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Електронна пошта</Text>
-      <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" />
-      <Text style={styles.label}>Пароль</Text>
-      <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.buttonContainer}>
-        <Button title="Увійти" color="#2ecc71" onPress={handleLogin} />
-      </View>
-      <View style={styles.buttonContainer}>
-        <Button title="Реєстрація" color="#e67e22" onPress={() => navigation.navigate('Register')} />
-      </View>
+      <AppText style={styles.label}>Електронна пошта</AppText>
+      <AppInput
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        placeholder="example@email.com"
+      />
+      <AppText style={styles.label}>Пароль</AppText>
+      <AppInput
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="********"
+      />
+      {error && <AppText style={styles.error}>{error}</AppText>}
+      <AppButton title="Увійти" onPress={handleLogin} />
+      <AppButton
+        title="Реєстрація"
+        color={colors.orange}
+        onPress={() => navigation.navigate('Register')}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  label: { marginTop: 8, color: '#e67e22' },
-  input: { borderWidth: 1, borderColor: '#2ecc71', padding: 8, borderRadius: 4 },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  label: { marginTop: 8, color: colors.orange },
   error: { color: 'red', marginTop: 8 },
-  buttonContainer: { marginTop: 8 }
 });
