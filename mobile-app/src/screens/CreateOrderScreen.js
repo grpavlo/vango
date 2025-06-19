@@ -37,7 +37,7 @@ export default function CreateOrderScreen({ navigation }) {
   const [loadTo, setLoadTo] = useState(new Date(now.getTime() + 60 * 60 * 1000));
   const [unloadFrom, setUnloadFrom] = useState(new Date(now.getTime() + 24 * 60 * 60 * 1000));
   const [unloadTo, setUnloadTo] = useState(new Date(now.getTime() + 25 * 60 * 60 * 1000));
-  const [photo, setPhoto] = useState(null);
+  const [photos, setPhotos] = useState([]);
   const [description, setDescription] = useState('');
 
   async function create() {
@@ -61,18 +61,31 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append('unloadFrom', unloadFrom.toISOString());
       fd.append('unloadTo', unloadTo.toISOString());
       fd.append('insurance', 'false');
-      if (photo) {
-        const filename = photo.split('/').pop();
-        const match = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
-        const type = match ? `image/${match[1]}` : `image`;
-        fd.append('photo', { uri: photo, name: filename, type });
+      if (photos && photos.length > 0) {
+        photos.forEach((p) => {
+          const filename = p.split('/').pop();
+          const match = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
+          const type = match ? `image/${match[1]}` : 'image';
+          fd.append('photos', { uri: p, name: filename, type });
+        });
       }
       await apiFetch('/orders', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
-      navigation.goBack();
+      setPickupQuery('');
+      setPickup(null);
+      setPickupSuggestions([]);
+      setDropoffQuery('');
+      setDropoff(null);
+      setDropoffSuggestions([]);
+      setLength('');
+      setWidth('');
+      setHeight('');
+      setDescription('');
+      setPhotos([]);
+      navigation.navigate('MyOrders');
     } catch (err) {
       console.log(err);
     }
@@ -266,7 +279,7 @@ export default function CreateOrderScreen({ navigation }) {
         style={{ height: 100, textAlignVertical: 'top' }}
       />
 
-      <PhotoPicker photo={photo} onChange={setPhoto} />
+      <PhotoPicker photos={photos} onChange={setPhotos} />
 
       <AppButton title="Створити" onPress={confirmCreate} />
     </ScrollView>
