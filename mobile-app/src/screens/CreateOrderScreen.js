@@ -15,6 +15,9 @@ import TimeInput from '../components/TimeInput';
 import { colors } from '../components/Colors';
 import Slider from '@react-native-community/slider';
 import PhotoPicker from '../components/PhotoPicker';
+import OptionSwitch from '../components/OptionSwitch';
+import CheckBox from '../components/CheckBox';
+import { Ionicons } from '@expo/vector-icons';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 
@@ -30,14 +33,21 @@ export default function CreateOrderScreen({ navigation }) {
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [volWeight, setVolWeight] = useState('0');
+  const [loadHelp, setLoadHelp] = useState(false);
+  const [unloadHelp, setUnloadHelp] = useState(false);
+  const [payment, setPayment] = useState('cash');
 
   const pickupTimer = useRef(null);
   const dropoffTimer = useRef(null);
   const now = new Date();
-  const [loadFrom, setLoadFrom] = useState(now);
-  const [loadTo, setLoadTo] = useState(new Date(now.getTime() + 60 * 60 * 1000));
-  const [unloadFrom, setUnloadFrom] = useState(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-  const [unloadTo, setUnloadTo] = useState(new Date(now.getTime() + 25 * 60 * 60 * 1000));
+  const startDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
+  const endDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0);
+  const [loadFrom, setLoadFrom] = useState(startDay);
+  const [loadTo, setLoadTo] = useState(endDay);
+  const [unloadFrom, setUnloadFrom] = useState(new Date(startDay.getTime() + 24 * 60 * 60 * 1000));
+  const [unloadTo, setUnloadTo] = useState(new Date(endDay.getTime() + 24 * 60 * 60 * 1000));
   const [photos, setPhotos] = useState([]);
   const [description, setDescription] = useState('');
   const [systemPrice, setSystemPrice] = useState(null);
@@ -64,6 +74,14 @@ export default function CreateOrderScreen({ navigation }) {
     calcPrice();
   }, [pickup, dropoff]);
 
+  useEffect(() => {
+    const l = parseFloat(length) || 0;
+    const w = parseFloat(width) || 0;
+    const h = parseFloat(height) || 0;
+    const v = l * w * h * 250;
+    setVolWeight(v.toFixed(2));
+  }, [length, width, height]);
+
   async function create() {
     try {
       const fd = new FormData();
@@ -79,12 +97,16 @@ export default function CreateOrderScreen({ navigation }) {
       }
       fd.append('cargoType', description);
       fd.append('dimensions', `${length}x${width}x${height}`);
-      fd.append('weight', '0');
+      fd.append('weight', weight || '0');
       fd.append('loadFrom', loadFrom.toISOString());
       fd.append('loadTo', loadTo.toISOString());
       fd.append('unloadFrom', unloadFrom.toISOString());
       fd.append('unloadTo', unloadTo.toISOString());
       fd.append('insurance', 'false');
+      fd.append('volWeight', volWeight);
+      fd.append('loadHelp', loadHelp ? 'true' : 'false');
+      fd.append('unloadHelp', unloadHelp ? 'true' : 'false');
+      fd.append('payment', payment);
       const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
       fd.append('price', finalPrice.toString());
       if (photos && photos.length > 0) {
@@ -109,6 +131,11 @@ export default function CreateOrderScreen({ navigation }) {
       setLength('');
       setWidth('');
       setHeight('');
+      setWeight('');
+      setVolWeight('0');
+      setLoadHelp(false);
+      setUnloadHelp(false);
+      setPayment('cash');
       setDescription('');
       setPhotos([]);
       setSystemPrice(null);
@@ -174,18 +201,36 @@ export default function CreateOrderScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <AppText style={styles.label}>Звідки</AppText>
       <View style={{ position: 'relative', zIndex: 10 }}>
-        <AppInput
-          value={pickupQuery}
-          onChangeText={(t) => {
-            setPickupQuery(t);
-            setPickup(null);
-            if (pickupTimer.current) clearTimeout(pickupTimer.current);
-            pickupTimer.current = setTimeout(
-              () => loadSuggestions(t, setPickupSuggestions),
-              1000
-            );
-          }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <AppInput
+            style={{ flex: 1 }}
+            value={pickupQuery}
+            onChangeText={(t) => {
+              setPickupQuery(t);
+              setPickup(null);
+              if (pickupTimer.current) clearTimeout(pickupTimer.current);
+              pickupTimer.current = setTimeout(
+                () => loadSuggestions(t, setPickupSuggestions),
+                1000
+              );
+            }}
+          />
+          <TouchableOpacity
+            style={styles.mapBtn}
+            onPress={() =>
+              navigation.navigate('MapSelect', {
+                address: pickupQuery,
+                lat: pickup?.lat,
+                lon: pickup?.lon,
+                onSelect: (p) => {
+                  setPickup({ ...p, text: pickupQuery });
+                },
+              })
+            }
+          >
+            <Ionicons name="map" size={24} color={colors.green} />
+          </TouchableOpacity>
+        </View>
         {pickupSuggestions.length > 0 && (
           <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -215,18 +260,36 @@ export default function CreateOrderScreen({ navigation }) {
 
       <AppText style={styles.label}>Куди</AppText>
       <View style={{ position: 'relative', zIndex: 9 }}>
-        <AppInput
-          value={dropoffQuery}
-          onChangeText={(t) => {
-            setDropoffQuery(t);
-            setDropoff(null);
-            if (dropoffTimer.current) clearTimeout(dropoffTimer.current);
-            dropoffTimer.current = setTimeout(
-              () => loadSuggestions(t, setDropoffSuggestions),
-              1000
-            );
-          }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <AppInput
+            style={{ flex: 1 }}
+            value={dropoffQuery}
+            onChangeText={(t) => {
+              setDropoffQuery(t);
+              setDropoff(null);
+              if (dropoffTimer.current) clearTimeout(dropoffTimer.current);
+              dropoffTimer.current = setTimeout(
+                () => loadSuggestions(t, setDropoffSuggestions),
+                1000
+              );
+            }}
+          />
+          <TouchableOpacity
+            style={styles.mapBtn}
+            onPress={() =>
+              navigation.navigate('MapSelect', {
+                address: dropoffQuery,
+                lat: dropoff?.lat,
+                lon: dropoff?.lon,
+                onSelect: (p) => {
+                  setDropoff({ ...p, text: dropoffQuery });
+                },
+              })
+            }
+          >
+            <Ionicons name="map" size={24} color={colors.green} />
+          </TouchableOpacity>
+        </View>
         {dropoffSuggestions.length > 0 && (
           <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -302,6 +365,26 @@ export default function CreateOrderScreen({ navigation }) {
         <AppInput style={styles.dim} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
       </View>
 
+      <AppText style={styles.label}>Вага, кг</AppText>
+      <AppInput value={weight} onChangeText={setWeight} keyboardType="numeric" />
+
+      <AppText style={styles.label}>Об'ємна вага, кг</AppText>
+      <AppInput value={volWeight} editable={false} />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
+        <CheckBox value={loadHelp} onChange={setLoadHelp} />
+        <AppText>Завантаження</AppText>
+        <CheckBox value={unloadHelp} onChange={setUnloadHelp} />
+        <AppText>Розвантаження</AppText>
+      </View>
+
+      <AppText style={styles.label}>Оплата</AppText>
+      <OptionSwitch
+        options={[{ label: 'Готівка', value: 'cash' }, { label: 'Карта', value: 'card' }]}
+        value={payment}
+        onChange={setPayment}
+      />
+
       <AppText style={styles.label}>Опис вантажу</AppText>
       <AppInput
         value={description}
@@ -362,4 +445,5 @@ const styles = StyleSheet.create({
     zIndex: 100,
     elevation: 5,
   },
+  mapBtn: { marginLeft: 8 },
 });
