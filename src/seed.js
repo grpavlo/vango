@@ -18,6 +18,14 @@ async function seed() {
     pickupLon: -74.006,
     dropoffLat: 40.73,
     dropoffLon: -74.1,
+    pickupCountry: 'USA',
+    pickupCity: 'New York',
+    pickupAddress: 'A',
+    pickupPostcode: '10001',
+    dropoffCountry: 'USA',
+    dropoffCity: 'New York',
+    dropoffAddress: 'B',
+    dropoffPostcode: '10002',
     cargoType: 'Boxes',
     dimensions: '1x1x1',
     weight: 100,
@@ -33,7 +41,6 @@ async function seed() {
     systemPrice: 100,
     price: 100,
     photos: [],
-    city: 'NYC',
   });
 
   console.log('Seeded');

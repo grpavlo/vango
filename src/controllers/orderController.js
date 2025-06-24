@@ -6,6 +6,14 @@ async function createOrder(req, res) {
   const {
     pickupLocation,
     dropoffLocation,
+    pickupCountry,
+    pickupCity,
+    pickupAddress,
+    pickupPostcode,
+    dropoffCountry,
+    dropoffCity,
+    dropoffAddress,
+    dropoffPostcode,
     cargoType,
     dimensions,
     weight,
@@ -22,7 +30,6 @@ async function createOrder(req, res) {
     unloadHelp,
     payment,
     insurance,
-    city,
   } = req.body;
   let systemPrice = 0;
   let price = 0;
@@ -42,6 +49,14 @@ async function createOrder(req, res) {
       customerId: req.user.id,
       pickupLocation,
       dropoffLocation,
+      pickupCountry,
+      pickupCity,
+      pickupAddress,
+      pickupPostcode,
+      dropoffCountry,
+      dropoffCity,
+      dropoffAddress,
+      dropoffPostcode,
       cargoType,
       dimensions,
       weight,
@@ -60,7 +75,6 @@ async function createOrder(req, res) {
       insurance,
       systemPrice,
       price,
-      city,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
     });
     res.json(order);
@@ -73,7 +87,7 @@ async function createOrder(req, res) {
 async function listAvailableOrders(req, res) {
   const city = req.query.city;
   const where = { status: 'CREATED' };
-  if (city) where.city = city;
+  if (city) where.pickupCity = city;
   const orders = await Order.findAll({ where });
   const takenOrders = await Order.findAll({ where: { status: 'ACCEPTED' }, limit: Math.floor(orders.length / 15) });
   res.json({ available: orders, taken: takenOrders });

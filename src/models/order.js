@@ -19,6 +19,14 @@ Order.init(
     driverId: { type: DataTypes.INTEGER.UNSIGNED },
     pickupLocation: { type: DataTypes.STRING, allowNull: false },
     dropoffLocation: { type: DataTypes.STRING, allowNull: false },
+    pickupCountry: { type: DataTypes.STRING },
+    pickupCity: { type: DataTypes.STRING },
+    pickupAddress: { type: DataTypes.STRING },
+    pickupPostcode: { type: DataTypes.STRING },
+    dropoffCountry: { type: DataTypes.STRING },
+    dropoffCity: { type: DataTypes.STRING },
+    dropoffAddress: { type: DataTypes.STRING },
+    dropoffPostcode: { type: DataTypes.STRING },
     cargoType: { type: DataTypes.STRING, allowNull: false },
     dimensions: { type: DataTypes.STRING, allowNull: false },
     weight: { type: DataTypes.FLOAT, allowNull: false },
@@ -39,7 +47,6 @@ Order.init(
     systemPrice: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
     price: { type: DataTypes.FLOAT, allowNull: false },
     photos: { type: DataTypes.JSON },
-    city: { type: DataTypes.STRING },
   },
   { sequelize: db, modelName: 'order' }
 );

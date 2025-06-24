@@ -89,11 +89,19 @@ export default function CreateOrderScreen({ navigation }) {
         fd.append('pickupLocation', pickup.text);
         fd.append('pickupLat', pickup.lat);
         fd.append('pickupLon', pickup.lon);
+        if (pickup.city) fd.append('pickupCity', pickup.city);
+        if (pickup.address) fd.append('pickupAddress', pickup.address);
+        if (pickup.country) fd.append('pickupCountry', pickup.country);
+        if (pickup.postcode) fd.append('pickupPostcode', pickup.postcode);
       }
       if (dropoff) {
         fd.append('dropoffLocation', dropoff.text);
         fd.append('dropoffLat', dropoff.lat);
         fd.append('dropoffLon', dropoff.lon);
+        if (dropoff.city) fd.append('dropoffCity', dropoff.city);
+        if (dropoff.address) fd.append('dropoffAddress', dropoff.address);
+        if (dropoff.country) fd.append('dropoffCountry', dropoff.country);
+        if (dropoff.postcode) fd.append('dropoffPostcode', dropoff.postcode);
       }
       fd.append('cargoType', description);
       fd.append('dimensions', `${length}x${width}x${height}`);
@@ -186,7 +194,7 @@ export default function CreateOrderScreen({ navigation }) {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           text
-        )}&format=json&limit=5&countrycodes=ua`,
+        )}&format=json&limit=5&countrycodes=ua&addressdetails=1`,
         { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
@@ -240,10 +248,15 @@ export default function CreateOrderScreen({ navigation }) {
                   key={item.place_id}
                   style={styles.suggestionItem}
                   onPress={() => {
+                    const addr = item.address || {};
                     setPickup({
                       text: item.display_name,
                       lat: item.lat,
                       lon: item.lon,
+                      city: addr.city || addr.town || addr.village || addr.state || '',
+                      address: [addr.road, addr.house_number].filter(Boolean).join(' '),
+                      country: addr.country || '',
+                      postcode: addr.postcode || '',
                     });
                     setPickupQuery(item.display_name);
                     setPickupSuggestions([]);
@@ -300,10 +313,15 @@ export default function CreateOrderScreen({ navigation }) {
                   key={item.place_id}
                   style={styles.suggestionItem}
                   onPress={() => {
+                    const addr = item.address || {};
                     setDropoff({
                       text: item.display_name,
                       lat: item.lat,
                       lon: item.lon,
+                      city: addr.city || addr.town || addr.village || addr.state || '',
+                      address: [addr.road, addr.house_number].filter(Boolean).join(' '),
+                      country: addr.country || '',
+                      postcode: addr.postcode || '',
                     });
                     setDropoffQuery(item.display_name);
                     setPickupSuggestions([]);
