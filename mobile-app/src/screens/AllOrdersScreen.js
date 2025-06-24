@@ -134,7 +134,6 @@ export default function AllOrdersScreen({ navigation }) {
     };
     ws.onerror = (e) => console.log('ws error', e.message);
   }
-
   function clearFilters() {
     setDate(new Date());
     setPickupCity('');
