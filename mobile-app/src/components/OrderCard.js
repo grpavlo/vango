@@ -35,6 +35,7 @@ export default function OrderCard({ order }) {
         <MapView
           style={{ flex: 1 }}
           initialRegion={region}
+          onStartShouldSetResponder={() => true}
           onPress={(e) => e.stopPropagation()}
           onPanDrag={(e) => e.stopPropagation()}
         >
@@ -54,7 +55,10 @@ export default function OrderCard({ order }) {
       </View>
       <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>
       <Text style={styles.info}>Завантаження: {formatDate(new Date(order.loadFrom))}</Text>
-      <Text style={styles.info}>Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг</Text>
+      <Text style={styles.info}>
+        Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг
+      </Text>
+      <Text style={styles.info}>Ціна: {Math.round(order.price)} грн</Text>
     </View>
   );
 }

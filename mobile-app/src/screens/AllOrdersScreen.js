@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
-import { apiFetch } from '../api';
+import { apiFetch, HOST_URL } from '../api';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import DateInput from '../components/DateInput';
@@ -19,8 +19,9 @@ export default function AllOrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [radius, setRadius] = useState('');
+  const [radius, setRadius] = useState('30');
   const [location, setLocation] = useState(null);
+  const wsRef = useRef(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -45,9 +46,14 @@ export default function AllOrdersScreen({ navigation }) {
 
   useEffect(() => {
     fetchOrders();
-    const i = setInterval(fetchOrders, 10000);
-    return () => clearInterval(i);
-  }, []);
+  }, [date, pickupCity, dropoffCity, volume, weight]);
+
+  useEffect(() => {
+    connectWs();
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, [token, date, pickupCity, dropoffCity, volume, weight, radius, location]);
 
   async function fetchOrders() {
     try {
@@ -78,13 +84,63 @@ export default function AllOrdersScreen({ navigation }) {
     }
   }
 
+  function passesFilters(o) {
+    if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date)) return false;
+    if (pickupCity && !(o.pickupCity || '').toLowerCase().includes(pickupCity.toLowerCase())) return false;
+    if (dropoffCity && !(o.dropoffCity || '').toLowerCase().includes(dropoffCity.toLowerCase())) return false;
+    if (volume && parseFloat(o.volume || 0) < parseFloat(volume)) return false;
+    if (weight && parseFloat(o.weight || 0) < parseFloat(weight)) return false;
+    if (radius && location) {
+      const r = parseFloat(radius);
+      if (!isNaN(r) && r > 0) {
+        if (!o.pickupLat || !o.pickupLon) return false;
+        const dist = haversine(location.latitude, location.longitude, o.pickupLat, o.pickupLon);
+        if (dist > r) return false;
+      }
+    }
+    return true;
+  }
+
+  function connectWs() {
+    if (!token) return;
+    if (wsRef.current) wsRef.current.close();
+    const params = new URLSearchParams();
+    if (date) params.append('date', formatDate(date));
+    if (pickupCity) params.append('pickupCity', pickupCity);
+    if (dropoffCity) params.append('dropoffCity', dropoffCity);
+    if (volume) params.append('minVolume', volume);
+    if (weight) params.append('minWeight', weight);
+    const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream?${params}`;
+    const ws = new WebSocket(url, null, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    wsRef.current = ws;
+    ws.onmessage = (ev) => {
+      try {
+        const order = JSON.parse(ev.data);
+        if (!passesFilters(order)) return;
+        setOrders((prev) => {
+          const idx = prev.findIndex((o) => o.id === order.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = order;
+            return copy;
+          }
+          return [order, ...prev];
+        });
+      } catch (e) {
+        console.log('ws message error', e);
+      }
+    };
+    ws.onerror = (e) => console.log('ws error', e.message);
+  }
   function clearFilters() {
     setDate(new Date());
     setPickupCity('');
     setDropoffCity('');
     setVolume('');
     setWeight('');
-    setRadius('');
+    setRadius('30');
   }
 
   async function refresh() {
@@ -156,8 +212,8 @@ export default function AllOrdersScreen({ navigation }) {
               style={styles.radiusButton}
             />
           </View>
-          <AppButton title="Пошук" onPress={fetchOrders} />
-          <AppButton title="Очистити" color="#777" onPress={clearFilters} />
+          <AppButton title="Пошук" onPress={fetchOrders} style={styles.input} />
+          <AppButton title="Очистити" color="#777" onPress={clearFilters} style={styles.input} />
         </View>
       )}
       <FlatList
@@ -179,10 +235,15 @@ function formatDate(d) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filters: { padding: 8 },
-  input: { marginVertical: 4 },
+  filters: {
+    padding: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  input: { margin: 4, flexBasis: '48%' },
   toggle: { marginHorizontal: 12 },
-  radiusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  radiusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexBasis: '100%' },
   radiusButton: { flex: 1, marginHorizontal: 4 },
   radiusInput: { flex: 2, textAlign: 'center' },
 });
