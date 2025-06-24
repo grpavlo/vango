@@ -103,6 +103,9 @@ export default function CreateOrderScreen({ navigation }) {
         if (dropoff.country) fd.append('dropoffCountry', dropoff.country);
         if (dropoff.postcode) fd.append('dropoffPostcode', dropoff.postcode);
       }
+      if (pickup?.city) {
+        fd.append('city', pickup.city);
+      }
       fd.append('cargoType', description);
       fd.append('dimensions', `${length}x${width}x${height}`);
       fd.append('weight', weight || '0');
