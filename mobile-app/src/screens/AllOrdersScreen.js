@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
 import { apiFetch } from '../api';
 import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
 import DateInput from '../components/DateInput';
 import OrderCard from '../components/OrderCard';
 
@@ -16,6 +17,10 @@ export default function AllOrdersScreen({ navigation }) {
   const [volume, setVolume] = useState('');
   const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [radius, setRadius] = useState('');
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -23,6 +28,7 @@ export default function AllOrdersScreen({ navigation }) {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({});
+          setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&format=json&addressdetails=1`,
             { headers: { 'User-Agent': 'vango-app' } }
@@ -41,7 +47,7 @@ export default function AllOrdersScreen({ navigation }) {
     fetchOrders();
     const i = setInterval(fetchOrders, 10000);
     return () => clearInterval(i);
-  }, [date, pickupCity, dropoffCity, volume, weight]);
+  }, []);
 
   async function fetchOrders() {
     try {
@@ -55,10 +61,36 @@ export default function AllOrdersScreen({ navigation }) {
       const data = await apiFetch(`/orders${query ? `?${query}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setOrders(data.available);
+      let list = data.available;
+      if (radius && location) {
+        const r = parseFloat(radius);
+        if (!isNaN(r) && r > 0) {
+          list = list.filter((o) => {
+            if (!o.pickupLat || !o.pickupLon) return false;
+            const dist = haversine(location.latitude, location.longitude, o.pickupLat, o.pickupLon);
+            return dist <= r;
+          });
+        }
+      }
+      setOrders(list);
     } catch (err) {
       console.log(err);
     }
+  }
+
+  function clearFilters() {
+    setDate(new Date());
+    setPickupCity('');
+    setDropoffCity('');
+    setVolume('');
+    setWeight('');
+    setRadius('');
+  }
+
+  async function refresh() {
+    setRefreshing(true);
+    await fetchOrders();
+    setRefreshing(false);
   }
 
   function renderItem({ item }) {
@@ -71,36 +103,70 @@ export default function AllOrdersScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.filters}>
-        <DateInput value={date} onChange={setDate} style={styles.input} />
-        <AppInput
-          placeholder="Місто завантаження"
-          value={pickupCity}
-          onChangeText={setPickupCity}
-          style={styles.input}
-        />
-        <AppInput
-          placeholder="Місто розвантаження"
-          value={dropoffCity}
-          onChangeText={setDropoffCity}
-          style={styles.input}
-        />
-        <AppInput
-          placeholder="Обʼєм м³"
-          value={volume}
-          onChangeText={setVolume}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-        <AppInput
-          placeholder="Вага кг"
-          value={weight}
-          onChangeText={setWeight}
-          keyboardType="numeric"
-          style={styles.input}
-        />
-      </View>
-      <FlatList data={orders} renderItem={renderItem} keyExtractor={(o) => o.id.toString()} />
+      <AppButton
+        title={showFilters ? 'Сховати фільтр' : 'Фільтр'}
+        onPress={() => setShowFilters((v) => !v)}
+        style={styles.toggle}
+      />
+      {showFilters && (
+        <View style={styles.filters}>
+          <DateInput value={date} onChange={setDate} style={styles.input} />
+          <AppInput
+            placeholder="Місто завантаження"
+            value={pickupCity}
+            onChangeText={setPickupCity}
+            style={styles.input}
+          />
+          <AppInput
+            placeholder="Місто розвантаження"
+            value={dropoffCity}
+            onChangeText={setDropoffCity}
+            style={styles.input}
+          />
+          <AppInput
+            placeholder="Обʼєм м³"
+            value={volume}
+            onChangeText={setVolume}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <AppInput
+            placeholder="Вага кг"
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+          <View style={styles.radiusRow}>
+            <AppButton
+              title="-"
+              onPress={() => setRadius((r) => Math.max(0, (parseFloat(r) || 0) - 10).toString())}
+              style={styles.radiusButton}
+            />
+            <AppInput
+              placeholder="Радіус км"
+              value={radius.toString()}
+              onChangeText={setRadius}
+              keyboardType="numeric"
+              style={[styles.input, styles.radiusInput]}
+            />
+            <AppButton
+              title="+"
+              onPress={() => setRadius((r) => ((parseFloat(r) || 0) + 10).toString())}
+              style={styles.radiusButton}
+            />
+          </View>
+          <AppButton title="Пошук" onPress={fetchOrders} />
+          <AppButton title="Очистити" color="#777" onPress={clearFilters} />
+        </View>
+      )}
+      <FlatList
+        data={orders}
+        renderItem={renderItem}
+        keyExtractor={(o) => o.id.toString()}
+        onRefresh={refresh}
+        refreshing={refreshing}
+      />
     </View>
   );
 }
@@ -115,4 +181,21 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   filters: { padding: 8 },
   input: { marginVertical: 4 },
+  toggle: { marginHorizontal: 12 },
+  radiusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  radiusButton: { flex: 1, marginHorizontal: 4 },
+  radiusInput: { flex: 2, textAlign: 'center' },
 });
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371; // km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}

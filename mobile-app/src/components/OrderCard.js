@@ -1,28 +1,54 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { colors } from './Colors';
 
 export default function OrderCard({ order }) {
   const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
   const dropoffCity = order.dropoffCity || ((order.dropoffLocation || '').split(',')[1] || '').trim();
   const volume = calcVolume(order.dimensions);
 
-  const region = {
-    latitude: order.pickupLat || order.dropoffLat || 50.45,
-    longitude: order.pickupLon || order.dropoffLon || 30.523,
-    latitudeDelta: 0.4,
-    longitudeDelta: 0.4,
-  };
+  let region;
+  const pLat = order.pickupLat;
+  const pLon = order.pickupLon;
+  const dLat = order.dropoffLat;
+  const dLon = order.dropoffLon;
+
+  if (pLat && pLon && dLat && dLon) {
+    const midLat = (pLat + dLat) / 2;
+    const midLon = (pLon + dLon) / 2;
+    const latDelta = Math.max(Math.abs(pLat - dLat), 0.01) * 2.5;
+    const lonDelta = Math.max(Math.abs(pLon - dLon), 0.01) * 2.5;
+    region = { latitude: midLat, longitude: midLon, latitudeDelta: latDelta, longitudeDelta: lonDelta };
+  } else {
+    region = {
+      latitude: pLat || dLat || 50.45,
+      longitude: pLon || dLon || 30.523,
+      latitudeDelta: 0.4,
+      longitudeDelta: 0.4,
+    };
+  }
 
   return (
     <View style={styles.card}>
       <View style={styles.mapContainer}>
-        <MapView style={{ flex: 1 }} initialRegion={region} pointerEvents="none">
+        <MapView
+          style={{ flex: 1 }}
+          initialRegion={region}
+          onPress={(e) => e.stopPropagation()}
+          onPanDrag={(e) => e.stopPropagation()}
+        >
           {order.pickupLat && order.pickupLon && (
-            <Marker coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }} />
+            <Marker
+              coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }}
+              pinColor={colors.orange}
+            />
           )}
           {order.dropoffLat && order.dropoffLon && (
-            <Marker coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }} pinColor="green" />
+            <Marker
+              coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }}
+              pinColor={colors.green}
+            />
           )}
         </MapView>
       </View>
