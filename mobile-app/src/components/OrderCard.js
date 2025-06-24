@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { colors } from './Colors';
 
-export default function OrderCard({ order }) {
+export default function OrderCard({ order, onPress }) {
   const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
   const dropoffCity = order.dropoffCity || ((order.dropoffLocation || '').split(',')[1] || '').trim();
   const volume = calcVolume(order.dimensions);
@@ -32,13 +32,8 @@ export default function OrderCard({ order }) {
   return (
     <View style={styles.card}>
       <View style={styles.mapContainer}>
-        <MapView
-          style={{ flex: 1 }}
-          initialRegion={region}
-          onStartShouldSetResponder={() => true}
-          onPress={(e) => e.stopPropagation()}
-          onPanDrag={(e) => e.stopPropagation()}
-        >
+        <MapView style={{ flex: 1 }} initialRegion={region}>
+
           {order.pickupLat && order.pickupLon && (
             <Marker
               coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }}
@@ -53,12 +48,14 @@ export default function OrderCard({ order }) {
           )}
         </MapView>
       </View>
-      <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>
-      <Text style={styles.info}>Завантаження: {formatDate(new Date(order.loadFrom))}</Text>
-      <Text style={styles.info}>
-        Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг
-      </Text>
-      <Text style={styles.info}>Ціна: {Math.round(order.price)} грн</Text>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.infoContainer}>
+        <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>
+        <Text style={styles.info}>Завантаження: {formatDate(new Date(order.loadFrom))}</Text>
+        <Text style={styles.info}>
+          Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг
+        </Text>
+        <Text style={styles.info}>Ціна: {Math.round(order.price)} грн</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -85,6 +82,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   mapContainer: { height: 120, borderRadius: 8, overflow: 'hidden' },
+  infoContainer: { paddingVertical: 4 },
   route: { fontWeight: 'bold', marginTop: 8 },
   info: { marginTop: 2, color: '#333' },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
 import { apiFetch, HOST_URL } from '../api';
@@ -17,7 +17,7 @@ export default function AllOrdersScreen({ navigation }) {
   const [volume, setVolume] = useState('');
   const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [radius, setRadius] = useState('30');
   const [location, setLocation] = useState(null);
@@ -134,6 +134,7 @@ export default function AllOrdersScreen({ navigation }) {
     };
     ws.onerror = (e) => console.log('ws error', e.message);
   }
+
   function clearFilters() {
     setDate(new Date());
     setPickupCity('');
@@ -151,21 +152,19 @@ export default function AllOrdersScreen({ navigation }) {
 
   function renderItem({ item }) {
     return (
-      <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
-        <OrderCard order={item} />
-      </TouchableOpacity>
+      <OrderCard
+        order={item}
+        onPress={() => navigation.navigate('OrderDetail', { order: item, token })}
+      />
     );
   }
 
   return (
     <View style={styles.container}>
-      <AppButton
-        title={showFilters ? 'Сховати фільтр' : 'Фільтр'}
-        onPress={() => setShowFilters((v) => !v)}
-        style={styles.toggle}
-      />
-      {showFilters && (
-        <View style={styles.filters}>
+      <AppButton title="Фільтр" onPress={() => setFiltersVisible(true)} style={styles.toggle} />
+      <Modal visible={filtersVisible} animationType="slide" onRequestClose={() => setFiltersVisible(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.filters}>
           <DateInput value={date} onChange={setDate} style={styles.input} />
           <AppInput
             placeholder="Місто завантаження"
@@ -212,10 +211,21 @@ export default function AllOrdersScreen({ navigation }) {
               style={styles.radiusButton}
             />
           </View>
-          <AppButton title="Пошук" onPress={fetchOrders} style={styles.input} />
-          <AppButton title="Очистити" color="#777" onPress={clearFilters} style={styles.input} />
-        </View>
-      )}
+          <View style={styles.actionsRow}>
+            <AppButton title="Очистити" color="#777" onPress={clearFilters} style={styles.actionBtn} />
+            <AppButton
+              title="Пошук"
+              onPress={() => {
+                fetchOrders();
+                setFiltersVisible(false);
+              }}
+              style={styles.actionBtn}
+            />
+          </View>
+          <AppButton title="Закрити" color="#333" onPress={() => setFiltersVisible(false)} style={styles.closeBtn} />
+        </ScrollView>
+      </SafeAreaView>
+      </Modal>
       <FlatList
         data={orders}
         renderItem={renderItem}
@@ -243,9 +253,18 @@ const styles = StyleSheet.create({
   },
   input: { margin: 4, flexBasis: '48%' },
   toggle: { marginHorizontal: 12 },
-  radiusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexBasis: '100%' },
+  radiusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexBasis: '100%',
+  },
   radiusButton: { flex: 1, marginHorizontal: 4 },
   radiusInput: { flex: 2, textAlign: 'center' },
+  actionsRow: { flexDirection: 'row', justifyContent: 'space-between', flexBasis: '100%', marginTop: 8 },
+  actionBtn: { flex: 1, marginHorizontal: 4 },
+  closeBtn: { marginTop: 8 },
+  modalContainer: { flex: 1 },
 });
 
 function haversine(lat1, lon1, lat2, lon2) {
