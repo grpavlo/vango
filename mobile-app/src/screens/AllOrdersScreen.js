@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
 import { apiFetch, HOST_URL } from '../api';
@@ -32,7 +33,9 @@ export default function AllOrdersScreen({ navigation }) {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({});
-          setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+          const locObj = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setLocation(locObj);
+          await AsyncStorage.setItem('location', JSON.stringify(locObj));
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&format=json&addressdetails=1`,
             { headers: { 'User-Agent': 'vango-app' } }
@@ -41,11 +44,27 @@ export default function AllOrdersScreen({ navigation }) {
           const addr = data.address || {};
           const city = addr.city || addr.town || addr.village || addr.state || '';
           setPickupCity(city);
+          if (city) await AsyncStorage.setItem('pickupCity', city);
         }
       } catch {}
       setDetected(true);
     }
-    detectCity();
+
+    async function init() {
+      try {
+        const storedCity = await AsyncStorage.getItem('pickupCity');
+        const locStr = await AsyncStorage.getItem('location');
+        if (storedCity) setPickupCity(storedCity);
+        if (locStr) setLocation(JSON.parse(locStr));
+        if (storedCity || locStr) {
+          setDetected(true);
+          return;
+        }
+      } catch {}
+      detectCity();
+    }
+
+    init();
   }, []);
 
   useEffect(() => {
