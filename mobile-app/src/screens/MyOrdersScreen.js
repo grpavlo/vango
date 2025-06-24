@@ -2,21 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
+import OrderCardSkeleton from '../components/OrderCardSkeleton';
+import Skeleton from '../components/Skeleton';
 
 export default function MyOrdersScreen({ navigation }) {
   const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('active');
 
   async function load() {
     try {
+      setLoading(true);
       const url = role ? `/orders/my?role=${role}` : '/orders/my';
       const data = await apiFetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrders(data);
+      setLoading(false);
     } catch (err) {
       console.log(err);
+      setLoading(false);
     }
   }
 
@@ -54,6 +60,16 @@ export default function MyOrdersScreen({ navigation }) {
     if (filter === 'posted') return o.status === 'CREATED' && !o.reservedBy;
     return ['DELIVERED', 'COMPLETED'].includes(o.status) || o.status === 'CANCELLED';
   });
+
+  if (loading && orders.length === 0) {
+    return (
+      <View style={styles.container}>
+        {[...Array(5)].map((_, i) => (
+          <OrderCardSkeleton key={i} />
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

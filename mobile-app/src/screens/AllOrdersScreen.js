@@ -7,6 +7,7 @@ import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import DateInput from '../components/DateInput';
 import OrderCard from '../components/OrderCard';
+import OrderCardSkeleton from '../components/OrderCardSkeleton';
 
 export default function AllOrdersScreen({ navigation }) {
   const { token } = useAuth();
@@ -17,6 +18,7 @@ export default function AllOrdersScreen({ navigation }) {
   const [volume, setVolume] = useState('');
   const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [radius, setRadius] = useState('30');
@@ -63,6 +65,7 @@ export default function AllOrdersScreen({ navigation }) {
 
   async function fetchOrders() {
     try {
+      setLoading(true);
       const params = new URLSearchParams();
       if (date) params.append('date', formatDate(date));
       if (pickupCity) params.append('pickupCity', pickupCity);
@@ -85,8 +88,10 @@ export default function AllOrdersScreen({ navigation }) {
         }
       }
       setOrders(list);
+      setLoading(false);
     } catch (err) {
       console.log(err);
+      setLoading(false);
     }
   }
 
@@ -162,6 +167,16 @@ export default function AllOrdersScreen({ navigation }) {
         order={item}
         onPress={() => navigation.navigate('OrderDetail', { order: item, token })}
       />
+    );
+  }
+
+  if (loading && orders.length === 0) {
+    return (
+      <View style={styles.container}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <OrderCardSkeleton key={i} />
+        ))}
+      </View>
     );
   }
 
