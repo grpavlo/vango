@@ -33,6 +33,7 @@ export default function OrderCard({ order, onPress }) {
     <View style={styles.card}>
       <View style={styles.mapContainer}>
         <MapView style={{ flex: 1 }} initialRegion={region}>
+
           {order.pickupLat && order.pickupLon && (
             <Marker
               coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }}
