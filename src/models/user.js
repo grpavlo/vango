@@ -28,6 +28,7 @@ User.init(
     rating: { type: DataTypes.FLOAT, defaultValue: 5 },
     blocked: { type: DataTypes.BOOLEAN, defaultValue: false },
     city: { type: DataTypes.STRING },
+    phone: { type: DataTypes.STRING },
     balance: { type: DataTypes.FLOAT, defaultValue: 0 },
   },
   {

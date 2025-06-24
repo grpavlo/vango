@@ -5,10 +5,10 @@ const { UserRole } = require('../models/user');
 const { JWT_SECRET } = require('../config');
 
 async function register(req, res) {
-  const { name, email, password, city } = req.body;
+  const { name, email, password, city, phone } = req.body;
   try {
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, password: hashed, city });
+    const user = await User.create({ name, email, password: hashed, city, phone });
     res.json(user);
   } catch (err) {
     res.status(400).send('Помилка реєстрації');

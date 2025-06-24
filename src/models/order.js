@@ -46,6 +46,8 @@ Order.init(
     status: { type: DataTypes.ENUM(...Object.values(OrderStatus)), defaultValue: OrderStatus.CREATED },
     systemPrice: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
     price: { type: DataTypes.FLOAT, allowNull: false },
+    reservedBy: { type: DataTypes.INTEGER.UNSIGNED },
+    reservedUntil: { type: DataTypes.DATE },
     photos: { type: DataTypes.JSON },
   },
   { sequelize: db, modelName: 'order' }
