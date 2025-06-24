@@ -223,7 +223,8 @@ export default function CreateOrderScreen({ navigation }) {
                 lat: pickup?.lat,
                 lon: pickup?.lon,
                 onSelect: (p) => {
-                  setPickup({ ...p, text: pickupQuery });
+                  setPickup(p);
+                  setPickupQuery(p.text || pickupQuery);
                 },
               })
             }
@@ -282,7 +283,8 @@ export default function CreateOrderScreen({ navigation }) {
                 lat: dropoff?.lat,
                 lon: dropoff?.lon,
                 onSelect: (p) => {
-                  setDropoff({ ...p, text: dropoffQuery });
+                  setDropoff(p);
+                  setDropoffQuery(p.text || dropoffQuery);
                 },
               })
             }
@@ -372,10 +374,8 @@ export default function CreateOrderScreen({ navigation }) {
       <AppInput value={volWeight} editable={false} />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
-        <CheckBox value={loadHelp} onChange={setLoadHelp} />
-        <AppText>Завантаження</AppText>
-        <CheckBox value={unloadHelp} onChange={setUnloadHelp} />
-        <AppText>Розвантаження</AppText>
+        <CheckBox value={loadHelp} onChange={setLoadHelp} label="Завантаження" />
+        <CheckBox value={unloadHelp} onChange={setUnloadHelp} label="Розвантаження" />
       </View>
 
       <AppText style={styles.label}>Оплата</AppText>

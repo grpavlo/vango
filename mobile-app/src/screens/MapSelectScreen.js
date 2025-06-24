@@ -35,9 +35,19 @@ export default function MapSelectScreen({ navigation, route }) {
     geocode();
   }, []);
 
-  function confirm() {
+  async function confirm() {
     if (onSelect && marker) {
-      onSelect({ lat: marker.latitude, lon: marker.longitude });
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${marker.latitude}&lon=${marker.longitude}&format=json`,
+          { headers: { 'User-Agent': 'vango-app' } }
+        );
+        const data = await res.json();
+        const text = data.display_name || '';
+        onSelect({ lat: marker.latitude, lon: marker.longitude, text });
+      } catch {
+        onSelect({ lat: marker.latitude, lon: marker.longitude });
+      }
     }
     navigation.goBack();
   }
