@@ -46,7 +46,9 @@ export default function AllOrdersScreen({ navigation }) {
 
   useEffect(() => {
     fetchOrders();
-  }, [date, pickupCity, dropoffCity, volume, weight]);
+    const unsubscribe = navigation.addListener('focus', fetchOrders);
+    return unsubscribe;
+  }, [date, pickupCity, dropoffCity, volume, weight, navigation]);
 
   useEffect(() => {
     connectWs();
