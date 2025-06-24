@@ -1,0 +1,60 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
+
+export default function OrderCard({ order }) {
+  const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
+  const dropoffCity = order.dropoffCity || ((order.dropoffLocation || '').split(',')[1] || '').trim();
+  const volume = calcVolume(order.dimensions);
+
+  const region = {
+    latitude: order.pickupLat || order.dropoffLat || 50.45,
+    longitude: order.pickupLon || order.dropoffLon || 30.523,
+    latitudeDelta: 0.4,
+    longitudeDelta: 0.4,
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.mapContainer}>
+        <MapView style={{ flex: 1 }} initialRegion={region} pointerEvents="none">
+          {order.pickupLat && order.pickupLon && (
+            <Marker coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }} />
+          )}
+          {order.dropoffLat && order.dropoffLon && (
+            <Marker coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }} pinColor="green" />
+          )}
+        </MapView>
+      </View>
+      <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>
+      <Text style={styles.info}>Завантаження: {formatDate(new Date(order.loadFrom))}</Text>
+      <Text style={styles.info}>Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг</Text>
+    </View>
+  );
+}
+
+function calcVolume(dimensions) {
+  if (!dimensions) return null;
+  const parts = dimensions.split('x').map((n) => parseFloat(n));
+  if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
+  return parts[0] * parts[1] * parts[2];
+}
+
+function formatDate(d) {
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    marginVertical: 6,
+    padding: 8,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  mapContainer: { height: 120, borderRadius: 8, overflow: 'hidden' },
+  route: { fontWeight: 'bold', marginTop: 8 },
+  info: { marginTop: 2, color: '#333' },
+});
