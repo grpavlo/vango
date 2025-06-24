@@ -25,6 +25,11 @@ function formatTime(dateStr) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -172,6 +177,15 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {reserved && timeLeft !== null && (
+        <View style={styles.fixedTimer}>
+          <Text style={styles.timerText}>
+            {String(Math.floor(timeLeft / 60000)).padStart(2, '0')}:
+            {String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+          </Text>
+        </View>
+      )}
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={28} color="#333" />
@@ -213,14 +227,14 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Завантаження:</Text>
         <Text style={styles.value}>
-          {formatTime(order.loadFrom)} - {formatTime(order.loadTo)}
+          {formatDate(order.loadFrom)} {formatTime(order.loadFrom)} - {formatTime(order.loadTo)}
         </Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Вивантаження:</Text>
         <Text style={styles.value}>
-          {formatTime(order.unloadFrom)} - {formatTime(order.unloadTo)}
+          {formatDate(order.unloadFrom)} {formatTime(order.unloadFrom)} - {formatTime(order.unloadTo)}
         </Text>
       </View>
       <View style={styles.row}>
@@ -299,6 +313,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
       {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -337,5 +352,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
+  fixedTimer: {
+    position: 'absolute',
+    top: 8,
+    right: 16,
+    backgroundColor: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    elevation: 3,
+    zIndex: 2,
+  },
+  timerText: { fontSize: 16, color: colors.orange, fontWeight: 'bold' },
 });
 
