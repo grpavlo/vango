@@ -30,7 +30,6 @@ function formatDate(dateStr) {
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const [previewIndex, setPreviewIndex] = useState(null);
