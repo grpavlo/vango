@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AppInput from './AppInput';
 
@@ -26,7 +26,13 @@ export default function DateInput({ value, onChange, style }) {
         />
       </TouchableOpacity>
       {showDate && (
-        <DateTimePicker value={value} mode="date" is24Hour onChange={onChangeDate} />
+        <DateTimePicker
+          value={value}
+          mode="date"
+          is24Hour
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          onChange={onChangeDate}
+        />
       )}
     </View>
   );

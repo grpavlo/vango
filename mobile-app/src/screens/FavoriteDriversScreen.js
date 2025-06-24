@@ -52,7 +52,7 @@ export default function FavoriteDriversScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: 12 },
   item: { padding: 12, borderBottomWidth: 1 },
   skelLine: { height: 20, margin: 12 }
 });
