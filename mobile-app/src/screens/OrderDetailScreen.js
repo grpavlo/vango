@@ -19,6 +19,12 @@ import { apiFetch, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 
+function formatDateTime(dateStr) {
+  const d = new Date(dateStr);
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -199,9 +205,39 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Text style={styles.value}>{order.weight}</Text>
       </View>
       <View style={styles.row}>
+        <Text style={styles.label}>Завантаження:</Text>
+        <Text style={styles.value}>
+          {formatDateTime(order.loadFrom)} - {formatDateTime(order.loadTo)}
+        </Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Вивантаження:</Text>
+        <Text style={styles.value}>
+          {formatDateTime(order.unloadFrom)} - {formatDateTime(order.unloadTo)}
+        </Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Оплата:</Text>
+        <Text style={styles.value}>{order.payment === 'card' ? 'Карта' : 'Готівка'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Завантаження допомога:</Text>
+        <Text style={styles.value}>{order.loadHelp ? 'так' : 'ні'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Розвантаження допомога:</Text>
+        <Text style={styles.value}>{order.unloadHelp ? 'так' : 'ні'}</Text>
+      </View>
+      <View style={styles.row}>
         <Text style={styles.label}>Ціна:</Text>
         <Text style={styles.value}>{Math.round(order.price)} грн</Text>
       </View>
+      {order.cargoType && (
+        <View style={styles.row}>
+          <Text style={styles.label}>Опис:</Text>
+          <Text style={styles.value}>{order.cargoType}</Text>
+        </View>
+      )}
       {order.photos && order.photos.length > 0 && (
         <ScrollView horizontal style={{ marginVertical: 8 }}>
           {order.photos.map((p, i) => (
