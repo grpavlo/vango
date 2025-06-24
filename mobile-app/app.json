@@ -14,7 +14,11 @@
     },
 
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
+        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї"
+      }
     },
     "android": {
       "adaptiveIcon": {

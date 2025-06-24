@@ -90,7 +90,7 @@ export default function MyOrdersScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: 12 },
   item: {
     padding: 12,
     marginHorizontal: 12,

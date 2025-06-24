@@ -294,7 +294,7 @@ function formatDate(d) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingHorizontal: 12 },
   filters: {
     padding: 16,
   },
