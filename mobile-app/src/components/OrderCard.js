@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { colors } from './Colors';
 
 export default function OrderCard({ order }) {
   const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
@@ -31,12 +32,23 @@ export default function OrderCard({ order }) {
   return (
     <View style={styles.card}>
       <View style={styles.mapContainer}>
-        <MapView style={{ flex: 1 }} initialRegion={region} pointerEvents="none">
+        <MapView
+          style={{ flex: 1 }}
+          initialRegion={region}
+          onPress={(e) => e.stopPropagation()}
+          onPanDrag={(e) => e.stopPropagation()}
+        >
           {order.pickupLat && order.pickupLon && (
-            <Marker coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }} />
+            <Marker
+              coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }}
+              pinColor={colors.orange}
+            />
           )}
           {order.dropoffLat && order.dropoffLon && (
-            <Marker coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }} pinColor="green" />
+            <Marker
+              coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }}
+              pinColor={colors.green}
+            />
           )}
         </MapView>
       </View>

@@ -19,6 +19,8 @@ export default function AllOrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [radius, setRadius] = useState('');
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -26,6 +28,7 @@ export default function AllOrdersScreen({ navigation }) {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({});
+          setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&format=json&addressdetails=1`,
             { headers: { 'User-Agent': 'vango-app' } }
@@ -58,7 +61,18 @@ export default function AllOrdersScreen({ navigation }) {
       const data = await apiFetch(`/orders${query ? `?${query}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setOrders(data.available);
+      let list = data.available;
+      if (radius && location) {
+        const r = parseFloat(radius);
+        if (!isNaN(r) && r > 0) {
+          list = list.filter((o) => {
+            if (!o.pickupLat || !o.pickupLon) return false;
+            const dist = haversine(location.latitude, location.longitude, o.pickupLat, o.pickupLon);
+            return dist <= r;
+          });
+        }
+      }
+      setOrders(list);
     } catch (err) {
       console.log(err);
     }
@@ -70,6 +84,7 @@ export default function AllOrdersScreen({ navigation }) {
     setDropoffCity('');
     setVolume('');
     setWeight('');
+    setRadius('');
   }
 
   async function refresh() {
@@ -122,6 +137,25 @@ export default function AllOrdersScreen({ navigation }) {
             keyboardType="numeric"
             style={styles.input}
           />
+          <View style={styles.radiusRow}>
+            <AppButton
+              title="-"
+              onPress={() => setRadius((r) => Math.max(0, (parseFloat(r) || 0) - 10).toString())}
+              style={styles.radiusButton}
+            />
+            <AppInput
+              placeholder="Радіус км"
+              value={radius.toString()}
+              onChangeText={setRadius}
+              keyboardType="numeric"
+              style={[styles.input, styles.radiusInput]}
+            />
+            <AppButton
+              title="+"
+              onPress={() => setRadius((r) => ((parseFloat(r) || 0) + 10).toString())}
+              style={styles.radiusButton}
+            />
+          </View>
           <AppButton title="Пошук" onPress={fetchOrders} />
           <AppButton title="Очистити" color="#777" onPress={clearFilters} />
         </View>
@@ -148,4 +182,20 @@ const styles = StyleSheet.create({
   filters: { padding: 8 },
   input: { marginVertical: 4 },
   toggle: { marginHorizontal: 12 },
+  radiusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  radiusButton: { flex: 1, marginHorizontal: 4 },
+  radiusInput: { flex: 2, textAlign: 'center' },
 });
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371; // km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
