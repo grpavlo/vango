@@ -4,15 +4,16 @@ import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 
 export default function MyOrdersScreen({ navigation }) {
-  const { token } = useAuth();
+  const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('active');
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await apiFetch('/orders/my', {
-          headers: { Authorization: `Bearer ${token}` }
+        const url = role ? `/orders/my?role=${role}` : '/orders/my';
+        const data = await apiFetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
         });
         setOrders(data);
       } catch (err) {
@@ -20,7 +21,7 @@ export default function MyOrdersScreen({ navigation }) {
       }
     }
     load();
-  }, []);
+  }, [role]);
 
   function renderItem({ item }) {
     const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
