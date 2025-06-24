@@ -23,13 +23,18 @@ export default function MyOrdersScreen({ navigation }) {
   }, []);
 
   function renderItem({ item }) {
+    const pickupParts = (item.pickupLocation || '').split(',');
+    const dropoffParts = (item.dropoffLocation || '').split(',');
+    const pickupCity = pickupParts.length > 1 ? pickupParts[1].trim() : pickupParts[0];
+    const dropoffCity = dropoffParts.length > 1 ? dropoffParts[1].trim() : dropoffParts[0];
+    const dropoffAddress = dropoffParts[0] ? dropoffParts[0].trim() : '';
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={styles.item}>
           <Text style={styles.itemNumber}>№ {item.id}</Text>
-          <Text style={styles.itemText}>Місто завантаження: {item.pickupLocation}</Text>
-          <Text style={styles.itemText}>Місто розвантаження: {item.dropoffLocation}</Text>
-          <Text style={styles.itemText}>Адреса розвантаження: {item.dropoffLocation}</Text>
+          <Text style={styles.itemText}>Місто завантаження: {pickupCity}</Text>
+          <Text style={styles.itemText}>Місто розвантаження: {dropoffCity}</Text>
+          <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
           <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
           <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
         </View>

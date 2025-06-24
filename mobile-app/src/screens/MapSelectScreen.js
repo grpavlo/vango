@@ -39,12 +39,17 @@ export default function MapSelectScreen({ navigation, route }) {
     if (onSelect && marker) {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${marker.latitude}&lon=${marker.longitude}&format=json`,
+          `https://nominatim.openstreetmap.org/reverse?lat=${marker.latitude}&lon=${marker.longitude}&format=json&addressdetails=1`,
           { headers: { 'User-Agent': 'vango-app' } }
         );
         const data = await res.json();
         const text = data.display_name || '';
-        onSelect({ lat: marker.latitude, lon: marker.longitude, text });
+        const addr = data.address || {};
+        const city = addr.city || addr.town || addr.village || addr.state || '';
+        const shortAddress = [addr.road, addr.house_number]
+          .filter(Boolean)
+          .join(' ');
+        onSelect({ lat: marker.latitude, lon: marker.longitude, text, city, address: shortAddress });
       } catch {
         onSelect({ lat: marker.latitude, lon: marker.longitude });
       }
