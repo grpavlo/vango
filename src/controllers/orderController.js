@@ -165,6 +165,83 @@ async function updateStatus(req, res) {
   }
 }
 
+async function updateOrder(req, res) {
+  const id = req.params.id;
+  try {
+    const order = await Order.findByPk(id);
+    if (!order) {
+      return res.status(404).send('Замовлення не знайдено');
+    }
+    if (order.customerId !== req.user.id || order.status !== 'CREATED') {
+      return res.status(400).send('Неможливо редагувати');
+    }
+    const fields = [
+      'pickupLocation',
+      'dropoffLocation',
+      'pickupCountry',
+      'pickupCity',
+      'pickupAddress',
+      'pickupPostcode',
+      'dropoffCountry',
+      'dropoffCity',
+      'dropoffAddress',
+      'dropoffPostcode',
+      'cargoType',
+      'dimensions',
+      'weight',
+      'volWeight',
+      'pickupLat',
+      'pickupLon',
+      'dropoffLat',
+      'dropoffLon',
+      'loadHelp',
+      'unloadHelp',
+      'payment',
+      'loadFrom',
+      'loadTo',
+      'unloadFrom',
+      'unloadTo',
+      'insurance',
+      'price',
+    ];
+    fields.forEach((f) => {
+      if (req.body[f] !== undefined) {
+        order[f] = req.body[f];
+      }
+    });
+    if (
+      req.body.pickupLat &&
+      req.body.pickupLon &&
+      req.body.dropoffLat &&
+      req.body.dropoffLon
+    ) {
+      try {
+        const resRoute = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${req.body.dropoffLon},${req.body.dropoffLat};${req.body.pickupLon},${req.body.pickupLat}?overview=false`
+        );
+        const data = await resRoute.json();
+        if (data.routes && data.routes[0]) {
+          const km = data.routes[0].distance / 1000;
+          order.systemPrice = km * 50;
+          if (req.body.price === undefined) {
+            order.price = order.systemPrice;
+          }
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+    if (req.files && req.files.length > 0) {
+      const uploaded = req.files.map((f) => `/uploads/${f.filename}`);
+      order.photos = [...(order.photos || []), ...uploaded];
+    }
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(400).send('Не вдалося оновити замовлення');
+  }
+}
+
 async function deleteOrder(req, res) {
   const id = req.params.id;
   try {
@@ -182,4 +259,4 @@ async function deleteOrder(req, res) {
   }
 }
 
-module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders, deleteOrder };
+module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders, updateOrder, deleteOrder };

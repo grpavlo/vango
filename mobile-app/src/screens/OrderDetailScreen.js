@@ -43,6 +43,10 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  function edit() {
+    navigation.navigate('EditOrder', { order });
+  }
+
   function confirmDelete() {
     Alert.alert('Підтвердження', 'Видалити вантаж?', [
       { text: 'Скасувати' },
@@ -52,20 +56,28 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text>Pickup: {order.pickupLocation}</Text>
-      <Text>Dropoff: {order.dropoffLocation}</Text>
-      <Text>Price: {order.price}</Text>
+      <Button title="Назад" onPress={() => navigation.goBack()} />
+      <Text style={styles.title}>Замовлення № {order.id}</Text>
+      <Text>Звідки: {order.pickupLocation}</Text>
+      <Text>Куди: {order.dropoffLocation}</Text>
+      <Text>Габарити: {order.dimensions}</Text>
+      <Text>Вага: {order.weight}</Text>
+      <Text>Ціна: {Math.round(order.price)} грн</Text>
       {role === 'DRIVER' && !order.driverId && (
-        <Button title="Accept" onPress={accept} />
+        <Button title="Прийняти" onPress={accept} />
       )}
-      {order.driverId && <Button title="Add Favorite" onPress={addFavorite} />}
+      {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
       {role === 'CUSTOMER' && !order.driverId && (
-        <Button title="Delete" color="red" onPress={confirmDelete} />
+        <>
+          <Button title="Редагувати" onPress={edit} />
+          <Button title="Видалити" color="red" onPress={confirmDelete} />
+        </>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 }
+  container: { flex: 1, padding: 16 },
+  title: { fontSize: 18, fontWeight: 'bold', marginVertical: 8 }
 });

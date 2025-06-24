@@ -9,6 +9,7 @@ import RoleScreen from './src/screens/RoleScreen';
 import MainTabs from './src/screens/MainTabs';
 import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
+import EditOrderScreen from './src/screens/EditOrderScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -31,6 +32,7 @@ function RootNavigator() {
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="MapSelect" component={MapSelectScreen} />
           <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+          <Stack.Screen name="EditOrder" component={EditOrderScreen} />
         </>
       )}
     </Stack.Navigator>
