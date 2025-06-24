@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { colors } from './Colors';
 
@@ -55,6 +56,29 @@ export default function OrderCard({ order, onPress }) {
           Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг
         </Text>
         <Text style={styles.info}>Ціна: {Math.round(order.price)} грн</Text>
+        <View style={styles.iconRow}>
+          <Ionicons
+            name={order.payment === 'card' ? 'card' : 'cash'}
+            size={20}
+            color={colors.green}
+          />
+          {order.loadHelp && (
+            <Ionicons
+              name="arrow-down-circle-outline"
+              size={20}
+              color={colors.orange}
+              style={{ marginLeft: 8 }}
+            />
+          )}
+          {order.unloadHelp && (
+            <Ionicons
+              name="arrow-up-circle-outline"
+              size={20}
+              color={colors.orange}
+              style={{ marginLeft: 4 }}
+            />
+          )}
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -85,4 +109,5 @@ const styles = StyleSheet.create({
   infoContainer: { paddingVertical: 4 },
   route: { fontWeight: 'bold', marginTop: 8 },
   info: { marginTop: 2, color: '#333' },
+  iconRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
 });
