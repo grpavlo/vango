@@ -2,20 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
+import OrderCardSkeleton from '../components/OrderCardSkeleton';
 
 export default function OrderListScreen({ navigation }) {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
+        setLoading(true);
         const data = await apiFetch('/orders', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setOrders(data.available);
+        setLoading(false);
       } catch (err) {
         console.log(err);
+        setLoading(false);
       }
     }
     load();
@@ -30,6 +35,16 @@ export default function OrderListScreen({ navigation }) {
           </Text>
         </View>
       </TouchableOpacity>
+    );
+  }
+
+  if (loading && orders.length === 0) {
+    return (
+      <View style={styles.container}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <OrderCardSkeleton key={i} />
+        ))}
+      </View>
     );
   }
 
