@@ -27,6 +27,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
 
+
   useEffect(() => {
     if (order.reservedBy && order.reservedUntil) {
       const until = new Date(order.reservedUntil);
