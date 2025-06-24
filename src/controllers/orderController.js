@@ -139,14 +139,24 @@ async function listAvailableOrders(req, res) {
 async function listMyOrders(req, res) {
   const { Op } = require('sequelize');
   const role = req.query.role || req.user.role;
+  const now = new Date();
   let where = {};
   if (role === 'CUSTOMER') {
     where.customerId = req.user.id;
   } else if (role === 'DRIVER') {
-    where.driverId = req.user.id;
+    where = {
+      [Op.or]: [
+        { driverId: req.user.id },
+        { reservedBy: req.user.id, reservedUntil: { [Op.gt]: now } },
+      ],
+    };
   } else if (role === 'BOTH' || !role) {
     where = {
-      [Op.or]: [{ customerId: req.user.id }, { driverId: req.user.id }],
+      [Op.or]: [
+        { customerId: req.user.id },
+        { driverId: req.user.id },
+        { reservedBy: req.user.id, reservedUntil: { [Op.gt]: now } },
+      ],
     };
   }
   const orders = await Order.findAll({ where });
