@@ -6,7 +6,9 @@ const Order = require('./models/order');
 const User = require('./models/user');
 const { Op } = require('sequelize');
 
-function buildWhere(query, userId) {
+let wssInstance;
+
+function buildWhere(query, userId, ignoreReserve = false) {
   const where = { status: 'CREATED' };
   const city = query.pickupCity || query.city;
   if (city) where.pickupCity = city;
@@ -23,17 +25,20 @@ function buildWhere(query, userId) {
     if (query.minWeight) where.weight[Op.gte] = parseFloat(query.minWeight);
     if (query.maxWeight) where.weight[Op.lte] = parseFloat(query.maxWeight);
   }
-  const now = new Date();
-  where[Op.or] = [
-    { reservedBy: null },
-    { reservedUntil: { [Op.lt]: now } },
-    { reservedBy: userId },
-  ];
+  if (!ignoreReserve) {
+    const now = new Date();
+    where[Op.or] = [
+      { reservedBy: null },
+      { reservedUntil: { [Op.lt]: now } },
+      { reservedBy: userId },
+    ];
+  }
   return where;
 }
 
 function setupWebSocket(server) {
   const wss = new WebSocket.Server({ noServer: true });
+  wssInstance = wss;
 
   server.on('upgrade', async (req, socket, head) => {
     const pathname = url.parse(req.url).pathname;
@@ -60,9 +65,10 @@ function setupWebSocket(server) {
     }
 
     const query = url.parse(req.url, true).query;
-    const where = buildWhere(query, req.user.id);
+    const filterWhere = buildWhere(query, req.user.id);
+    const updateWhere = buildWhere(query, req.user.id, true);
 
-    const orders = await Order.findAll({ where });
+    const orders = await Order.findAll({ where: filterWhere });
     for (const o of orders) {
       ws.send(JSON.stringify(o));
     }
@@ -71,7 +77,7 @@ function setupWebSocket(server) {
     const interval = setInterval(async () => {
       const updated = await Order.findAll({
         where: {
-          ...where,
+          ...updateWhere,
           updatedAt: { [Op.gt]: lastCheck },
         },
       });
@@ -83,4 +89,25 @@ function setupWebSocket(server) {
   });
 }
 
-module.exports = { setupWebSocket };
+function broadcastOrder(order) {
+  if (!wssInstance) return;
+  const data = JSON.stringify(order);
+  wssInstance.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
+}
+
+function broadcastDelete(id) {
+  if (!wssInstance) return;
+  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+  const data = JSON.stringify({ id: numId, deleted: true });
+  wssInstance.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
+}
+
+module.exports = { setupWebSocket, broadcastOrder, broadcastDelete };

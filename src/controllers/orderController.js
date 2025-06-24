@@ -1,6 +1,7 @@
 const Order = require('../models/order');
 const Transaction = require('../models/transaction');
 const { SERVICE_FEE_PERCENT } = require('../config');
+const { broadcastOrder, broadcastDelete } = require('../ws');
 
 async function createOrder(req, res) {
   const {
@@ -77,6 +78,7 @@ async function createOrder(req, res) {
       price,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
     });
+    broadcastOrder(order);
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося створити замовлення');
@@ -177,6 +179,7 @@ async function reserveOrder(req, res) {
     order.reservedBy = req.user.id;
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
+    broadcastOrder(order);
     res.json({ order, phone: order.customer ? order.customer.phone : null });
   } catch (err) {
     res.status(400).send('Не вдалося зарезервувати');
@@ -193,6 +196,7 @@ async function cancelReserve(req, res) {
     order.reservedBy = null;
     order.reservedUntil = null;
     await order.save();
+    broadcastOrder(order);
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося зняти резерв');
@@ -211,6 +215,7 @@ async function acceptOrder(req, res) {
     order.driverId = req.user.id;
     order.status = 'ACCEPTED';
     await order.save();
+    broadcastOrder(order);
     const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
     await Transaction.create({ orderId: order.id, driverId: req.user.id, amount: order.price, serviceFee });
     res.json(order);
@@ -342,6 +347,7 @@ async function deleteOrder(req, res) {
       return res.status(400).send('Неможливо видалити');
     }
     await order.destroy();
+    broadcastDelete(order.id);
     res.json({ message: 'Deleted' });
   } catch (err) {
     res.status(400).send('Помилка видалення');
