@@ -72,7 +72,7 @@ export default function AllOrdersScreen({ navigation }) {
     fetchOrders();
     const unsubscribe = navigation.addListener('focus', fetchOrders);
     return unsubscribe;
-  }, [detected, date, pickupCity, dropoffCity, volume, weight, navigation]);
+  }, [detected, navigation]);
 
   useEffect(() => {
     if (!detected) return;
@@ -80,7 +80,7 @@ export default function AllOrdersScreen({ navigation }) {
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
-  }, [detected, token, date, pickupCity, dropoffCity, volume, weight, radius, location]);
+  }, [detected, token, location]);
 
   async function fetchOrders() {
     try {
@@ -257,6 +257,7 @@ export default function AllOrdersScreen({ navigation }) {
               title="Пошук"
               onPress={() => {
                 fetchOrders();
+                connectWs();
                 setFiltersVisible(false);
               }}
               style={styles.actionBtn}
