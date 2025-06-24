@@ -347,7 +347,7 @@ async function deleteOrder(req, res) {
       return res.status(400).send('Неможливо видалити');
     }
     await order.destroy();
-    broadcastDelete(id);
+    broadcastDelete(order.id);
     res.json({ message: 'Deleted' });
   } catch (err) {
     res.status(400).send('Помилка видалення');

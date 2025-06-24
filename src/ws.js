@@ -101,7 +101,8 @@ function broadcastOrder(order) {
 
 function broadcastDelete(id) {
   if (!wssInstance) return;
-  const data = JSON.stringify({ id, deleted: true });
+  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+  const data = JSON.stringify({ id: numId, deleted: true });
   wssInstance.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(data);
