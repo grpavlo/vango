@@ -115,6 +115,10 @@ export default function AllOrdersScreen({ navigation }) {
   }
 
   function passesFilters(o) {
+    if (o.deleted) return false;
+    const now = new Date();
+    if (o.status !== 'CREATED') return false;
+    if (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > now) return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date)) return false;
     if (pickupCity && !(o.pickupCity || '').toLowerCase().includes(pickupCity.toLowerCase())) return false;
     if (dropoffCity && !(o.dropoffCity || '').toLowerCase().includes(dropoffCity.toLowerCase())) return false;
@@ -148,8 +152,13 @@ export default function AllOrdersScreen({ navigation }) {
     ws.onmessage = (ev) => {
       try {
         const order = JSON.parse(ev.data);
-        if (!passesFilters(order)) return;
         setOrders((prev) => {
+          if (order.deleted) {
+            return prev.filter((o) => o.id !== order.id);
+          }
+          if (!passesFilters(order)) {
+            return prev.filter((o) => o.id !== order.id);
+          }
           const idx = prev.findIndex((o) => o.id === order.id);
           if (idx >= 0) {
             const copy = [...prev];
