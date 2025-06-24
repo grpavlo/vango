@@ -1,12 +1,13 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView, SafeAreaView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { apiFetch, API_URL } from '../api';
+import { apiFetch, API_URL, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
+  const [previewIndex, setPreviewIndex] = useState(null);
   const { token, role } = useAuth();
 
 
@@ -57,7 +58,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={28} color="#333" />
@@ -74,30 +75,68 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
-      <Text>Звідки: {order.pickupLocation}</Text>
-      <Text>Куди: {order.dropoffLocation}</Text>
-      <Text>Габарити: {order.dimensions}</Text>
-      <Text>Вага: {order.weight}</Text>
-      <Text>Ціна: {Math.round(order.price)} грн</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>Звідки:</Text>
+        <Text style={styles.value}>{order.pickupLocation}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Куди:</Text>
+        <Text style={styles.value}>{order.dropoffLocation}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Габарити:</Text>
+        <Text style={styles.value}>{order.dimensions}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Вага:</Text>
+        <Text style={styles.value}>{order.weight}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>Ціна:</Text>
+        <Text style={styles.value}>{Math.round(order.price)} грн</Text>
+      </View>
       {order.photos && order.photos.length > 0 && (
         <ScrollView horizontal style={{ marginVertical: 8 }}>
           {order.photos.map((p, i) => (
-            <Image key={i} source={{ uri: `${API_URL}${p}` }} style={styles.photo} />
+            <TouchableOpacity key={i} onPress={() => setPreviewIndex(i)}>
+              <Image source={{ uri: `${HOST_URL}${p}` }} style={styles.photo} />
+            </TouchableOpacity>
           ))}
         </ScrollView>
+      )}
+      {previewIndex !== null && (
+        <Modal visible transparent>
+          <View style={styles.modal}>
+            <TouchableOpacity style={styles.close} onPress={() => setPreviewIndex(null)}>
+              <Ionicons name="close" size={32} color="#fff" />
+            </TouchableOpacity>
+            <Image
+              source={{ uri: `${HOST_URL}${order.photos[previewIndex]}` }}
+              style={styles.full}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
       )}
       {role === 'DRIVER' && !order.driverId && (
         <Button title="Прийняти" onPress={accept} />
       )}
       {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 16, paddingTop: 24 },
   actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   iconButton: { padding: 4 },
-  title: { fontSize: 18, fontWeight: 'bold', marginVertical: 8 },
-  photo: { width: 120, height: 120, marginRight: 8 }
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  row: { flexDirection: 'row', marginBottom: 8, alignItems: 'center' },
+  label: { fontWeight: 'bold', marginRight: 8, fontSize: 16 },
+  value: { fontSize: 16, flexShrink: 1 },
+  photo: { width: 120, height: 120, marginRight: 8 },
+  modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
+  full: { width: '100%', height: '100%' },
+  close: { position: 'absolute', top: 40, right: 20, zIndex: 1 }
 });
+
