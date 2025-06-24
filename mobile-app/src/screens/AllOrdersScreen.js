@@ -22,6 +22,7 @@ export default function AllOrdersScreen({ navigation }) {
   const [radius, setRadius] = useState('30');
   const [location, setLocation] = useState(null);
   const wsRef = useRef(null);
+  const [detected, setDetected] = useState(false);
 
   useEffect(() => {
     async function detectCity() {
@@ -40,22 +41,25 @@ export default function AllOrdersScreen({ navigation }) {
           setPickupCity(city);
         }
       } catch {}
+      setDetected(true);
     }
     detectCity();
   }, []);
 
   useEffect(() => {
+    if (!detected) return;
     fetchOrders();
     const unsubscribe = navigation.addListener('focus', fetchOrders);
     return unsubscribe;
-  }, [date, pickupCity, dropoffCity, volume, weight, navigation]);
+  }, [detected, date, pickupCity, dropoffCity, volume, weight, navigation]);
 
   useEffect(() => {
+    if (!detected) return;
     connectWs();
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
-  }, [token, date, pickupCity, dropoffCity, volume, weight, radius, location]);
+  }, [detected, token, date, pickupCity, dropoffCity, volume, weight, radius, location]);
 
   async function fetchOrders() {
     try {
