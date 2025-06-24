@@ -85,12 +85,49 @@ async function createOrder(req, res) {
 }
 
 async function listAvailableOrders(req, res) {
-  const city = req.query.city;
+  const { city, pickupCity, dropoffCity, date, minVolume, maxVolume, minWeight, maxWeight } = req.query;
+  const { Op } = require('sequelize');
+
   const where = { status: 'CREATED' };
-  if (city) where.pickupCity = city;
+  const cityFilter = pickupCity || city;
+  if (cityFilter) where.pickupCity = cityFilter;
+  if (dropoffCity) where.dropoffCity = dropoffCity;
+
+  if (date) {
+    const start = new Date(date);
+    const end = new Date(date);
+    end.setDate(end.getDate() + 1);
+    where.loadFrom = { [Op.gte]: start };
+    where.loadTo = { [Op.lt]: end };
+  }
+
+  if (minWeight || maxWeight) {
+    where.weight = {};
+    if (minWeight) where.weight[Op.gte] = parseFloat(minWeight);
+    if (maxWeight) where.weight[Op.lte] = parseFloat(maxWeight);
+  }
+
   const orders = await Order.findAll({ where });
-  const takenOrders = await Order.findAll({ where: { status: 'ACCEPTED' }, limit: Math.floor(orders.length / 15) });
-  res.json({ available: orders, taken: takenOrders });
+
+  function calcVolume(dimensions) {
+    if (!dimensions) return null;
+    const parts = dimensions.split('x').map((n) => parseFloat(n));
+    if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
+    return parts[0] * parts[1] * parts[2];
+  }
+
+  const filtered = orders.filter((o) => {
+    const vol = calcVolume(o.dimensions);
+    if (minVolume && vol !== null && vol < parseFloat(minVolume)) return false;
+    if (maxVolume && vol !== null && vol > parseFloat(maxVolume)) return false;
+    return true;
+  });
+
+  const takenOrders = await Order.findAll({
+    where: { status: 'ACCEPTED' },
+    limit: Math.floor(filtered.length / 15),
+  });
+  res.json({ available: filtered, taken: takenOrders });
 }
 
 async function listMyOrders(req, res) {
