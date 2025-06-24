@@ -107,6 +107,12 @@ async function listAvailableOrders(req, res) {
     if (maxWeight) where.weight[Op.lte] = parseFloat(maxWeight);
   }
 
+  const now = new Date();
+  where[Op.or] = [
+    { reservedBy: null },
+    { reservedUntil: { [Op.lt]: now } },
+    { reservedBy: req.user.id },
+  ];
   const orders = await Order.findAll({ where });
 
   function calcVolume(dimensions) {
@@ -145,6 +151,42 @@ async function listMyOrders(req, res) {
   }
   const orders = await Order.findAll({ where });
   res.json(orders);
+}
+
+async function reserveOrder(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId, { include: { model: require('../models/user'), as: 'customer' } });
+    if (!order || order.status !== 'CREATED') {
+      return res.status(400).send('Замовлення недоступне');
+    }
+    const now = new Date();
+    if (order.reservedBy && order.reservedUntil && order.reservedUntil > now && order.reservedBy !== req.user.id) {
+      return res.status(400).send('Вже зарезервовано');
+    }
+    order.reservedBy = req.user.id;
+    order.reservedUntil = new Date(now.getTime() + 10 * 60000);
+    await order.save();
+    res.json({ order, phone: order.customer ? order.customer.phone : null });
+  } catch (err) {
+    res.status(400).send('Не вдалося зарезервувати');
+  }
+}
+
+async function cancelReserve(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.reservedBy !== req.user.id) {
+      return res.status(400).send('Немає резерву');
+    }
+    order.reservedBy = null;
+    order.reservedUntil = null;
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(400).send('Не вдалося зняти резерв');
+  }
 }
 
 async function acceptOrder(req, res) {
@@ -296,4 +338,14 @@ async function deleteOrder(req, res) {
   }
 }
 
-module.exports = { createOrder, listAvailableOrders, acceptOrder, updateStatus, listMyOrders, updateOrder, deleteOrder };
+module.exports = {
+  createOrder,
+  listAvailableOrders,
+  reserveOrder,
+  cancelReserve,
+  acceptOrder,
+  updateStatus,
+  listMyOrders,
+  updateOrder,
+  deleteOrder,
+};
