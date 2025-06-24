@@ -149,12 +149,14 @@ export default function EditOrderScreen({ route, navigation }) {
       const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
       fd.append('price', finalPrice.toString());
       if (photos && photos.length > 0) {
-        photos.forEach((p) => {
-          const filename = p.split('/').pop();
-          const match = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
-          const type = match ? `image/${match[1]}` : 'image';
-          fd.append('photos', { uri: p, name: filename, type });
-        });
+        photos
+          .filter((p) => !p.startsWith('http'))
+          .forEach((p) => {
+            const filename = p.split('/').pop();
+            const match = /\.([a-zA-Z0-9]+)$/.exec(filename || '');
+            const type = match ? `image/${match[1]}` : 'image';
+            fd.append('photos', { uri: p, name: filename, type });
+          });
       }
       const updated = await apiFetch(`/orders/${order.id}`, {
         method: 'PATCH',
@@ -458,7 +460,7 @@ export default function EditOrderScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: { padding: 16, paddingTop: 24 },
   dim: { flex: 1 },
   suggestionsBox: {
     backgroundColor: '#fff',
