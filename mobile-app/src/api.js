@@ -1,4 +1,5 @@
-export const API_URL = 'http://78.137.7.91:20004/api';
+export const HOST_URL = 'http://78.137.7.91:20004';
+export const API_URL = `${HOST_URL}/api`;
 
 export async function apiFetch(path, options = {}) {
   const headers = options.headers || {};
