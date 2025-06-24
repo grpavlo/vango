@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -18,7 +19,7 @@ import PhotoPicker from '../components/PhotoPicker';
 import OptionSwitch from '../components/OptionSwitch';
 import CheckBox from '../components/CheckBox';
 import { Ionicons } from '@expo/vector-icons';
-import { apiFetch, API_URL } from '../api';
+import { apiFetch, API_URL, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
 
 export default function EditOrderScreen({ route, navigation }) {
@@ -74,7 +75,7 @@ export default function EditOrderScreen({ route, navigation }) {
   const [unloadFrom, setUnloadFrom] = useState(new Date(order.unloadFrom));
   const [unloadTo, setUnloadTo] = useState(new Date(order.unloadTo));
   const [photos, setPhotos] = useState(
-    order.photos ? order.photos.map((p) => `${API_URL}${p}`) : []
+    order.photos ? order.photos.map((p) => `${HOST_URL}${p}`) : []
   );
   const [description, setDescription] = useState(order.cargoType || '');
   const [systemPrice, setSystemPrice] = useState(order.systemPrice || null);
@@ -218,7 +219,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={32} color="#333" />
       </TouchableOpacity>
@@ -452,7 +453,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
       <AppButton title="Зберегти" onPress={confirmSave} />
     </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { apiFetch, API_URL } from '../api';
+import { apiFetch, API_URL, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 
@@ -57,7 +57,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={28} color="#333" />
@@ -74,15 +74,15 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
-      <Text>Звідки: {order.pickupLocation}</Text>
-      <Text>Куди: {order.dropoffLocation}</Text>
-      <Text>Габарити: {order.dimensions}</Text>
-      <Text>Вага: {order.weight}</Text>
-      <Text>Ціна: {Math.round(order.price)} грн</Text>
+      <Text style={styles.detail}>Звідки: {order.pickupLocation}</Text>
+      <Text style={styles.detail}>Куди: {order.dropoffLocation}</Text>
+      <Text style={styles.detail}>Габарити: {order.dimensions}</Text>
+      <Text style={styles.detail}>Вага: {order.weight}</Text>
+      <Text style={styles.detail}>Ціна: {Math.round(order.price)} грн</Text>
       {order.photos && order.photos.length > 0 && (
         <ScrollView horizontal style={{ marginVertical: 8 }}>
           {order.photos.map((p, i) => (
-            <Image key={i} source={{ uri: `${API_URL}${p}` }} style={styles.photo} />
+            <Image key={i} source={{ uri: `${HOST_URL}${p}` }} style={styles.photo} />
           ))}
         </ScrollView>
       )}
@@ -90,7 +90,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Button title="Прийняти" onPress={accept} />
       )}
       {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -99,5 +99,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   iconButton: { padding: 4 },
   title: { fontSize: 18, fontWeight: 'bold', marginVertical: 8 },
+  detail: { marginBottom: 4, fontSize: 16 },
   photo: { width: 120, height: 120, marginRight: 8 }
 });
