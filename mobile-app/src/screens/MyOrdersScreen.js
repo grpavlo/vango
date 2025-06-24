@@ -23,16 +23,20 @@ export default function MyOrdersScreen({ navigation }) {
   }, []);
 
   function renderItem({ item }) {
+    const pickupParts = (item.pickupLocation || '').split(',');
+    const dropoffParts = (item.dropoffLocation || '').split(',');
+    const pickupCity = pickupParts.length > 1 ? pickupParts[1].trim() : pickupParts[0];
+    const dropoffCity = dropoffParts.length > 1 ? dropoffParts[1].trim() : dropoffParts[0];
+    const dropoffAddress = dropoffParts[0] ? dropoffParts[0].trim() : '';
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={styles.item}>
-          <Text style={styles.route}>
-            {item.pickupLocation} ➔ {item.dropoffLocation}
-          </Text>
-          <Text style={styles.status}>
-            {new Date(item.loadFrom).toLocaleString()} • {Math.round(item.price)} грн
-          </Text>
-          <Text style={styles.status}>{item.status}</Text>
+          <Text style={styles.itemNumber}>№ {item.id}</Text>
+          <Text style={styles.itemText}>Місто завантаження: {pickupCity}</Text>
+          <Text style={styles.itemText}>Місто розвантаження: {dropoffCity}</Text>
+          <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
+          <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
+          <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
         </View>
       </TouchableOpacity>
     );
@@ -76,8 +80,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  route: { fontSize: 16, fontWeight: '500', color: '#333' },
-  status: { color: '#666', marginTop: 4 },
+  itemNumber: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  itemText: { color: '#333', marginTop: 2 },
   filters: { flexDirection: 'row', justifyContent: 'space-around', margin: 8 },
   filterBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
   activeFilter: { backgroundColor: '#333' },

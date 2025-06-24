@@ -95,6 +95,9 @@ export default function CreateOrderScreen({ navigation }) {
         fd.append('dropoffLat', dropoff.lat);
         fd.append('dropoffLon', dropoff.lon);
       }
+      if (pickup?.city) {
+        fd.append('city', pickup.city);
+      }
       fd.append('cargoType', description);
       fd.append('dimensions', `${length}x${width}x${height}`);
       fd.append('weight', weight || '0');
@@ -186,7 +189,7 @@ export default function CreateOrderScreen({ navigation }) {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           text
-        )}&format=json&limit=5&countrycodes=ua`,
+        )}&format=json&limit=5&countrycodes=ua&addressdetails=1`,
         { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
@@ -240,10 +243,13 @@ export default function CreateOrderScreen({ navigation }) {
                   key={item.place_id}
                   style={styles.suggestionItem}
                   onPress={() => {
+                    const addr = item.address || {};
                     setPickup({
                       text: item.display_name,
                       lat: item.lat,
                       lon: item.lon,
+                      city: addr.city || addr.town || addr.village || addr.state || '',
+                      address: [addr.road, addr.house_number].filter(Boolean).join(' '),
                     });
                     setPickupQuery(item.display_name);
                     setPickupSuggestions([]);
@@ -300,10 +306,13 @@ export default function CreateOrderScreen({ navigation }) {
                   key={item.place_id}
                   style={styles.suggestionItem}
                   onPress={() => {
+                    const addr = item.address || {};
                     setDropoff({
                       text: item.display_name,
                       lat: item.lat,
                       lon: item.lon,
+                      city: addr.city || addr.town || addr.village || addr.state || '',
+                      address: [addr.road, addr.house_number].filter(Boolean).join(' '),
                     });
                     setDropoffQuery(item.display_name);
                     setPickupSuggestions([]);
