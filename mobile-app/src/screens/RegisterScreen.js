@@ -15,6 +15,7 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [city, setCity] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function RegisterScreen({ navigation }) {
       setEmail('');
       setPassword('');
       setCity('');
+      setPhone('');
       setError(null);
     });
     return unsubscribe;
@@ -37,7 +39,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password, city }),
+        body: JSON.stringify({ name, email, password, city, phone }),
       });
       toast.show('Реєстрація успішна');
       navigation.goBack();
@@ -66,6 +68,8 @@ export default function RegisterScreen({ navigation }) {
         onChangeText={setPassword}
         placeholder="********"
       />
+      <AppText style={styles.label}>Телефон</AppText>
+      <AppInput value={phone} onChangeText={setPhone} placeholder="380..." keyboardType="phone-pad" />
       <AppText style={styles.label}>Місто</AppText>
       <AppInput value={city} onChangeText={setCity} placeholder="Київ" />
       {error && <AppText style={styles.error}>{error}</AppText>}

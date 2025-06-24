@@ -1,7 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView, SafeAreaView, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  SafeAreaView,
+  Modal,
+  Linking,
+} from 'react-native';
+import AppButton from '../components/AppButton';
 import { Ionicons } from '@expo/vector-icons';
-import { apiFetch, API_URL, HOST_URL } from '../api';
+import { apiFetch, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 
@@ -9,6 +22,36 @@ export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const [previewIndex, setPreviewIndex] = useState(null);
   const { token, role } = useAuth();
+  const [phone, setPhone] = useState(null);
+  const [reserved, setReserved] = useState(false);
+  const [reservedUntil, setReservedUntil] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  useEffect(() => {
+    if (order.reservedBy && order.reservedUntil) {
+      const until = new Date(order.reservedUntil);
+      if (until > new Date()) setReserved(true);
+      setReservedUntil(until);
+    }
+  }, [order]);
+
+  useEffect(() => {
+    let interval;
+    if (reserved && reservedUntil) {
+      const update = () => {
+        const diff = reservedUntil - new Date();
+        if (diff <= 0) {
+          clearInterval(interval);
+          cancelReserve();
+        } else {
+          setTimeLeft(diff);
+        }
+      };
+      update();
+      interval = setInterval(update, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [reserved, reservedUntil]);
 
 
   async function accept() {
@@ -29,6 +72,36 @@ export default function OrderDetailScreen({ route, navigation }) {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function reserve() {
+    try {
+      const data = await apiFetch(`/orders/${order.id}/reserve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setReserved(true);
+      setPhone(data.phone);
+      if (data.order && data.order.reservedUntil)
+        setReservedUntil(new Date(data.order.reservedUntil));
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function cancelReserve() {
+    try {
+      await apiFetch(`/orders/${order.id}/cancel-reserve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setReserved(false);
+      setPhone(null);
+      setReservedUntil(null);
+      setTimeLeft(null);
     } catch (err) {
       console.log(err);
     }
@@ -119,7 +192,27 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       {role === 'DRIVER' && !order.driverId && (
-        <Button title="Прийняти" onPress={accept} />
+        <View style={styles.bottomButtons}>
+          {!reserved && <AppButton title="Резерв 10 хв" onPress={reserve} />}
+          {reserved && (
+            <View style={styles.reserveContainer}>
+              <View style={styles.reserveRow}>
+                <AppButton title="Відмінити резерв" onPress={cancelReserve} style={{ flex: 1 }} />
+                {phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.callBtn}>
+                    <Ionicons name="call" size={32} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {timeLeft !== null && (
+                <Text style={styles.timer}>
+                  {Math.floor(timeLeft / 60000)}:{String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+                </Text>
+              )}
+            </View>
+          )}
+          <AppButton title="Взяти" color={colors.orange} onPress={accept} />
+        </View>
       )}
       {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
     </SafeAreaView>
@@ -137,6 +230,16 @@ const styles = StyleSheet.create({
   photo: { width: 120, height: 120, marginRight: 8 },
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
-  close: { position: 'absolute', top: 40, right: 20, zIndex: 1 }
+  close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
+  callBtn: { padding: 8 },
+  bottomButtons: { marginTop: 'auto' },
+  reserveContainer: { marginBottom: 8 },
+  reserveRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
 });
 
