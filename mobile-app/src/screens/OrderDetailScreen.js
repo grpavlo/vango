@@ -19,10 +19,10 @@ import { apiFetch, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 
-function formatDateTime(dateStr) {
+function formatTime(dateStr) {
   const d = new Date(dateStr);
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function OrderDetailScreen({ route, navigation }) {
@@ -188,52 +188,64 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
+      <View style={styles.detailsCard}>
       <View style={styles.row}>
+        <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <Text style={styles.label}>Звідки:</Text>
         <Text style={styles.value}>{order.pickupLocation}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="flag-outline" size={20} color={colors.green} style={styles.rowIcon} />
         <Text style={styles.label}>Куди:</Text>
         <Text style={styles.value}>{order.dropoffLocation}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="cube-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Габарити:</Text>
         <Text style={styles.value}>{order.dimensions}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="fitness-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Вага:</Text>
         <Text style={styles.value}>{order.weight}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Завантаження:</Text>
         <Text style={styles.value}>
-          {formatDateTime(order.loadFrom)} - {formatDateTime(order.loadTo)}
+          {formatTime(order.loadFrom)} - {formatTime(order.loadTo)}
         </Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Вивантаження:</Text>
         <Text style={styles.value}>
-          {formatDateTime(order.unloadFrom)} - {formatDateTime(order.unloadTo)}
+          {formatTime(order.unloadFrom)} - {formatTime(order.unloadTo)}
         </Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name={order.payment === 'card' ? 'card-outline' : 'cash-outline'} size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Оплата:</Text>
         <Text style={styles.value}>{order.payment === 'card' ? 'Карта' : 'Готівка'}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="arrow-down-circle-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <Text style={styles.label}>Завантаження допомога:</Text>
         <Text style={styles.value}>{order.loadHelp ? 'так' : 'ні'}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="arrow-up-circle-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <Text style={styles.label}>Розвантаження допомога:</Text>
         <Text style={styles.value}>{order.unloadHelp ? 'так' : 'ні'}</Text>
       </View>
       <View style={styles.row}>
+        <Ionicons name="pricetag-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Ціна:</Text>
         <Text style={styles.value}>{Math.round(order.price)} грн</Text>
       </View>
       {order.cargoType && (
         <View style={styles.row}>
+          <Ionicons name="reader-outline" size={20} color="#555" style={styles.rowIcon} />
           <Text style={styles.label}>Опис:</Text>
           <Text style={styles.value}>{order.cargoType}</Text>
         </View>
@@ -261,6 +273,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         </Modal>
       )}
+      </View>
       {role === 'DRIVER' && !order.driverId && (
         <View style={styles.bottomButtons}>
           {!reserved && <AppButton title="Резерв 10 хв" onPress={reserve} />}
@@ -298,6 +311,18 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', marginBottom: 8, alignItems: 'center' },
   label: { fontWeight: 'bold', marginRight: 8, fontSize: 16 },
   value: { fontSize: 16, flexShrink: 1 },
+  rowIcon: { marginRight: 6 },
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
   photo: { width: 120, height: 120, marginRight: 8 },
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
