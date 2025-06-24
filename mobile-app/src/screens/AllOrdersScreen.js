@@ -246,12 +246,12 @@ function formatDate(d) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   filters: {
-    padding: 8,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    padding: 16,
   },
-  input: { margin: 4, flexBasis: '48%' },
+  input: {
+    marginVertical: 4,
+    width: '100%',
+  },
   toggle: { marginHorizontal: 12 },
   radiusRow: {
     flexDirection: 'row',
