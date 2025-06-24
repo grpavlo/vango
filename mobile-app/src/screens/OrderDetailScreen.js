@@ -30,6 +30,7 @@ function formatDate(dateStr) {
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -301,12 +302,6 @@ export default function OrderDetailScreen({ route, navigation }) {
                   </TouchableOpacity>
                 )}
               </View>
-              {timeLeft !== null && (
-                <Text style={styles.timer}>
-                  {String(Math.floor(timeLeft / 60000)).padStart(2, '0')}:
-                  {String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
-                </Text>
-              )}
             </View>
           )}
           <AppButton title="Взяти" color={colors.orange} onPress={accept} />
@@ -354,7 +349,7 @@ const styles = StyleSheet.create({
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
   fixedTimer: {
     position: 'absolute',
-    top: 8,
+    top: 40,
     right: 16,
     backgroundColor: '#fff',
     paddingHorizontal: 8,
