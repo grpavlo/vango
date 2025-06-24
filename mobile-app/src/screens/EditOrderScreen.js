@@ -218,7 +218,11 @@ export default function EditOrderScreen({ route, navigation }) {
 
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+      <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
+        <Ionicons name="arrow-back" size={32} color="#333" />
+      </TouchableOpacity>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <AppText style={styles.label}>Звідки</AppText>
       <View style={{ position: 'relative', zIndex: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -448,6 +452,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
       <AppButton title="Зберегти" onPress={confirmSave} />
     </ScrollView>
+    </View>
   );
 }
 
@@ -475,5 +480,6 @@ const styles = StyleSheet.create({
     zIndex: 100,
     elevation: 5,
   },
+  back: { position: 'absolute', top: 40, left: 20, backgroundColor: '#fff', borderRadius: 20, padding: 6, zIndex: 100 },
   mapBtn: { marginLeft: 8 },
 });
