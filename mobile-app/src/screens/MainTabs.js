@@ -30,12 +30,12 @@ export default function MainTabs() {
       {role === 'CUSTOMER' ? (
         <>
           <Tab.Screen name="Create" component={CreateOrderScreen} options={{ title: 'Створити' }} />
-          <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої грузи' }} />
+          <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої замовлення' }} />
         </>
       ) : (
         <>
           <Tab.Screen name="All" component={AllOrdersScreen} options={{ title: 'Всі' }} />
-          <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої грузи' }} />
+          <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої замовлення' }} />
         </>
       )}
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Налаштування' }} />
