@@ -49,7 +49,15 @@ export default function MapSelectScreen({ navigation, route }) {
         const shortAddress = [addr.road, addr.house_number]
           .filter(Boolean)
           .join(' ');
-        onSelect({ lat: marker.latitude, lon: marker.longitude, text, city, address: shortAddress });
+        onSelect({
+          lat: marker.latitude,
+          lon: marker.longitude,
+          text,
+          city,
+          address: shortAddress,
+          country: addr.country || '',
+          postcode: addr.postcode || '',
+        });
       } catch {
         onSelect({ lat: marker.latitude, lon: marker.longitude });
       }

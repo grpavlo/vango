@@ -89,11 +89,19 @@ export default function CreateOrderScreen({ navigation }) {
         fd.append('pickupLocation', pickup.text);
         fd.append('pickupLat', pickup.lat);
         fd.append('pickupLon', pickup.lon);
+        if (pickup.city) fd.append('pickupCity', pickup.city);
+        if (pickup.address) fd.append('pickupAddress', pickup.address);
+        if (pickup.country) fd.append('pickupCountry', pickup.country);
+        if (pickup.postcode) fd.append('pickupPostcode', pickup.postcode);
       }
       if (dropoff) {
         fd.append('dropoffLocation', dropoff.text);
         fd.append('dropoffLat', dropoff.lat);
         fd.append('dropoffLon', dropoff.lon);
+        if (dropoff.city) fd.append('dropoffCity', dropoff.city);
+        if (dropoff.address) fd.append('dropoffAddress', dropoff.address);
+        if (dropoff.country) fd.append('dropoffCountry', dropoff.country);
+        if (dropoff.postcode) fd.append('dropoffPostcode', dropoff.postcode);
       }
       if (pickup?.city) {
         fd.append('city', pickup.city);
@@ -250,6 +258,8 @@ export default function CreateOrderScreen({ navigation }) {
                       lon: item.lon,
                       city: addr.city || addr.town || addr.village || addr.state || '',
                       address: [addr.road, addr.house_number].filter(Boolean).join(' '),
+                      country: addr.country || '',
+                      postcode: addr.postcode || '',
                     });
                     setPickupQuery(item.display_name);
                     setPickupSuggestions([]);
@@ -313,6 +323,8 @@ export default function CreateOrderScreen({ navigation }) {
                       lon: item.lon,
                       city: addr.city || addr.town || addr.village || addr.state || '',
                       address: [addr.road, addr.house_number].filter(Boolean).join(' '),
+                      country: addr.country || '',
+                      postcode: addr.postcode || '',
                     });
                     setDropoffQuery(item.display_name);
                     setPickupSuggestions([]);

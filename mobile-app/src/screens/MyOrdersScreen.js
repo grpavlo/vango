@@ -23,11 +23,9 @@ export default function MyOrdersScreen({ navigation }) {
   }, []);
 
   function renderItem({ item }) {
-    const pickupParts = (item.pickupLocation || '').split(',');
-    const dropoffParts = (item.dropoffLocation || '').split(',');
-    const pickupCity = pickupParts.length > 1 ? pickupParts[1].trim() : pickupParts[0];
-    const dropoffCity = dropoffParts.length > 1 ? dropoffParts[1].trim() : dropoffParts[0];
-    const dropoffAddress = dropoffParts[0] ? dropoffParts[0].trim() : '';
+    const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
+    const dropoffCity = item.dropoffCity || ((item.dropoffLocation || '').split(',')[1] || '').trim();
+    const dropoffAddress = item.dropoffAddress || ((item.dropoffLocation || '').split(',')[0] || '').trim();
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={styles.item}>
