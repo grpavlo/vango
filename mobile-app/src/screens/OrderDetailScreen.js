@@ -12,6 +12,7 @@ import {
   Modal,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppButton from '../components/AppButton';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, HOST_URL } from '../api';
@@ -35,6 +36,21 @@ export default function OrderDetailScreen({ route, navigation }) {
       setReservedUntil(until);
     }
   }, [order]);
+
+  useEffect(() => {
+    async function loadPhone() {
+      if (reserved && !phone) {
+        try {
+          const stored = await AsyncStorage.getItem('reservedPhones');
+          if (stored) {
+            const map = JSON.parse(stored);
+            if (map[order.id]) setPhone(map[order.id]);
+          }
+        } catch {}
+      }
+    }
+    loadPhone();
+  }, [reserved, phone, order.id]);
 
   useEffect(() => {
     let interval;
@@ -86,6 +102,14 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       setReserved(true);
       setPhone(data.phone);
+      try {
+        const stored = await AsyncStorage.getItem('reservedPhones');
+        const map = stored ? JSON.parse(stored) : {};
+        if (data.phone) {
+          map[order.id] = data.phone;
+          await AsyncStorage.setItem('reservedPhones', JSON.stringify(map));
+        }
+      } catch {}
       if (data.order && data.order.reservedUntil)
         setReservedUntil(new Date(data.order.reservedUntil));
     } catch (err) {
@@ -103,6 +127,15 @@ export default function OrderDetailScreen({ route, navigation }) {
       setPhone(null);
       setReservedUntil(null);
       setTimeLeft(null);
+      try {
+        const stored = await AsyncStorage.getItem('reservedPhones');
+        const map = stored ? JSON.parse(stored) : {};
+        if (map[order.id]) {
+          delete map[order.id];
+          await AsyncStorage.setItem('reservedPhones', JSON.stringify(map));
+        }
+      } catch {}
+      navigation.goBack();
     } catch (err) {
       console.log(err);
     }
@@ -207,7 +240,8 @@ export default function OrderDetailScreen({ route, navigation }) {
               </View>
               {timeLeft !== null && (
                 <Text style={styles.timer}>
-                  {Math.floor(timeLeft / 60000)}:{String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+                  {String(Math.floor(timeLeft / 60000)).padStart(2, '0')}:
+                  {String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
                 </Text>
               )}
             </View>

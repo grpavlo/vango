@@ -8,20 +8,23 @@ export default function MyOrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('active');
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const url = role ? `/orders/my?role=${role}` : '/orders/my';
-        const data = await apiFetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setOrders(data);
-      } catch (err) {
-        console.log(err);
-      }
+  async function load() {
+    try {
+      const url = role ? `/orders/my?role=${role}` : '/orders/my';
+      const data = await apiFetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrders(data);
+    } catch (err) {
+      console.log(err);
     }
+  }
+
+  useEffect(() => {
     load();
-  }, [role]);
+    const unsubscribe = navigation.addListener('focus', load);
+    return unsubscribe;
+  }, [role, navigation]);
 
   function renderItem({ item }) {
     const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
