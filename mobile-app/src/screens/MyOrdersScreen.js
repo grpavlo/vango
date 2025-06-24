@@ -42,8 +42,13 @@ export default function MyOrdersScreen({ navigation }) {
   }
 
   const filtered = orders.filter((o) => {
-    if (filter === 'active') return ['ACCEPTED', 'IN_PROGRESS'].includes(o.status);
-    if (filter === 'posted') return o.status === 'CREATED';
+    if (filter === 'active') {
+      return (
+        ['ACCEPTED', 'IN_PROGRESS'].includes(o.status) ||
+        (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date())
+      );
+    }
+    if (filter === 'posted') return o.status === 'CREATED' && !o.reservedBy;
     return ['DELIVERED', 'COMPLETED'].includes(o.status) || o.status === 'CANCELLED';
   });
 

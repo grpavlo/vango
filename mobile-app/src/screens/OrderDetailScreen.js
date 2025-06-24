@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Alert, TouchableOpacity, Image, ScrollView, SafeAreaView, Modal, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  Image,
+  ScrollView,
+  SafeAreaView,
+  Modal,
+  Linking,
+} from 'react-native';
 import AppButton from '../components/AppButton';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, HOST_URL } from '../api';
@@ -12,13 +24,35 @@ export default function OrderDetailScreen({ route, navigation }) {
   const { token, role } = useAuth();
   const [phone, setPhone] = useState(null);
   const [reserved, setReserved] = useState(false);
+  const [reservedUntil, setReservedUntil] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+
 
   useEffect(() => {
     if (order.reservedBy && order.reservedUntil) {
       const until = new Date(order.reservedUntil);
       if (until > new Date()) setReserved(true);
+      setReservedUntil(until);
     }
   }, [order]);
+
+  useEffect(() => {
+    let interval;
+    if (reserved && reservedUntil) {
+      const update = () => {
+        const diff = reservedUntil - new Date();
+        if (diff <= 0) {
+          clearInterval(interval);
+          cancelReserve();
+        } else {
+          setTimeLeft(diff);
+        }
+      };
+      update();
+      interval = setInterval(update, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [reserved, reservedUntil]);
 
 
   async function accept() {
@@ -52,6 +86,8 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       setReserved(true);
       setPhone(data.phone);
+      if (data.order && data.order.reservedUntil)
+        setReservedUntil(new Date(data.order.reservedUntil));
     } catch (err) {
       console.log(err);
     }
@@ -65,6 +101,8 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       setReserved(false);
       setPhone(null);
+      setReservedUntil(null);
+      setTimeLeft(null);
     } catch (err) {
       console.log(err);
     }
@@ -155,16 +193,23 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       {role === 'DRIVER' && !order.driverId && (
-        <View style={{ marginTop: 8 }}>
+        <View style={styles.bottomButtons}>
           {!reserved && <AppButton title="Резерв 10 хв" onPress={reserve} />}
           {reserved && (
-            <View style={{ alignItems: 'center' }}>
-              {phone && (
-                <TouchableOpacity onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.callBtn}>
-                  <Ionicons name="call" size={32} color={colors.green} />
-                </TouchableOpacity>
+            <View style={styles.reserveContainer}>
+              <View style={styles.reserveRow}>
+                <AppButton title="Відмінити резерв" onPress={cancelReserve} style={{ flex: 1 }} />
+                {phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.callBtn}>
+                    <Ionicons name="call" size={32} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {timeLeft !== null && (
+                <Text style={styles.timer}>
+                  {Math.floor(timeLeft / 60000)}:{String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+                </Text>
               )}
-              <AppButton title="Відмінити резерв" onPress={cancelReserve} />
             </View>
           )}
           <AppButton title="Взяти" color={colors.orange} onPress={accept} />
@@ -187,6 +232,15 @@ const styles = StyleSheet.create({
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
   close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
-  callBtn: { padding: 8 }
+  callBtn: { padding: 8 },
+  bottomButtons: { marginTop: 'auto' },
+  reserveContainer: { marginBottom: 8 },
+  reserveRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
 });
 
