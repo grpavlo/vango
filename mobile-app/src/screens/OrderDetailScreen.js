@@ -52,6 +52,22 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
 
+  useEffect(() => {
+    async function fetchOrder() {
+      try {
+        const data = await apiFetch(`/orders/${initialOrder.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setOrder(data);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+    fetchOrder();
+    const sub = navigation.addListener('focus', fetchOrder);
+    return sub;
+  }, [initialOrder.id, navigation, token]);
+
 
   useEffect(() => {
     if (order.reservedBy && order.reservedUntil) {

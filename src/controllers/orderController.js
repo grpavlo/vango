@@ -186,6 +186,26 @@ async function listMyOrders(req, res) {
   res.json(orders);
 }
 
+async function getOrder(req, res) {
+  const id = req.params.id;
+  try {
+    const order = await Order.findByPk(id, {
+      include: [
+        { model: require('../models/user'), as: 'driver' },
+        { model: require('../models/user'), as: 'candidateDriver' },
+        { model: require('../models/user'), as: 'reservedDriver' },
+        { model: require('../models/user'), as: 'customer' },
+      ],
+    });
+    if (!order) {
+      return res.status(404).send('Замовлення не знайдено');
+    }
+    res.json(order);
+  } catch (err) {
+    res.status(400).send('Не вдалося отримати замовлення');
+  }
+}
+
 async function reserveOrder(req, res) {
   const orderId = req.params.id;
   try {
@@ -458,6 +478,7 @@ module.exports = {
   rejectDriver,
   updateStatus,
   listMyOrders,
+  getOrder,
   updateOrder,
   deleteOrder,
 };
