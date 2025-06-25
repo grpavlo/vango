@@ -8,6 +8,10 @@ export default function PhotoPicker({ photos, onChange }) {
   const [previewIndex, setPreviewIndex] = useState(null);
 
   async function pickFromLibrary() {
+    if (photos && photos.length >= 10) {
+      Alert.alert('Ліміт фото', 'Максимум 10 фотографій');
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
       Alert.alert('Доступ до фото', 'Надайте доступ до галереї');
@@ -21,6 +25,10 @@ export default function PhotoPicker({ photos, onChange }) {
   }
 
   async function takePhoto() {
+    if (photos && photos.length >= 10) {
+      Alert.alert('Ліміт фото', 'Максимум 10 фотографій');
+      return;
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (perm.status !== 'granted') {
       Alert.alert('Доступ до камери', 'Надайте доступ до камери');
