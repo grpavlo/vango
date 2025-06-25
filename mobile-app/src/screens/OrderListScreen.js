@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
@@ -40,18 +40,18 @@ export default function OrderListScreen({ navigation }) {
 
   if (loading && orders.length === 0) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         {Array.from({ length: 5 }).map((_, i) => (
           <OrderCardSkeleton key={i} />
         ))}
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <FlatList data={orders} renderItem={renderItem} keyExtractor={o => o.id.toString()} />
-    </View>
+    </SafeAreaView>
   );
 }
 

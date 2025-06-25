@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Image, Modal, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, TouchableOpacity, Image, Modal, StyleSheet, ScrollView } from 'react-native';
+import { useToast } from './Toast';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import AppButton from './AppButton';
 
 export default function PhotoPicker({ photos, onChange }) {
   const [previewIndex, setPreviewIndex] = useState(null);
+  const toast = useToast();
 
   async function pickFromLibrary() {
+    if (photos && photos.length >= 10) {
+      toast.show('Максимум 10 фотографій');
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Доступ до фото', 'Надайте доступ до галереї');
+      toast.show('Надайте доступ до галереї');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -21,9 +27,13 @@ export default function PhotoPicker({ photos, onChange }) {
   }
 
   async function takePhoto() {
+    if (photos && photos.length >= 10) {
+      toast.show('Максимум 10 фотографій');
+      return;
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (perm.status !== 'granted') {
-      Alert.alert('Доступ до камери', 'Надайте доступ до камери');
+      toast.show('Надайте доступ до камери');
       return;
     }
     const res = await ImagePicker.launchCameraAsync({

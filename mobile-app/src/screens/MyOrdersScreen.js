@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView } from 'react-native';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
@@ -63,16 +63,16 @@ export default function MyOrdersScreen({ navigation }) {
 
   if (loading && orders.length === 0) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         {[...Array(5)].map((_, i) => (
           <OrderCardSkeleton key={i} />
         ))}
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.filters}>
         <Pressable style={[styles.filterBtn, filter === 'active' && styles.activeFilter]} onPress={() => setFilter('active')}>
           <Text style={filter === 'active' ? styles.activeFilterText : null}>В роботі</Text>
@@ -85,7 +85,7 @@ export default function MyOrdersScreen({ navigation }) {
         </Pressable>
       </View>
       <FlatList data={filtered} renderItem={renderItem} keyExtractor={(o) => o.id.toString()} />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -21,9 +21,11 @@ import CheckBox from '../components/CheckBox';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, API_URL, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
+import { useToast } from '../components/Toast';
 
 export default function EditOrderScreen({ route, navigation }) {
   const { token } = useAuth();
+  const toast = useToast();
   const { order } = route.params;
 
   const [pickupQuery, setPickupQuery] = useState(order.pickupLocation || '');
@@ -158,12 +160,13 @@ export default function EditOrderScreen({ route, navigation }) {
             fd.append('photos', { uri: p, name: filename, type });
           });
       }
-      const updated = await apiFetch(`/orders/${order.id}`, {
+      await apiFetch(`/orders/${order.id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
-      navigation.replace('OrderDetail', { order: updated });
+      toast.show('Змінено');
+      navigation.pop(2);
     } catch (err) {
       console.log(err);
     }
@@ -171,27 +174,31 @@ export default function EditOrderScreen({ route, navigation }) {
 
   async function confirmSave() {
     if (!pickup || !dropoff) {
-      Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
+      toast.show('Вкажіть адреси завантаження та розвантаження');
+      return;
+    }
+    if (!description.trim()) {
+      toast.show('Вкажіть опис вантажу');
       return;
     }
     if (systemPrice === null) {
-      Alert.alert('Помилка', 'Не вдалося розрахувати ціну');
+      toast.show('Не вдалося розрахувати ціну');
       return;
     }
     if (loadFrom < new Date()) {
-      Alert.alert('Помилка', 'Дата завантаження не може бути в минулому');
+      toast.show('Дата завантаження не може бути в минулому');
       return;
     }
     if (loadTo <= loadFrom) {
-      Alert.alert('Помилка', 'Кінцева дата завантаження повинна бути пізніше початкової');
+      toast.show('Кінцева дата завантаження повинна бути пізніше початкової');
       return;
     }
     if (unloadFrom <= loadTo) {
-      Alert.alert('Помилка', 'Дата початку розвантаження повинна бути після закінчення завантаження');
+      toast.show('Дата початку розвантаження повинна бути після закінчення завантаження');
       return;
     }
     if (unloadTo <= unloadFrom) {
-      Alert.alert('Помилка', 'Кінцева дата розвантаження повинна бути пізніше початкової');
+      toast.show('Кінцева дата розвантаження повинна бути пізніше початкової');
       return;
     }
     Alert.alert('Підтвердження', 'Зберегти зміни?', [
