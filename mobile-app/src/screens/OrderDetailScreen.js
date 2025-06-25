@@ -268,18 +268,28 @@ export default function OrderDetailScreen({ route, navigation }) {
       )}
       {order.history && order.history.length > 0 && (
         <View style={styles.historyCard}>
-          {order.history.map((h, i) => (
-            <View key={i} style={styles.historyRow}>
-              <View style={styles.timeline}>
-                <View style={styles.historyDot} />
-                {i < order.history.length - 1 && <View style={styles.historyLine} />}
+          {order.history.map((h, i) => {
+            const isFirst = i === 0;
+            const isLast = i === order.history.length - 1;
+            const dotColor = isFirst
+              ? colors.orange
+              : isLast
+              ? colors.green
+              : '#ccc';
+            const lineColor = isLast ? colors.green : '#ccc';
+            return (
+              <View key={i} style={styles.historyRow}>
+                <View style={styles.timeline}>
+                  <View style={[styles.historyDot, { backgroundColor: dotColor }]} />
+                  {!isLast && <View style={[styles.historyLine, { backgroundColor: lineColor }]} />}
+                </View>
+                <View style={styles.historyContent}>
+                  <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
+                  <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
+                </View>
               </View>
-              <View style={styles.historyContent}>
-                <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
-                <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
       <View style={styles.detailsCard}>
@@ -466,8 +476,8 @@ const styles = StyleSheet.create({
   },
   historyRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
   timeline: { width: 16, alignItems: 'center' },
-  historyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
-  historyLine: { flex: 1, width: 2, backgroundColor: colors.green, marginTop: 2 },
+  historyDot: { width: 8, height: 8, borderRadius: 4 },
+  historyLine: { flex: 1, width: 2, marginTop: 2 },
   historyContent: { flex: 1 },
   historyLabel: { fontWeight: 'bold' },
   historyTime: { color: '#555', fontSize: 12 },
