@@ -209,7 +209,7 @@ export default function AllOrdersScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <AppButton title="Фільтр" onPress={() => setFiltersVisible(true)} style={styles.toggle} />
       <Modal visible={filtersVisible} animationType="slide" onRequestClose={() => setFiltersVisible(false)}>
         <SafeAreaView style={styles.modalContainer}>
@@ -283,7 +283,7 @@ export default function AllOrdersScreen({ navigation }) {
         onRefresh={refresh}
         refreshing={refreshing}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
