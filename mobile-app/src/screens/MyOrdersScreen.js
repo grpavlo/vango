@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/Colors';
 import AppButton from '../components/AppButton';
-import { apiFetch } from '../api';
+import { apiFetch, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
-import Skeleton from '../components/Skeleton';
 
 export default function MyOrdersScreen({ navigation }) {
   const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const wsRef = useRef(null);
   const [filter, setFilter] = useState('active');
 
   async function load() {
@@ -23,10 +24,16 @@ export default function MyOrdersScreen({ navigation }) {
       });
       setOrders(data);
       setLoading(false);
-    } catch (err) {
-      console.log(err);
-      setLoading(false);
-    }
+      } catch (err) {
+        console.log(err);
+        setLoading(false);
+      }
+  }
+
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   }
 
   useEffect(() => {
@@ -35,6 +42,24 @@ export default function MyOrdersScreen({ navigation }) {
     return unsubscribe;
   }, [role, navigation]);
 
+  useEffect(() => {
+    connectWs();
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, [token]);
+
+  function connectWs() {
+    if (!token) return;
+    if (wsRef.current) wsRef.current.close();
+    const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream`;
+    const ws = new WebSocket(url, null, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    wsRef.current = ws;
+    ws.onmessage = () => load();
+    ws.onerror = (e) => console.log('ws error', e.message);
+  }
   async function cancelReserve(id) {
     try {
       await apiFetch(`/orders/${id}/cancel-reserve`, {
@@ -81,16 +106,15 @@ export default function MyOrdersScreen({ navigation }) {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={[styles.item, reserved && styles.reservedItem]}>
-          {reserved && item.reservedDriver && (
+          {reserved && item.customer && (
             <View style={styles.driverBlock}>
               <View style={styles.driverRow}>
                 <Ionicons name="person-circle" size={36} color={colors.green} />
                 <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text>{item.reservedDriver.name}</Text>
-                  <Text>⭐ {item.reservedDriver.rating?.toFixed(1)}</Text>
+                  <Text>{item.customer.name}</Text>
                 </View>
-                {item.reservedDriver.phone && (
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.reservedDriver.phone}`)}>
+                {item.customer.phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.customer.phone}`)}>
                     <Ionicons name="call" size={28} color={colors.green} />
                   </TouchableOpacity>
                 )}
@@ -105,7 +129,7 @@ export default function MyOrdersScreen({ navigation }) {
                   style={{ marginTop: 4 }}
                 />
               )}
-              {pending && item.candidateDriver && (
+              {role === 'CUSTOMER' && pending && item.candidateDriver && (
                 <View style={styles.pendingRow}>
                   <AppButton
                     title="Підтвердити"
@@ -134,13 +158,21 @@ export default function MyOrdersScreen({ navigation }) {
   }
 
   const filtered = orders.filter((o) => {
+    const reservedActive = o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
     if (filter === 'active') {
+      if (role === 'DRIVER') {
+        return ['ACCEPTED', 'IN_PROGRESS'].includes(o.status);
+      }
       return (
-        ['ACCEPTED', 'IN_PROGRESS', 'PENDING'].includes(o.status) ||
-        (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date())
+        ['ACCEPTED', 'IN_PROGRESS', 'PENDING'].includes(o.status) || reservedActive
       );
     }
-    if (filter === 'posted') return o.status === 'CREATED' && !o.reservedBy;
+    if (filter === 'posted') {
+      if (role === 'DRIVER') {
+        return reservedActive || o.status === 'PENDING';
+      }
+      return o.status === 'CREATED' && !o.reservedBy;
+    }
     return ['DELIVERED', 'COMPLETED'].includes(o.status) || o.status === 'CANCELLED';
   });
 
@@ -161,13 +193,21 @@ export default function MyOrdersScreen({ navigation }) {
           <Text style={filter === 'active' ? styles.activeFilterText : null}>В роботі</Text>
         </Pressable>
         <Pressable style={[styles.filterBtn, filter === 'posted' && styles.activeFilter]} onPress={() => setFilter('posted')}>
-          <Text style={filter === 'posted' ? styles.activeFilterText : null}>Мої</Text>
+          <Text style={filter === 'posted' ? styles.activeFilterText : null}>
+            {role === 'DRIVER' ? 'На підтвердженні' : 'Мої'}
+          </Text>
         </Pressable>
         <Pressable style={[styles.filterBtn, filter === 'history' && styles.activeFilter]} onPress={() => setFilter('history')}>
           <Text style={filter === 'history' ? styles.activeFilterText : null}>Історія</Text>
         </Pressable>
       </View>
-      <FlatList data={filtered} renderItem={renderItem} keyExtractor={(o) => o.id.toString()} />
+      <FlatList
+        data={filtered}
+        renderItem={renderItem}
+        keyExtractor={(o) => o.id.toString()}
+        onRefresh={refresh}
+        refreshing={refreshing}
+      />
     </SafeAreaView>
   );
 }

@@ -178,6 +178,7 @@ async function listMyOrders(req, res) {
       { model: require('../models/user'), as: 'driver' },
       { model: require('../models/user'), as: 'candidateDriver' },
       { model: require('../models/user'), as: 'reservedDriver' },
+      { model: require('../models/user'), as: 'customer' },
     ],
   });
   res.json(orders);
@@ -224,8 +225,11 @@ async function cancelReserve(req, res) {
     order.candidateUntil = null;
     order.status = 'CREATED';
     await order.save();
-    broadcastOrder(order);
-    res.json(order);
+    const updated = await Order.findByPk(orderId, {
+      include: { model: require('../models/user'), as: 'customer' },
+    });
+    broadcastOrder(updated);
+    res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося зняти резерв');
   }
@@ -247,8 +251,11 @@ async function acceptOrder(req, res) {
     order.reservedUntil = order.candidateUntil;
     order.status = 'PENDING';
     await order.save();
-    broadcastOrder(order);
-    res.json(order);
+    const updated = await Order.findByPk(orderId, {
+      include: { model: require('../models/user'), as: 'customer' },
+    });
+    broadcastOrder(updated);
+    res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося прийняти замовлення');
 
@@ -269,10 +276,13 @@ async function confirmDriver(req, res) {
     order.reservedUntil = null;
     order.status = 'ACCEPTED';
     await order.save();
-    broadcastOrder(order);
+    const updated = await Order.findByPk(orderId, {
+      include: { model: require('../models/user'), as: 'customer' },
+    });
+    broadcastOrder(updated);
     const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
     await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
-    res.json(order);
+    res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося підтвердити водія');
   }
@@ -291,8 +301,11 @@ async function rejectDriver(req, res) {
     order.reservedUntil = null;
     order.status = 'CREATED';
     await order.save();
-    broadcastOrder(order);
-    res.json(order);
+    const updated = await Order.findByPk(orderId, {
+      include: { model: require('../models/user'), as: 'customer' },
+    });
+    broadcastOrder(updated);
+    res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося відхилити водія');
   }

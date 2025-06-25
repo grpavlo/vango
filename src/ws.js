@@ -77,7 +77,10 @@ function setupWebSocket(server) {
     const filterWhere = buildWhere(query, req.user.id);
     const updateWhere = buildWhere(query, req.user.id, true);
 
-    const orders = await Order.findAll({ where: filterWhere });
+    const orders = await Order.findAll({
+      where: filterWhere,
+      include: [{ model: User, as: 'customer' }],
+    });
     for (const o of orders) {
       ws.send(JSON.stringify(o));
     }
@@ -89,6 +92,7 @@ function setupWebSocket(server) {
           ...updateWhere,
           updatedAt: { [Op.gt]: lastCheck },
         },
+        include: [{ model: User, as: 'customer' }],
       });
       lastCheck = new Date();
       updated.forEach((o) => ws.send(JSON.stringify(o)));
