@@ -9,7 +9,12 @@ const { Op } = require('sequelize');
 let wssInstance;
 
 function buildWhere(query, userId, ignoreReserve = false) {
-  const where = { status: 'CREATED' };
+  const where = {
+    [Op.or]: [
+      { status: 'CREATED' },
+      { status: 'PENDING', candidateDriverId: userId },
+    ],
+  };
   const city = query.pickupCity || query.city;
   if (city) where.pickupCity = city;
   if (query.dropoffCity) where.dropoffCity = query.dropoffCity;
@@ -27,10 +32,14 @@ function buildWhere(query, userId, ignoreReserve = false) {
   }
   if (!ignoreReserve) {
     const now = new Date();
-    where[Op.or] = [
-      { reservedBy: null },
-      { reservedUntil: { [Op.lt]: now } },
-      { reservedBy: userId },
+    where[Op.and] = [
+      {
+        [Op.or]: [
+          { reservedBy: null },
+          { reservedUntil: { [Op.lt]: now } },
+          { reservedBy: userId },
+        ],
+      },
     ];
   }
   return where;
@@ -68,7 +77,10 @@ function setupWebSocket(server) {
     const filterWhere = buildWhere(query, req.user.id);
     const updateWhere = buildWhere(query, req.user.id, true);
 
-    const orders = await Order.findAll({ where: filterWhere });
+    const orders = await Order.findAll({
+      where: filterWhere,
+      include: [{ model: User, as: 'customer' }],
+    });
     for (const o of orders) {
       ws.send(JSON.stringify(o));
     }
@@ -80,6 +92,7 @@ function setupWebSocket(server) {
           ...updateWhere,
           updatedAt: { [Op.gt]: lastCheck },
         },
+        include: [{ model: User, as: 'customer' }],
       });
       lastCheck = new Date();
       updated.forEach((o) => ws.send(JSON.stringify(o)));
