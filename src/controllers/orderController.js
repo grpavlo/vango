@@ -1,5 +1,6 @@
 const Order = require('../models/order');
 const Transaction = require('../models/transaction');
+const User = require('../models/user');
 const { SERVICE_FEE_PERCENT } = require('../config');
 const { broadcastOrder, broadcastDelete } = require('../ws');
 
@@ -77,6 +78,7 @@ async function createOrder(req, res) {
       systemPrice,
       price,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
+      statusHistory: [{ status: 'CREATED', time: new Date() }],
     });
     broadcastOrder(order);
     res.json(order);
@@ -322,15 +324,18 @@ async function updateStatus(req, res) {
       return;
     }
     order.status = status;
+    if (!Array.isArray(order.statusHistory)) order.statusHistory = [];
+    order.statusHistory.push({ status, time: new Date() });
     await order.save();
-    if (status === 'DELIVERED') {
+    broadcastOrder(order);
+    if (status === 'COMPLETED') {
       const tx = await Transaction.findOne({ where: { orderId: order.id } });
       if (tx && tx.status === 'PENDING') {
         tx.status = 'RELEASED';
         await tx.save();
         const amount = tx.amount - tx.serviceFee;
         if (order.driverId) {
-          const driver = req.user;
+          const driver = await User.findByPk(order.driverId);
           if (driver) {
             driver.balance += amount;
             await driver.save();

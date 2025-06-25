@@ -53,6 +53,7 @@ Order.init(
     candidateDriverId: { type: DataTypes.INTEGER.UNSIGNED },
     candidateUntil: { type: DataTypes.DATE },
     photos: { type: DataTypes.JSON },
+    statusHistory: { type: DataTypes.JSON, defaultValue: [] },
   },
   { sequelize: db, modelName: 'order' }
 );

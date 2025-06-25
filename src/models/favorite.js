@@ -18,6 +18,7 @@ User.belongsToMany(User, {
   as: 'favoriteDrivers',
   foreignKey: 'customerId',
   otherKey: 'driverId',
+  constraints: false,
 });
 
 module.exports = Favorite;

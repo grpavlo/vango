@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Button,
   StyleSheet,
   Alert,
   TouchableOpacity,
@@ -99,16 +98,6 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
-  async function addFavorite() {
-    try {
-      await apiFetch(`/favorites/${order.driverId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
   async function reserve() {
     try {
@@ -182,6 +171,46 @@ export default function OrderDetailScreen({ route, navigation }) {
     ]);
   }
 
+  function confirmAction(message) {
+    return new Promise((resolve) => {
+      Alert.alert('Підтвердження', message, [
+        { text: 'Скасувати', onPress: () => resolve(false) },
+        { text: 'OK', onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
+  async function updateStatus(status) {
+    try {
+      await apiFetch(`/orders/${order.id}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      navigation.goBack();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function markReceived() {
+    if (await confirmAction('Підтвердити отримання вантажу?')) {
+      updateStatus('IN_PROGRESS');
+    }
+  }
+
+  async function markDelivered() {
+    if (await confirmAction('Підтвердити доставку вантажу?')) {
+      updateStatus('DELIVERED');
+    }
+  }
+
+  async function confirmDelivery() {
+    if (await confirmAction('Підтвердити виконання замовлення?')) {
+      updateStatus('COMPLETED');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {reserved && timeLeft !== null && (
@@ -209,6 +238,24 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
+      {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
+        <View style={styles.driverBlock}>
+          <View style={styles.driverRow}>
+            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text>{(order.driver || order.reservedDriver || order.candidateDriver).name}</Text>
+              {(order.driver || order.reservedDriver || order.candidateDriver).rating && (
+                <Text>Рейтинг: {(order.driver || order.reservedDriver || order.candidateDriver).rating.toFixed(1)}</Text>
+              )}
+            </View>
+            {(order.driver || order.reservedDriver || order.candidateDriver).phone && (
+              <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order.driver || order.reservedDriver || order.candidateDriver).phone}`)}>
+                <Ionicons name="call" size={28} color={colors.green} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
       <View style={styles.detailsCard}>
       <View style={styles.row}>
         <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
@@ -295,23 +342,35 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       </View>
-      {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
-        <View style={styles.driverBlock}>
-          <View style={styles.driverRow}>
-            <Ionicons name="person-circle" size={36} color={colors.green} />
-            <View style={{ marginLeft: 8, flex: 1 }}>
-              <Text>{(order.driver || order.reservedDriver || order.candidateDriver).name}</Text>
-              {(order.driver || order.reservedDriver || order.candidateDriver).rating && (
-                <Text>Рейтинг: {(order.driver || order.reservedDriver || order.candidateDriver).rating.toFixed(1)}</Text>
-              )}
+      <View style={styles.statusCard}>
+        {[
+          { key: 'ACCEPTED', label: 'Підтвердження водія' },
+          { key: 'IN_PROGRESS', label: 'Водій отримав замовлення' },
+          { key: 'DELIVERED', label: 'Водій надіслав запит на підтвердження замовлення' },
+          { key: 'COMPLETED', label: 'Замовник підтвердив запит' },
+        ].map((s) => {
+          const entry = order.statusHistory?.find((h) => h.status === s.key);
+          return (
+            <View key={s.key} style={styles.statusRow}>
+              <Text style={styles.statusDot}>{entry ? '●' : '○'}</Text>
+              <View style={{ marginLeft: 8 }}>
+                <Text>{s.label}</Text>
+                {entry && (
+                  <Text style={styles.statusTime}>{new Date(entry.time).toLocaleString()}</Text>
+                )}
+              </View>
             </View>
-            {(order.driver || order.reservedDriver || order.candidateDriver).phone && (
-              <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order.driver || order.reservedDriver || order.candidateDriver).phone}`)}>
-                <Ionicons name="call" size={28} color={colors.green} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+          );
+        })}
+      </View>
+      {role === 'DRIVER' && order.status === 'ACCEPTED' && (
+        <AppButton title="Отримав вантаж" onPress={markReceived} />
+      )}
+      {role === 'DRIVER' && order.status === 'IN_PROGRESS' && (
+        <AppButton title="Доставив вантаж" onPress={markDelivered} />
+      )}
+      {role === 'CUSTOMER' && order.status === 'DELIVERED' && (
+        <AppButton title="Підтвердити доставку" onPress={confirmDelivery} />
       )}
       {role === 'DRIVER' && !order.driverId && (
         <View style={styles.bottomButtons}>
@@ -334,7 +393,6 @@ export default function OrderDetailScreen({ route, navigation }) {
           <AppButton title="Взяти" color={colors.orange} onPress={accept} />
         </View>
       )}
-      {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -373,7 +431,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  driverBlock: { marginBottom: 12 },
+  driverBlock: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
   driverRow: { flexDirection: 'row', alignItems: 'center' },
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
   fixedTimer: {
@@ -389,5 +457,19 @@ const styles = StyleSheet.create({
   },
   timerText: { fontSize: 16, color: colors.orange, fontWeight: 'bold' },
   nameText: { marginLeft: 4, fontSize: 16 },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  statusDot: { fontSize: 20, width: 20, textAlign: 'center' },
+  statusTime: { color: '#666', fontSize: 12 },
 });
 
