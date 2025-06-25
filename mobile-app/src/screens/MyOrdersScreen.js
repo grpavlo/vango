@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView, Linking } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/Colors';
 import AppButton from '../components/AppButton';
@@ -96,6 +96,46 @@ export default function MyOrdersScreen({ navigation }) {
     }
   }
 
+  function confirmAction(message) {
+    return new Promise((resolve) => {
+      Alert.alert('Підтвердження', message, [
+        { text: 'Скасувати', onPress: () => resolve(false) },
+        { text: 'OK', onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
+  async function updateStatus(id, status) {
+    try {
+      await apiFetch(`/orders/${id}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      load();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function markReceived(id) {
+    if (await confirmAction('Підтвердити отримання вантажу?')) {
+      updateStatus(id, 'IN_PROGRESS');
+    }
+  }
+
+  async function markDelivered(id) {
+    if (await confirmAction('Підтвердити доставку вантажу?')) {
+      updateStatus(id, 'DELIVERED');
+    }
+  }
+
+  async function confirmDelivery(id) {
+    if (await confirmAction('Підтвердити виконання замовлення?')) {
+      updateStatus(id, 'COMPLETED');
+    }
+  }
+
   function renderItem({ item }) {
     const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
     const dropoffCity = item.dropoffCity || ((item.dropoffLocation || '').split(',')[1] || '').trim();
@@ -179,6 +219,15 @@ export default function MyOrdersScreen({ navigation }) {
           <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
           <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
           <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
+          {role === 'DRIVER' && item.status === 'ACCEPTED' && (
+            <AppButton title="Отримав вантаж" onPress={() => markReceived(item.id)} />
+          )}
+          {role === 'DRIVER' && item.status === 'IN_PROGRESS' && (
+            <AppButton title="Доставив вантаж" onPress={() => markDelivered(item.id)} />
+          )}
+          {role === 'CUSTOMER' && item.status === 'DELIVERED' && (
+            <AppButton title="Підтвердити доставку" onPress={() => confirmDelivery(item.id)} />
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -188,10 +237,10 @@ export default function MyOrdersScreen({ navigation }) {
     const reservedActive = o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
     if (filter === 'active') {
       if (role === 'DRIVER') {
-        return ['ACCEPTED', 'IN_PROGRESS'].includes(o.status);
+        return ['ACCEPTED', 'IN_PROGRESS', 'DELIVERED'].includes(o.status);
       }
       return (
-        ['ACCEPTED', 'IN_PROGRESS', 'PENDING'].includes(o.status) || reservedActive
+        ['ACCEPTED', 'IN_PROGRESS', 'PENDING', 'DELIVERED'].includes(o.status) || reservedActive
       );
     }
     if (filter === 'posted') {
@@ -200,7 +249,7 @@ export default function MyOrdersScreen({ navigation }) {
       }
       return o.status === 'CREATED' && !o.reservedBy;
     }
-    return ['DELIVERED', 'COMPLETED'].includes(o.status) || o.status === 'CANCELLED';
+    return ['COMPLETED'].includes(o.status) || o.status === 'CANCELLED';
   });
 
   if (loading && orders.length === 0) {

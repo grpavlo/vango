@@ -1,5 +1,6 @@
 const Order = require('../models/order');
 const Transaction = require('../models/transaction');
+const User = require('../models/user');
 const { SERVICE_FEE_PERCENT } = require('../config');
 const { broadcastOrder, broadcastDelete } = require('../ws');
 
@@ -323,14 +324,15 @@ async function updateStatus(req, res) {
     }
     order.status = status;
     await order.save();
-    if (status === 'DELIVERED') {
+    broadcastOrder(order);
+    if (status === 'COMPLETED') {
       const tx = await Transaction.findOne({ where: { orderId: order.id } });
       if (tx && tx.status === 'PENDING') {
         tx.status = 'RELEASED';
         await tx.save();
         const amount = tx.amount - tx.serviceFee;
         if (order.driverId) {
-          const driver = req.user;
+          const driver = await User.findByPk(order.driverId);
           if (driver) {
             driver.balance += amount;
             await driver.save();
