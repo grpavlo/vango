@@ -162,6 +162,14 @@ export default function CreateOrderScreen({ navigation }) {
       Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
       return;
     }
+    if (!photos || photos.length === 0) {
+      Alert.alert('Помилка', 'Додайте хоча б одне фото вантажу');
+      return;
+    }
+    if (photos.length > 10) {
+      Alert.alert('Помилка', 'Максимальна кількість фото - 10');
+      return;
+    }
     if (systemPrice === null) {
       Alert.alert('Помилка', 'Не вдалося розрахувати ціну');
       return;
