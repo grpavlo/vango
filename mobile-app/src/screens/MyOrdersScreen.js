@@ -7,6 +7,16 @@ import { apiFetch, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
 
+const statusLabels = {
+  CREATED: 'Створено',
+  ACCEPTED: 'Водій в дорозі',
+  IN_PROGRESS: 'Водій отримав вантаж',
+  DELIVERED: 'Замовлення доставлено',
+  COMPLETED: 'Виконано',
+  PENDING: 'Очікує підтвердження',
+  CANCELLED: 'Скасовано',
+};
+
 export default function MyOrdersScreen({ navigation }) {
   const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -125,7 +135,7 @@ export default function MyOrdersScreen({ navigation }) {
   }
 
   async function markDelivered(id) {
-    if (await confirmAction('Підтвердити доставку вантажу?')) {
+    if (await confirmAction('Підтвердити передачу вантажу?')) {
       updateStatus(id, 'DELIVERED');
     }
   }
@@ -219,11 +229,12 @@ export default function MyOrdersScreen({ navigation }) {
           <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
           <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
           <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
+          <Text style={styles.itemText}>Статус: {statusLabels[item.status] || item.status}</Text>
           {role === 'DRIVER' && item.status === 'ACCEPTED' && (
             <AppButton title="Отримав вантаж" onPress={() => markReceived(item.id)} />
           )}
           {role === 'DRIVER' && item.status === 'IN_PROGRESS' && (
-            <AppButton title="Доставив вантаж" onPress={() => markDelivered(item.id)} />
+            <AppButton title="Віддав вантаж" onPress={() => markDelivered(item.id)} />
           )}
           {role === 'CUSTOMER' && item.status === 'DELIVERED' && (
             <AppButton title="Підтвердити доставку" onPress={() => confirmDelivery(item.id)} />
