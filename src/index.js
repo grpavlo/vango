@@ -45,8 +45,21 @@ function scheduleCleanup() {
   }, next - now);
 }
 
+async function removeInvalidFavorites() {
+  try {
+    await db.query(`
+      DELETE FROM "favorites"
+      WHERE "customerId" NOT IN (SELECT id FROM "users")
+         OR "driverId" NOT IN (SELECT id FROM "users");
+    `);
+  } catch (e) {
+    // Ignore errors if table doesn't exist
+  }
+}
+
 async function start() {
   try {
+    await removeInvalidFavorites();
     await db.sync({ alter: true });
     const server = http.createServer(app);
     setupWebSocket(server);
