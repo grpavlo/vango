@@ -42,7 +42,8 @@ function formatDate(dateStr) {
 }
 
 export default function OrderDetailScreen({ route, navigation }) {
-  const { order } = route.params;
+  const { order: initialOrder } = route.params;
+  const [order, setOrder] = useState(initialOrder);
   const [previewIndex, setPreviewIndex] = useState(null);
   const { token, role } = useAuth();
   const [phone, setPhone] = useState(null);
@@ -198,7 +199,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),
       });
-      Object.assign(order, updated);
+      setOrder(updated);
     } catch (err) {
       console.log(err);
     }
