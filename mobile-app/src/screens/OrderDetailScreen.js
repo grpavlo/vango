@@ -93,7 +93,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
-      navigation.navigate('Orders', { token });
+      navigation.navigate('Main', { screen: 'MyOrders' });
     } catch (err) {
       console.log(err);
     }
@@ -295,6 +295,24 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       </View>
+      {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
+        <View style={styles.driverBlock}>
+          <View style={styles.driverRow}>
+            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text>{(order.driver || order.reservedDriver || order.candidateDriver).name}</Text>
+              {(order.driver || order.reservedDriver || order.candidateDriver).rating && (
+                <Text>Рейтинг: {(order.driver || order.reservedDriver || order.candidateDriver).rating.toFixed(1)}</Text>
+              )}
+            </View>
+            {(order.driver || order.reservedDriver || order.candidateDriver).phone && (
+              <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order.driver || order.reservedDriver || order.candidateDriver).phone}`)}>
+                <Ionicons name="call" size={28} color={colors.green} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
       {role === 'DRIVER' && !order.driverId && (
         <View style={styles.bottomButtons}>
           {!reserved && <AppButton title="Резерв 10 хв" onPress={reserve} />}
@@ -355,6 +373,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  driverBlock: { marginBottom: 12 },
+  driverRow: { flexDirection: 'row', alignItems: 'center' },
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
   fixedTimer: {
     position: 'absolute',

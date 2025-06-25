@@ -106,7 +106,7 @@ export default function MyOrdersScreen({ navigation }) {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={[styles.item, reserved && styles.reservedItem]}>
-          {reserved && item.customer && (
+          {role === 'DRIVER' && item.customer && (
             <View style={styles.driverBlock}>
               <View style={styles.driverRow}>
                 <Ionicons name="person-circle" size={36} color={colors.green} />
@@ -119,17 +119,44 @@ export default function MyOrdersScreen({ navigation }) {
                   </TouchableOpacity>
                 )}
               </View>
-              <Text style={styles.timerText}>
-                {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
-              </Text>
-              {!pending && (
-                <AppButton
-                  title="Відмінити резерв"
-                  onPress={() => cancelReserve(item.id)}
-                  style={{ marginTop: 4 }}
-                />
+              {reserved && (
+                <>
+                  <Text style={styles.timerText}>
+                    {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
+                  </Text>
+                  {!pending && (
+                    <AppButton
+                      title="Відмінити резерв"
+                      onPress={() => cancelReserve(item.id)}
+                      style={{ marginTop: 4 }}
+                    />
+                  )}
+                </>
               )}
-              {role === 'CUSTOMER' && pending && item.candidateDriver && (
+            </View>
+          )}
+          {role === 'CUSTOMER' && (item.driver || item.reservedDriver || item.candidateDriver) && (
+            <View style={styles.driverBlock}>
+              <View style={styles.driverRow}>
+                <Ionicons name="person-circle" size={36} color={colors.green} />
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <Text>{(item.driver || item.reservedDriver || item.candidateDriver).name}</Text>
+                  {(item.driver || item.reservedDriver || item.candidateDriver).rating && (
+                    <Text>Рейтинг: {(item.driver || item.reservedDriver || item.candidateDriver).rating.toFixed(1)}</Text>
+                  )}
+                </View>
+                {(item.driver || item.reservedDriver || item.candidateDriver).phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${(item.driver || item.reservedDriver || item.candidateDriver).phone}`)}>
+                    <Ionicons name="call" size={28} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {reserved && (
+                <Text style={styles.timerText}>
+                  {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
+                </Text>
+              )}
+              {pending && item.candidateDriver && (
                 <View style={styles.pendingRow}>
                   <AppButton
                     title="Підтвердити"
