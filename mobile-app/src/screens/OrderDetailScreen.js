@@ -93,7 +93,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
-      navigation.navigate('Orders', { token });
+      navigation.navigate('MyOrders');
     } catch (err) {
       console.log(err);
     }

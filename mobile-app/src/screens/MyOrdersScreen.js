@@ -60,6 +60,8 @@ export default function MyOrdersScreen({ navigation }) {
     ws.onmessage = () => load();
     ws.onerror = (e) => console.log('ws error', e.message);
   }
+
+
   async function cancelReserve(id) {
     try {
       await apiFetch(`/orders/${id}/cancel-reserve`, {
@@ -106,15 +108,28 @@ export default function MyOrdersScreen({ navigation }) {
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={[styles.item, reserved && styles.reservedItem]}>
-          {reserved && item.customer && (
+          {reserved && (
             <View style={styles.driverBlock}>
               <View style={styles.driverRow}>
                 <Ionicons name="person-circle" size={36} color={colors.green} />
                 <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text>{item.customer.name}</Text>
+                  {role === 'DRIVER' && item.customer && (
+                    <Text>{item.customer.name}</Text>
+                  )}
+                  {role === 'CUSTOMER' && (item.driver || item.candidateDriver || item.reservedDriver) && (
+                    <>
+                      <Text>{(item.driver || item.candidateDriver || item.reservedDriver).name}</Text>
+                      <Text>Рейтинг: {((item.driver || item.candidateDriver || item.reservedDriver).rating || 5).toFixed(1)}</Text>
+                    </>
+                  )}
                 </View>
-                {item.customer.phone && (
+                {role === 'DRIVER' && item.customer && item.customer.phone && (
                   <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.customer.phone}`)}>
+                    <Ionicons name="call" size={28} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+                {role === 'CUSTOMER' && (item.driver || item.candidateDriver || item.reservedDriver) && (item.driver || item.candidateDriver || item.reservedDriver).phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${(item.driver || item.candidateDriver || item.reservedDriver).phone}`)}>
                     <Ionicons name="call" size={28} color={colors.green} />
                   </TouchableOpacity>
                 )}
@@ -122,13 +137,11 @@ export default function MyOrdersScreen({ navigation }) {
               <Text style={styles.timerText}>
                 {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
               </Text>
-              {!pending && (
-                <AppButton
-                  title="Відмінити резерв"
-                  onPress={() => cancelReserve(item.id)}
-                  style={{ marginTop: 4 }}
-                />
-              )}
+              <AppButton
+                title="Відмінити резерв"
+                onPress={() => cancelReserve(item.id)}
+                style={{ marginTop: 4 }}
+              />
               {role === 'CUSTOMER' && pending && item.candidateDriver && (
                 <View style={styles.pendingRow}>
                   <AppButton
