@@ -78,6 +78,7 @@ async function createOrder(req, res) {
       systemPrice,
       price,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
+      statusHistory: [{ status: 'CREATED', time: new Date() }],
     });
     broadcastOrder(order);
     res.json(order);
@@ -323,6 +324,8 @@ async function updateStatus(req, res) {
       return;
     }
     order.status = status;
+    if (!Array.isArray(order.statusHistory)) order.statusHistory = [];
+    order.statusHistory.push({ status, time: new Date() });
     await order.save();
     broadcastOrder(order);
     if (status === 'COMPLETED') {
