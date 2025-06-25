@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
+import StatusTimeline from '../components/StatusTimeline';
 
 const statusLabels = {
   CREATED: 'Створено',
@@ -267,30 +268,12 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
       {order.history && order.history.length > 0 && (
-        <View style={styles.historyCard}>
-          {order.history.map((h, i) => {
-            const isFirst = i === 0;
-            const isLast = i === order.history.length - 1;
-            const dotColor = isFirst
-              ? colors.orange
-              : isLast
-              ? colors.green
-              : '#ccc';
-            const lineColor = isLast ? colors.green : '#ccc';
-            return (
-              <View key={i} style={styles.historyRow}>
-                <View style={styles.timeline}>
-                  <View style={[styles.historyDot, { backgroundColor: dotColor }]} />
-                  {!isLast && <View style={[styles.historyLine, { backgroundColor: lineColor }]} />}
-                </View>
-                <View style={styles.historyContent}>
-                  <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
-                  <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        <StatusTimeline
+          history={order.history.map((h) => ({
+            ...h,
+            label: statusLabels[h.status] || h.status,
+          }))}
+        />
       )}
       <View style={styles.detailsCard}>
       <View style={styles.row}>
@@ -463,24 +446,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   driverRow: { flexDirection: 'row', alignItems: 'center' },
-  historyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  historyRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
-  timeline: { width: 16, alignItems: 'center' },
-  historyDot: { width: 8, height: 8, borderRadius: 4 },
-  historyLine: { flex: 1, width: 2, marginTop: 2 },
-  historyContent: { flex: 1 },
-  historyLabel: { fontWeight: 'bold' },
-  historyTime: { color: '#555', fontSize: 12 },
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
   fixedTimer: {
     position: 'absolute',
