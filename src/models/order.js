@@ -8,6 +8,8 @@ const OrderStatus = {
   IN_PROGRESS: 'IN_PROGRESS',
   DELIVERED: 'DELIVERED',
   COMPLETED: 'COMPLETED',
+  PENDING: 'PENDING',
+  CANCELLED: 'CANCELLED',
 };
 
 class Order extends Model {}
@@ -48,6 +50,8 @@ Order.init(
     price: { type: DataTypes.FLOAT, allowNull: false },
     reservedBy: { type: DataTypes.INTEGER.UNSIGNED },
     reservedUntil: { type: DataTypes.DATE },
+    candidateDriverId: { type: DataTypes.INTEGER.UNSIGNED },
+    candidateUntil: { type: DataTypes.DATE },
     photos: { type: DataTypes.JSON },
   },
   { sequelize: db, modelName: 'order' }
@@ -58,6 +62,12 @@ Order.belongsTo(User, { foreignKey: 'customerId', as: 'customer' });
 
 User.hasMany(Order, { foreignKey: 'driverId', as: 'driverOrders' });
 Order.belongsTo(User, { foreignKey: 'driverId', as: 'driver' });
+
+User.hasMany(Order, { foreignKey: 'reservedBy', as: 'reservedOrders' });
+Order.belongsTo(User, { foreignKey: 'reservedBy', as: 'reservedDriver' });
+
+User.hasMany(Order, { foreignKey: 'candidateDriverId', as: 'candidateOrders' });
+Order.belongsTo(User, { foreignKey: 'candidateDriverId', as: 'candidateDriver' });
 
 module.exports = Order;
 module.exports.OrderStatus = OrderStatus;

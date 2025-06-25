@@ -90,7 +90,12 @@ async function listAvailableOrders(req, res) {
   const { city, pickupCity, dropoffCity, date, minVolume, maxVolume, minWeight, maxWeight } = req.query;
   const { Op } = require('sequelize');
 
-  const where = { status: 'CREATED' };
+  const where = {
+    [Op.or]: [
+      { status: 'CREATED' },
+      { status: 'PENDING', candidateDriverId: req.user.id },
+    ],
+  };
   const cityFilter = pickupCity || city;
   if (cityFilter) where.pickupCity = cityFilter;
   if (dropoffCity) where.dropoffCity = dropoffCity;
@@ -110,10 +115,14 @@ async function listAvailableOrders(req, res) {
   }
 
   const now = new Date();
-  where[Op.or] = [
-    { reservedBy: null },
-    { reservedUntil: { [Op.lt]: now } },
-    { reservedBy: req.user.id },
+  where[Op.and] = [
+    {
+      [Op.or]: [
+        { reservedBy: null },
+        { reservedUntil: { [Op.lt]: now } },
+        { reservedBy: req.user.id },
+      ],
+    },
   ];
   const orders = await Order.findAll({ where });
 
@@ -150,6 +159,7 @@ async function listMyOrders(req, res) {
       [Op.or]: [
         { driverId: req.user.id },
         { reservedBy: req.user.id, reservedUntil: { [Op.gt]: now } },
+        { candidateDriverId: req.user.id },
       ],
     };
   } else if (role === 'BOTH' || !role) {
@@ -158,10 +168,18 @@ async function listMyOrders(req, res) {
         { customerId: req.user.id },
         { driverId: req.user.id },
         { reservedBy: req.user.id, reservedUntil: { [Op.gt]: now } },
+        { candidateDriverId: req.user.id },
       ],
     };
   }
-  const orders = await Order.findAll({ where });
+  const orders = await Order.findAll({
+    where,
+    include: [
+      { model: require('../models/user'), as: 'driver' },
+      { model: require('../models/user'), as: 'candidateDriver' },
+      { model: require('../models/user'), as: 'reservedDriver' },
+    ],
+  });
   res.json(orders);
 }
 
@@ -180,7 +198,11 @@ async function reserveOrder(req, res) {
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
     broadcastOrder(order);
-    res.json({ order, phone: order.customer ? order.customer.phone : null });
+    res.json({
+      order,
+      phone: order.customer ? order.customer.phone : null,
+      name: order.customer ? order.customer.name : null,
+    });
   } catch (err) {
     res.status(400).send('Не вдалося зарезервувати');
   }
@@ -190,11 +212,17 @@ async function cancelReserve(req, res) {
   const orderId = req.params.id;
   try {
     const order = await Order.findByPk(orderId);
-    if (!order || order.reservedBy !== req.user.id) {
+    if (
+      !order ||
+      (order.reservedBy !== req.user.id && order.customerId !== req.user.id)
+    ) {
       return res.status(400).send('Немає резерву');
     }
     order.reservedBy = null;
     order.reservedUntil = null;
+    order.candidateDriverId = null;
+    order.candidateUntil = null;
+    order.status = 'CREATED';
     await order.save();
     broadcastOrder(order);
     res.json(order);
@@ -212,16 +240,61 @@ async function acceptOrder(req, res) {
 
       return;
     }
-    order.driverId = req.user.id;
-    order.status = 'ACCEPTED';
+    const now = new Date();
+    order.candidateDriverId = req.user.id;
+    order.candidateUntil = new Date(now.getTime() + 15 * 60000);
+    order.reservedBy = req.user.id;
+    order.reservedUntil = order.candidateUntil;
+    order.status = 'PENDING';
     await order.save();
     broadcastOrder(order);
-    const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
-    await Transaction.create({ orderId: order.id, driverId: req.user.id, amount: order.price, serviceFee });
     res.json(order);
   } catch (err) {
     res.status(400).send('Не вдалося прийняти замовлення');
 
+  }
+}
+
+async function confirmDriver(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id || order.status !== 'PENDING') {
+      return res.status(400).send('Неможливо підтвердити');
+    }
+    order.driverId = order.candidateDriverId;
+    order.candidateDriverId = null;
+    order.candidateUntil = null;
+    order.reservedBy = null;
+    order.reservedUntil = null;
+    order.status = 'ACCEPTED';
+    await order.save();
+    broadcastOrder(order);
+    const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
+    await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+    res.json(order);
+  } catch (err) {
+    res.status(400).send('Не вдалося підтвердити водія');
+  }
+}
+
+async function rejectDriver(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id || order.status !== 'PENDING') {
+      return res.status(400).send('Неможливо відхилити');
+    }
+    order.candidateDriverId = null;
+    order.candidateUntil = null;
+    order.reservedBy = null;
+    order.reservedUntil = null;
+    order.status = 'CREATED';
+    await order.save();
+    broadcastOrder(order);
+    res.json(order);
+  } catch (err) {
+    res.status(400).send('Не вдалося відхилити водія');
   }
 }
 
@@ -360,6 +433,8 @@ module.exports = {
   reserveOrder,
   cancelReserve,
   acceptOrder,
+  confirmDriver,
+  rejectDriver,
   updateStatus,
   listMyOrders,
   updateOrder,

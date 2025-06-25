@@ -47,7 +47,7 @@ function scheduleCleanup() {
 
 async function start() {
   try {
-    await db.sync();
+    await db.sync({ alter: true });
     const server = http.createServer(app);
     setupWebSocket(server);
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
