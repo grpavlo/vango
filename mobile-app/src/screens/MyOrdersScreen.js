@@ -63,11 +63,11 @@ export default function MyOrdersScreen({ navigation }) {
 
   if (loading && orders.length === 0) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         {[...Array(5)].map((_, i) => (
           <OrderCardSkeleton key={i} />
         ))}
-      </View>
+      </SafeAreaView>
     );
   }
 
