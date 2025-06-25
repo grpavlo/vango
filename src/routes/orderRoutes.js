@@ -11,6 +11,7 @@ const {
   rejectDriver,
   updateStatus,
   listMyOrders,
+  getOrder,
   updateOrder,
   deleteOrder,
 } = require('../controllers/orderController');
@@ -23,6 +24,7 @@ router.get('/', authenticate, authorize([UserRole.DRIVER]), listAvailableOrders)
 router.post('/:id/reserve', authenticate, authorize([UserRole.DRIVER]), reserveOrder);
 router.post('/:id/cancel-reserve', authenticate, authorize([UserRole.DRIVER, UserRole.CUSTOMER]), cancelReserve);
 router.get('/my', authenticate, listMyOrders);
+router.get('/:id', authenticate, getOrder);
 router.post('/:id/accept', authenticate, authorize([UserRole.DRIVER]), acceptOrder);
 router.post('/:id/confirm-driver', authenticate, authorize([UserRole.CUSTOMER]), confirmDriver);
 router.post('/:id/reject-driver', authenticate, authorize([UserRole.CUSTOMER]), rejectDriver);
