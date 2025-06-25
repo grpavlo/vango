@@ -172,6 +172,14 @@ export default function CreateOrderScreen({ navigation }) {
       toast.show('Максимальна кількість фото - 10');
       return;
     }
+    if (!photos || photos.length === 0) {
+      Alert.alert('Помилка', 'Додайте хоча б одне фото вантажу');
+      return;
+    }
+    if (photos.length > 10) {
+      Alert.alert('Помилка', 'Максимальна кількість фото - 10');
+      return;
+    }
     if (systemPrice === null) {
       toast.show('Не вдалося розрахувати ціну');
       return;
