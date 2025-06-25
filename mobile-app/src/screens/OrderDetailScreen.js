@@ -36,6 +36,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [previewIndex, setPreviewIndex] = useState(null);
   const { token, role } = useAuth();
   const [phone, setPhone] = useState(null);
+  const [customerName, setCustomerName] = useState(null);
   const [reserved, setReserved] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
@@ -56,7 +57,10 @@ export default function OrderDetailScreen({ route, navigation }) {
           const stored = await AsyncStorage.getItem('reservedPhones');
           if (stored) {
             const map = JSON.parse(stored);
-            if (map[order.id]) setPhone(map[order.id]);
+            if (map[order.id]) {
+              setPhone(map[order.id].phone);
+              setCustomerName(map[order.id].name);
+            }
           }
         } catch {}
       }
@@ -114,11 +118,12 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       setReserved(true);
       setPhone(data.phone);
+      setCustomerName(data.name);
       try {
         const stored = await AsyncStorage.getItem('reservedPhones');
         const map = stored ? JSON.parse(stored) : {};
         if (data.phone) {
-          map[order.id] = data.phone;
+          map[order.id] = { phone: data.phone, name: data.name };
           await AsyncStorage.setItem('reservedPhones', JSON.stringify(map));
         }
       } catch {}
@@ -137,6 +142,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       });
       setReserved(false);
       setPhone(null);
+      setCustomerName(null);
       setReservedUntil(null);
       setTimeLeft(null);
       try {
@@ -299,6 +305,9 @@ export default function OrderDetailScreen({ route, navigation }) {
                 {phone && (
                   <TouchableOpacity onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.callBtn}>
                     <Ionicons name="call" size={32} color={colors.green} />
+                    {customerName && (
+                      <Text style={styles.nameText}>{customerName}</Text>
+                    )}
                   </TouchableOpacity>
                 )}
               </View>
@@ -337,7 +346,7 @@ const styles = StyleSheet.create({
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
   close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
-  callBtn: { padding: 8 },
+  callBtn: { padding: 8, flexDirection: 'row', alignItems: 'center' },
   bottomButtons: { marginTop: 'auto' },
   reserveContainer: { marginBottom: 8 },
   reserveRow: {
@@ -359,5 +368,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   timerText: { fontSize: 16, color: colors.orange, fontWeight: 'bold' },
+  nameText: { marginLeft: 4, fontSize: 16 },
 });
 

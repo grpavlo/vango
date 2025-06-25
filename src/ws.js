@@ -9,7 +9,12 @@ const { Op } = require('sequelize');
 let wssInstance;
 
 function buildWhere(query, userId, ignoreReserve = false) {
-  const where = { status: 'CREATED' };
+  const where = {
+    [Op.or]: [
+      { status: 'CREATED' },
+      { status: 'PENDING', candidateDriverId: userId },
+    ],
+  };
   const city = query.pickupCity || query.city;
   if (city) where.pickupCity = city;
   if (query.dropoffCity) where.dropoffCity = query.dropoffCity;
@@ -27,10 +32,14 @@ function buildWhere(query, userId, ignoreReserve = false) {
   }
   if (!ignoreReserve) {
     const now = new Date();
-    where[Op.or] = [
-      { reservedBy: null },
-      { reservedUntil: { [Op.lt]: now } },
-      { reservedBy: userId },
+    where[Op.and] = [
+      {
+        [Op.or]: [
+          { reservedBy: null },
+          { reservedUntil: { [Op.lt]: now } },
+          { reservedBy: userId },
+        ],
+      },
     ];
   }
   return where;
