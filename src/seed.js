@@ -41,6 +41,7 @@ async function seed() {
     systemPrice: 100,
     price: 100,
     photos: [],
+    history: [{ status: 'CREATED', at: new Date() }],
   });
 
   console.log('Seeded');

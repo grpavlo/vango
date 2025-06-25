@@ -78,6 +78,7 @@ async function createOrder(req, res) {
       systemPrice,
       price,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
+      history: [{ status: 'CREATED', at: new Date() }],
     });
     broadcastOrder(order);
     res.json(order);
@@ -225,6 +226,7 @@ async function cancelReserve(req, res) {
     order.candidateDriverId = null;
     order.candidateUntil = null;
     order.status = 'CREATED';
+    order.history = [...(order.history || []), { status: 'CREATED', at: new Date() }];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: { model: require('../models/user'), as: 'customer' },
@@ -251,6 +253,7 @@ async function acceptOrder(req, res) {
     order.reservedBy = req.user.id;
     order.reservedUntil = order.candidateUntil;
     order.status = 'PENDING';
+    order.history = [...(order.history || []), { status: 'PENDING', at: new Date() }];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: { model: require('../models/user'), as: 'customer' },
@@ -276,6 +279,7 @@ async function confirmDriver(req, res) {
     order.reservedBy = null;
     order.reservedUntil = null;
     order.status = 'ACCEPTED';
+    order.history = [...(order.history || []), { status: 'ACCEPTED', at: new Date() }];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: { model: require('../models/user'), as: 'customer' },
@@ -301,6 +305,7 @@ async function rejectDriver(req, res) {
     order.reservedBy = null;
     order.reservedUntil = null;
     order.status = 'CREATED';
+    order.history = [...(order.history || []), { status: 'CREATED', at: new Date() }];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: { model: require('../models/user'), as: 'customer' },
@@ -323,6 +328,7 @@ async function updateStatus(req, res) {
       return;
     }
     order.status = status;
+    order.history = [...(order.history || []), { status, at: new Date() }];
     await order.save();
     broadcastOrder(order);
     if (status === 'COMPLETED') {
