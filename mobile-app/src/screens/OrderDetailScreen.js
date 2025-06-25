@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Button,
   StyleSheet,
   Alert,
   TouchableOpacity,
@@ -18,6 +17,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, HOST_URL } from '../api';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
+
+const statusLabels = {
+  CREATED: 'Створено',
+  ACCEPTED: 'Водій в дорозі',
+  IN_PROGRESS: 'Водій отримав вантаж',
+  DELIVERED: 'Замовлення доставлено',
+  COMPLETED: 'Виконано',
+  PENDING: 'Очікує підтвердження',
+  CANCELLED: 'Скасовано',
+};
 
 function formatTime(dateStr) {
   const d = new Date(dateStr);
@@ -99,16 +108,6 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
-  async function addFavorite() {
-    try {
-      await apiFetch(`/favorites/${order.driverId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (err) {
-      console.log(err);
-    }
-  }
 
   async function reserve() {
     try {
@@ -182,6 +181,46 @@ export default function OrderDetailScreen({ route, navigation }) {
     ]);
   }
 
+  function confirmAction(message) {
+    return new Promise((resolve) => {
+      Alert.alert('Підтвердження', message, [
+        { text: 'Скасувати', onPress: () => resolve(false) },
+        { text: 'OK', onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
+  async function updateStatus(id, status) {
+    try {
+      const updated = await apiFetch(`/orders/${id}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      Object.assign(order, updated);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function markReceived(id) {
+    if (await confirmAction('Підтвердити отримання вантажу?')) {
+      updateStatus(id, 'IN_PROGRESS');
+    }
+  }
+
+  async function markDelivered(id) {
+    if (await confirmAction('Підтвердити передачу вантажу?')) {
+      updateStatus(id, 'DELIVERED');
+    }
+  }
+
+  async function confirmDelivery(id) {
+    if (await confirmAction('Підтвердити виконання замовлення?')) {
+      updateStatus(id, 'COMPLETED');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {reserved && timeLeft !== null && (
@@ -209,6 +248,24 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
+      {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
+        <View style={styles.driverBlock}>
+          <View style={styles.driverRow}>
+            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text>{(order.driver || order.reservedDriver || order.candidateDriver).name}</Text>
+              {(order.driver || order.reservedDriver || order.candidateDriver).rating && (
+                <Text>Рейтинг: {(order.driver || order.reservedDriver || order.candidateDriver).rating.toFixed(1)}</Text>
+              )}
+            </View>
+            {(order.driver || order.reservedDriver || order.candidateDriver).phone && (
+              <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order.driver || order.reservedDriver || order.candidateDriver).phone}`)}>
+                <Ionicons name="call" size={28} color={colors.green} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
       <View style={styles.detailsCard}>
       <View style={styles.row}>
         <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
@@ -264,6 +321,11 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Text style={styles.label}>Ціна:</Text>
         <Text style={styles.value}>{Math.round(order.price)} грн</Text>
       </View>
+      <View style={styles.row}>
+        <Ionicons name="information-circle-outline" size={20} color="#555" style={styles.rowIcon} />
+        <Text style={styles.label}>Статус:</Text>
+        <Text style={styles.value}>{statusLabels[order.status] || order.status}</Text>
+      </View>
       {order.cargoType && (
         <View style={styles.row}>
           <Ionicons name="reader-outline" size={20} color="#555" style={styles.rowIcon} />
@@ -295,23 +357,27 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       </View>
-      {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
-        <View style={styles.driverBlock}>
-          <View style={styles.driverRow}>
-            <Ionicons name="person-circle" size={36} color={colors.green} />
-            <View style={{ marginLeft: 8, flex: 1 }}>
-              <Text>{(order.driver || order.reservedDriver || order.candidateDriver).name}</Text>
-              {(order.driver || order.reservedDriver || order.candidateDriver).rating && (
-                <Text>Рейтинг: {(order.driver || order.reservedDriver || order.candidateDriver).rating.toFixed(1)}</Text>
-              )}
+      {order.history && order.history.length > 0 && (
+        <View style={styles.historyCard}>
+          {order.history.map((h, i) => (
+            <View key={i} style={styles.historyRow}>
+              <View style={styles.historyDot} />
+              <View style={styles.historyContent}>
+                <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
+                <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
+              </View>
             </View>
-            {(order.driver || order.reservedDriver || order.candidateDriver).phone && (
-              <TouchableOpacity onPress={() => Linking.openURL(`tel:${(order.driver || order.reservedDriver || order.candidateDriver).phone}`)}>
-                <Ionicons name="call" size={28} color={colors.green} />
-              </TouchableOpacity>
-            )}
-          </View>
+          ))}
         </View>
+      )}
+      {role === 'DRIVER' && order.status === 'ACCEPTED' && (
+        <AppButton title="Отримав вантаж" onPress={() => markReceived(order.id)} />
+      )}
+      {role === 'DRIVER' && order.status === 'IN_PROGRESS' && (
+        <AppButton title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+      )}
+      {role === 'CUSTOMER' && order.status === 'DELIVERED' && (
+        <AppButton title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
       )}
       {role === 'DRIVER' && !order.driverId && (
         <View style={styles.bottomButtons}>
@@ -334,7 +400,6 @@ export default function OrderDetailScreen({ route, navigation }) {
           <AppButton title="Взяти" color={colors.orange} onPress={accept} />
         </View>
       )}
-      {order.driverId && <Button title="У вибране" onPress={addFavorite} />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -375,6 +440,22 @@ const styles = StyleSheet.create({
   },
   driverBlock: { marginBottom: 12 },
   driverRow: { flexDirection: 'row', alignItems: 'center' },
+  historyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  historyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 6, marginRight: 8 },
+  historyContent: { flex: 1 },
+  historyLabel: { fontWeight: 'bold' },
+  historyTime: { color: '#555', fontSize: 12 },
   timer: { textAlign: 'right', fontSize: 16, color: colors.orange },
   fixedTimer: {
     position: 'absolute',
