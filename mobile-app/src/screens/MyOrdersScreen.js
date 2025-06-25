@@ -7,6 +7,16 @@ import { apiFetch, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
 
+const statusLabels = {
+  CREATED: 'Створено',
+  ACCEPTED: 'Водій в дорозі',
+  IN_PROGRESS: 'Отримано вантаж',
+  DELIVERED: 'Очікує підтвердження',
+  COMPLETED: 'Виконано',
+  CANCELLED: 'Скасовано',
+  PENDING: 'На підтвердженні',
+};
+
 export default function MyOrdersScreen({ navigation }) {
   const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -219,6 +229,9 @@ export default function MyOrdersScreen({ navigation }) {
           <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
           <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
           <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
+          <Text style={styles.itemText}>
+            Статус: {statusLabels[item.status] || item.status}
+          </Text>
           {role === 'DRIVER' && item.status === 'ACCEPTED' && (
             <AppButton title="Отримав вантаж" onPress={() => markReceived(item.id)} />
           )}
