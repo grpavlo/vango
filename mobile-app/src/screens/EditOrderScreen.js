@@ -21,9 +21,11 @@ import CheckBox from '../components/CheckBox';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, API_URL, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
+import { useToast } from '../components/Toast';
 
 export default function EditOrderScreen({ route, navigation }) {
   const { token } = useAuth();
+  const toast = useToast();
   const { order } = route.params;
 
   const [pickupQuery, setPickupQuery] = useState(order.pickupLocation || '');
@@ -158,12 +160,13 @@ export default function EditOrderScreen({ route, navigation }) {
             fd.append('photos', { uri: p, name: filename, type });
           });
       }
-      const updated = await apiFetch(`/orders/${order.id}`, {
+      await apiFetch(`/orders/${order.id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
-      navigation.replace('OrderDetail', { order: updated });
+      toast.show('Змінено');
+      navigation.pop(2);
     } catch (err) {
       console.log(err);
     }

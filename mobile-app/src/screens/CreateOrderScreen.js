@@ -20,9 +20,11 @@ import CheckBox from '../components/CheckBox';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
+import { useToast } from '../components/Toast';
 
 export default function CreateOrderScreen({ navigation }) {
   const { token } = useAuth();
+  const toast = useToast();
 
   const [pickupQuery, setPickupQuery] = useState('');
   const [pickup, setPickup] = useState(null);
@@ -159,27 +161,35 @@ export default function CreateOrderScreen({ navigation }) {
 
   async function confirmCreate() {
     if (!pickup || !dropoff) {
-      Alert.alert('Помилка', 'Вкажіть адреси завантаження та розвантаження');
+      toast.show('Вкажіть адреси завантаження та розвантаження');
+      return;
+    }
+    if (!photos || photos.length === 0) {
+      toast.show('Додайте хоча б одне фото вантажу');
+      return;
+    }
+    if (photos.length > 10) {
+      toast.show('Максимальна кількість фото - 10');
       return;
     }
     if (systemPrice === null) {
-      Alert.alert('Помилка', 'Не вдалося розрахувати ціну');
+      toast.show('Не вдалося розрахувати ціну');
       return;
     }
     if (loadFrom < new Date()) {
-      Alert.alert('Помилка', 'Дата завантаження не може бути в минулому');
+      toast.show('Дата завантаження не може бути в минулому');
       return;
     }
     if (loadTo <= loadFrom) {
-      Alert.alert('Помилка', 'Кінцева дата завантаження повинна бути пізніше початкової');
+      toast.show('Кінцева дата завантаження повинна бути пізніше початкової');
       return;
     }
     if (unloadFrom <= loadTo) {
-      Alert.alert('Помилка', 'Дата початку розвантаження повинна бути після закінчення завантаження');
+      toast.show('Дата початку розвантаження повинна бути після закінчення завантаження');
       return;
     }
     if (unloadTo <= unloadFrom) {
-      Alert.alert('Помилка', 'Кінцева дата розвантаження повинна бути пізніше початкової');
+      toast.show('Кінцева дата розвантаження повинна бути пізніше початкової');
       return;
     }
     Alert.alert('Підтвердження', 'Ви впевнені що хочете розмістити вантаж?', [
