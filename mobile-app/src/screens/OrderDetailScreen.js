@@ -249,7 +249,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
       {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
-        <View style={styles.driverBlock}>
+        <View style={styles.driverCard}>
           <View style={styles.driverRow}>
             <Ionicons name="person-circle" size={36} color={colors.green} />
             <View style={{ marginLeft: 8, flex: 1 }}>
@@ -264,6 +264,32 @@ export default function OrderDetailScreen({ route, navigation }) {
               </TouchableOpacity>
             )}
           </View>
+        </View>
+      )}
+      {order.history && order.history.length > 0 && (
+        <View style={styles.historyCard}>
+          {order.history.map((h, i) => {
+            const isFirst = i === 0;
+            const isLast = i === order.history.length - 1;
+            const dotColor = isFirst
+              ? colors.orange
+              : isLast
+              ? colors.green
+              : '#ccc';
+            const lineColor = isLast ? colors.green : '#ccc';
+            return (
+              <View key={i} style={styles.historyRow}>
+                <View style={styles.timeline}>
+                  <View style={[styles.historyDot, { backgroundColor: dotColor }]} />
+                  {!isLast && <View style={[styles.historyLine, { backgroundColor: lineColor }]} />}
+                </View>
+                <View style={styles.historyContent}>
+                  <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
+                  <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
       <View style={styles.detailsCard}>
@@ -357,19 +383,6 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       </View>
-      {order.history && order.history.length > 0 && (
-        <View style={styles.historyCard}>
-          {order.history.map((h, i) => (
-            <View key={i} style={styles.historyRow}>
-              <View style={styles.historyDot} />
-              <View style={styles.historyContent}>
-                <Text style={styles.historyLabel}>{statusLabels[h.status] || h.status}</Text>
-                <Text style={styles.historyTime}>{new Date(h.at).toLocaleString()}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
       {role === 'DRIVER' && order.status === 'ACCEPTED' && (
         <AppButton title="Отримав вантаж" onPress={() => markReceived(order.id)} />
       )}
@@ -438,7 +451,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  driverBlock: { marginBottom: 12 },
+  driverCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
   driverRow: { flexDirection: 'row', alignItems: 'center' },
   historyCard: {
     backgroundColor: '#fff',
@@ -451,8 +474,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  historyRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  historyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 6, marginRight: 8 },
+  historyRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+  timeline: { width: 16, alignItems: 'center' },
+  historyDot: { width: 8, height: 8, borderRadius: 4 },
+  historyLine: { flex: 1, width: 2, marginTop: 2 },
   historyContent: { flex: 1 },
   historyLabel: { fontWeight: 'bold' },
   historyTime: { color: '#555', fontSize: 12 },
