@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../components/Colors';
+import AppButton from '../components/AppButton';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
@@ -32,13 +35,93 @@ export default function MyOrdersScreen({ navigation }) {
     return unsubscribe;
   }, [role, navigation]);
 
+  async function cancelReserve(id) {
+    try {
+      await apiFetch(`/orders/${id}/cancel-reserve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      load();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function confirmDriver(id) {
+    try {
+      await apiFetch(`/orders/${id}/confirm-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      load();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function rejectDriver(id) {
+    try {
+      await apiFetch(`/orders/${id}/reject-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      load();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   function renderItem({ item }) {
     const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
     const dropoffCity = item.dropoffCity || ((item.dropoffLocation || '').split(',')[1] || '').trim();
     const dropoffAddress = item.dropoffAddress || ((item.dropoffLocation || '').split(',')[0] || '').trim();
+    const now = new Date();
+    const reserved = item.reservedBy && item.reservedUntil && new Date(item.reservedUntil) > now;
+    const pending = item.status === 'PENDING';
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
-        <View style={styles.item}>
+        <View style={[styles.item, reserved && styles.reservedItem]}>
+          {reserved && item.reservedDriver && (
+            <View style={styles.driverBlock}>
+              <View style={styles.driverRow}>
+                <Ionicons name="person-circle" size={36} color={colors.green} />
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <Text>{item.reservedDriver.name}</Text>
+                  <Text>⭐ {item.reservedDriver.rating?.toFixed(1)}</Text>
+                </View>
+                {item.reservedDriver.phone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.reservedDriver.phone}`)}>
+                    <Ionicons name="call" size={28} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={styles.timerText}>
+                {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
+              </Text>
+              {!pending && (
+                <AppButton
+                  title="Відмінити резерв"
+                  onPress={() => cancelReserve(item.id)}
+                  style={{ marginTop: 4 }}
+                />
+              )}
+              {pending && item.candidateDriver && (
+                <View style={styles.pendingRow}>
+                  <AppButton
+                    title="Підтвердити"
+                    onPress={() => confirmDriver(item.id)}
+                    style={{ flex: 1, marginRight: 4 }}
+                  />
+                  <AppButton
+                    title="Відхилити"
+                    color="red"
+                    onPress={() => rejectDriver(item.id)}
+                    style={{ flex: 1, marginLeft: 4 }}
+                  />
+                </View>
+              )}
+            </View>
+          )}
           <Text style={styles.itemNumber}>№ {item.id}</Text>
           <Text style={styles.itemText}>Місто завантаження: {pickupCity}</Text>
           <Text style={styles.itemText}>Місто розвантаження: {dropoffCity}</Text>
@@ -53,7 +136,7 @@ export default function MyOrdersScreen({ navigation }) {
   const filtered = orders.filter((o) => {
     if (filter === 'active') {
       return (
-        ['ACCEPTED', 'IN_PROGRESS'].includes(o.status) ||
+        ['ACCEPTED', 'IN_PROGRESS', 'PENDING'].includes(o.status) ||
         (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date())
       );
     }
@@ -108,5 +191,10 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', justifyContent: 'space-around', margin: 8 },
   filterBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
   activeFilter: { backgroundColor: '#333' },
-  activeFilterText: { color: '#fff' }
+  activeFilterText: { color: '#fff' },
+  reservedItem: { borderColor: colors.orange, borderWidth: 2 },
+  driverBlock: { marginBottom: 8 },
+  driverRow: { flexDirection: 'row', alignItems: 'center' },
+  timerText: { textAlign: 'right', color: colors.orange },
+  pendingRow: { flexDirection: 'row', marginTop: 4 },
 });
