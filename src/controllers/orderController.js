@@ -1,4 +1,5 @@
 const Order = require('../models/order');
+const { OrderStatus } = require('../models/order');
 const Transaction = require('../models/transaction');
 const User = require('../models/user');
 const { SERVICE_FEE_PERCENT } = require('../config');
@@ -324,8 +325,12 @@ async function rejectDriver(req, res) {
     order.candidateUntil = null;
     order.reservedBy = null;
     order.reservedUntil = null;
-    order.status = 'CREATED';
-    order.history = [...(order.history || []), { status: 'CREATED', at: new Date() }];
+    order.status = OrderStatus.CREATED;
+    order.history = [
+      ...(order.history || []),
+      { status: OrderStatus.REJECTED, at: new Date() },
+      { status: OrderStatus.CREATED, at: new Date() },
+    ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: { model: require('../models/user'), as: 'customer' },

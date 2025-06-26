@@ -27,6 +27,7 @@ const statusLabels = {
   COMPLETED: 'Виконано',
   PENDING: 'Очікує підтвердження',
   CANCELLED: 'Скасовано',
+  REJECTED: 'Відмовлено',
 };
 
 function formatTime(dateStr) {
@@ -41,6 +42,13 @@ function formatDate(dateStr) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function calcVolume(dimensions) {
+  if (!dimensions) return null;
+  const parts = dimensions.split('x').map((n) => parseFloat(n));
+  if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
+  return parts[0] * parts[1] * parts[2];
+}
+
 export default function OrderDetailScreen({ route, navigation }) {
   const { order: initialOrder } = route.params;
   const [order, setOrder] = useState(initialOrder);
@@ -51,6 +59,9 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reserved, setReserved] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
+  const contactPhone = phone || (order.customer ? order.customer.phone : null);
+  const contactName = customerName || (order.customer ? order.customer.name : null);
+  const volume = calcVolume(order.dimensions);
 
   useEffect(() => {
     async function fetchOrder() {
@@ -266,6 +277,21 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
+
+      {role === 'DRIVER' && contactPhone && (
+        <View style={styles.driverCard}>
+          <View style={styles.driverRow}>
+            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text>{contactName || 'Замовник'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => Linking.openURL(`tel:${contactPhone}`)}>
+              <Ionicons name="call" size={28} color={colors.green} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {role === 'CUSTOMER' && (order.driver || order.reservedDriver || order.candidateDriver) && (
         <View style={styles.driverCard}>
           <View style={styles.driverRow}>
@@ -284,7 +310,8 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         </View>
       )}
-      {order.history && order.history.length > 0 && (
+
+      {role !== 'DRIVER' && order.history && order.history.length > 0 && (
         <StatusTimeline
           history={order.history.map((h) => ({
             ...h,
@@ -312,6 +339,11 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Ionicons name="fitness-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Вага:</Text>
         <Text style={styles.value}>{order.weight}</Text>
+      </View>
+      <View style={styles.row}>
+        <Ionicons name="cube-outline" size={20} color="#555" style={styles.rowIcon} />
+        <Text style={styles.label}>Об'єм:</Text>
+        <Text style={styles.value}>{volume !== null ? volume.toFixed(2) : '?'} м³</Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
@@ -383,6 +415,14 @@ export default function OrderDetailScreen({ route, navigation }) {
         </Modal>
       )}
       </View>
+      {role === 'DRIVER' && order.history && order.history.length > 0 && (
+        <StatusTimeline
+          history={order.history.map((h) => ({
+            ...h,
+            label: statusLabels[h.status] || h.status,
+          }))}
+        />
+      )}
       {role === 'DRIVER' && order.status === 'ACCEPTED' && (
         <AppButton title="Отримав вантаж" onPress={() => markReceived(order.id)} />
       )}
@@ -399,11 +439,11 @@ export default function OrderDetailScreen({ route, navigation }) {
             <View style={styles.reserveContainer}>
               <View style={styles.reserveRow}>
                 <AppButton title="Відмінити резерв" onPress={cancelReserve} style={{ flex: 1 }} />
-                {phone && (
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.callBtn}>
+                {contactPhone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${contactPhone}`)} style={styles.callBtn}>
                     <Ionicons name="call" size={32} color={colors.green} />
-                    {customerName && (
-                      <Text style={styles.nameText}>{customerName}</Text>
+                    {contactName && (
+                      <Text style={styles.nameText}>{contactName}</Text>
                     )}
                   </TouchableOpacity>
                 )}
