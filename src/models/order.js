@@ -10,6 +10,7 @@ const OrderStatus = {
   COMPLETED: 'COMPLETED',
   PENDING: 'PENDING',
   CANCELLED: 'CANCELLED',
+  REJECTED: 'REJECTED',
 };
 
 class Order extends Model {}

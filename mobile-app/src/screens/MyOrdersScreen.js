@@ -15,6 +15,7 @@ const statusLabels = {
   COMPLETED: 'Виконано',
   PENDING: 'Очікує підтвердження',
   CANCELLED: 'Скасовано',
+  REJECTED: 'Відмовлено',
 };
 
 export default function MyOrdersScreen({ navigation }) {
