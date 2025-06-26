@@ -61,6 +61,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName = customerName || (order.customer ? order.customer.name : null);
+  const showContact = order.reservedBy || order.driverId
   const volume = calcVolume(order.dimensions);
 
   useEffect(() => {
@@ -278,7 +279,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       </View>
       <Text style={styles.title}>Замовлення № {order.id}</Text>
 
-      {role === 'DRIVER' && contactPhone && (
+      {role === 'DRIVER' && showContact && contactPhone && (
         <View style={styles.driverCard}>
           <View style={styles.driverRow}>
             <Ionicons name="person-circle" size={36} color={colors.green} />
@@ -439,7 +440,7 @@ export default function OrderDetailScreen({ route, navigation }) {
             <View style={styles.reserveContainer}>
               <View style={styles.reserveRow}>
                 <AppButton title="Відмінити резерв" onPress={cancelReserve} style={{ flex: 1 }} />
-                {contactPhone && (
+                {showContact && contactPhone && (
                   <TouchableOpacity onPress={() => Linking.openURL(`tel:${contactPhone}`)} style={styles.callBtn}>
                     <Ionicons name="call" size={32} color={colors.green} />
                     {contactName && (
