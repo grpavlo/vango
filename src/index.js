@@ -31,8 +31,10 @@ const PORT = process.env.PORT || 3000;
 function scheduleCleanup() {
   async function cleanup() {
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 1);
-    await Order.destroy({ where: { loadFrom: { [Op.lte]: cutoff } } });
+    // Set to the start of the current day
+    cutoff.setHours(0, 0, 0, 0);
+    // Delete orders where load date is before today
+    await Order.destroy({ where: { loadFrom: { [Op.lt]: cutoff } } });
   }
   const now = new Date();
   const next = new Date(now);
