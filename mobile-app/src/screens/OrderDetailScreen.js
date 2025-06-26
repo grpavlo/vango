@@ -61,7 +61,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [timeLeft, setTimeLeft] = useState(null);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName = customerName || (order.customer ? order.customer.name : null);
-  const showContact = order.reservedBy || order.driverId;
+  const showContact = order.reservedBy || order.driverId
   const volume = calcVolume(order.dimensions);
 
   useEffect(() => {
