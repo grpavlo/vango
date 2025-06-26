@@ -15,6 +15,7 @@ const statusLabels = {
   COMPLETED: 'Виконано',
   PENDING: 'Очікує підтвердження',
   CANCELLED: 'Скасовано',
+  REJECTED: 'Відмовлено',
 };
 
 export default function MyOrdersScreen({ navigation }) {
@@ -163,7 +164,7 @@ export default function MyOrdersScreen({ navigation }) {
                 <View style={{ marginLeft: 8, flex: 1 }}>
                   <Text>{item.customer.name}</Text>
                 </View>
-                {item.customer.phone && (
+                {item.customer.phone && (item.reservedBy || item.driverId) && (
                   <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.customer.phone}`)}>
                     <Ionicons name="call" size={28} color={colors.green} />
                   </TouchableOpacity>
