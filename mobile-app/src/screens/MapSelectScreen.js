@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../components/AppButton';
 
 export default function MapSelectScreen({ navigation, route }) {
-  const { onSelect, address, lat, lon } = route.params || {};
+  const { onSelect, address, lat, lon, onClose } = route.params || {};
   const [region, setRegion] = useState({
     latitude: lat ? parseFloat(lat) : 50.4501,
     longitude: lon ? parseFloat(lon) : 30.5234,
@@ -34,6 +34,13 @@ export default function MapSelectScreen({ navigation, route }) {
     }
     geocode();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      if (onClose) onClose();
+    });
+    return unsubscribe;
+  }, [navigation, onClose]);
 
   async function confirm() {
     if (onSelect && marker) {

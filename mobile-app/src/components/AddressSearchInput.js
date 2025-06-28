@@ -12,6 +12,7 @@ export default function AddressSearchInput({
   placeholder,
   navigation,
   onOpenMap,
+  onCloseMap,
   lat,
   lon,
   style,
@@ -80,6 +81,7 @@ export default function AddressSearchInput({
                   onSelect(p);
                   onChangeText(p.text || value);
                 },
+                onClose: onCloseMap,
               });
             }}
           >
