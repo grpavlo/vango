@@ -237,9 +237,9 @@ export default function AllOrdersScreen({ navigation }) {
             navigation={navigation}
             onOpenMap={() => setFiltersVisible(false)}
             onCloseMap={() => setFiltersVisible(true)}
-
             lat={pickupPoint?.lat}
             lon={pickupPoint?.lon}
+            currentLocation={location}
             style={styles.input}
           />
           <AddressSearchInput

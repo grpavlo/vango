@@ -15,6 +15,7 @@ export default function AddressSearchInput({
   onCloseMap,
   lat,
   lon,
+  currentLocation,
   style,
 }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -77,6 +78,8 @@ export default function AddressSearchInput({
                 address: value,
                 lat,
                 lon,
+                userLat: currentLocation?.latitude,
+                userLon: currentLocation?.longitude,
                 onSelect: (p) => {
                   onSelect(p);
                   onChangeText(p.text || value);
@@ -126,6 +129,7 @@ const styles = StyleSheet.create({
     top: 50,
     left: 0,
     right: 0,
+    backgroundColor: '#fff',
     zIndex: 100,
     elevation: 5,
   },

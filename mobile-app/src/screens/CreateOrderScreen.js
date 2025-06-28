@@ -477,6 +477,7 @@ const styles = StyleSheet.create({
     top: 50,
     left: 0,
     right: 0,
+    backgroundColor: '#fff',
     zIndex: 100,
     elevation: 5,
   },
