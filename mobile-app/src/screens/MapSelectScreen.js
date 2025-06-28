@@ -5,10 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../components/AppButton';
 
 export default function MapSelectScreen({ navigation, route }) {
-  const { onSelect, address, lat, lon } = route.params || {};
+  const { onSelect, address, lat, lon, onClose, userLat, userLon } = route.params || {};
   const [region, setRegion] = useState({
-    latitude: lat ? parseFloat(lat) : 50.4501,
-    longitude: lon ? parseFloat(lon) : 30.5234,
+    latitude: lat ? parseFloat(lat) : userLat ? parseFloat(userLat) : 50.4501,
+    longitude: lon ? parseFloat(lon) : userLon ? parseFloat(userLon) : 30.5234,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
@@ -34,6 +34,13 @@ export default function MapSelectScreen({ navigation, route }) {
     }
     geocode();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      if (onClose) onClose();
+    });
+    return unsubscribe;
+  }, [navigation, onClose]);
 
   async function confirm() {
     if (onSelect && marker) {

@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
 import { apiFetch, HOST_URL } from '../api';
 import AppInput from '../components/AppInput';
+import AddressSearchInput from '../components/AddressSearchInput';
 import AppButton from '../components/AppButton';
 import DateInput from '../components/DateInput';
 import OrderCard from '../components/OrderCard';
@@ -15,7 +16,9 @@ export default function AllOrdersScreen({ navigation }) {
 
   const [date, setDate] = useState(new Date());
   const [pickupCity, setPickupCity] = useState('');
+  const [pickupPoint, setPickupPoint] = useState(null);
   const [dropoffCity, setDropoffCity] = useState('');
+  const [dropoffPoint, setDropoffPoint] = useState(null);
   const [volume, setVolume] = useState('');
   const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
@@ -44,6 +47,7 @@ export default function AllOrdersScreen({ navigation }) {
           const addr = data.address || {};
           const city = addr.city || addr.town || addr.village || addr.state || '';
           setPickupCity(city);
+          setPickupPoint(null);
           if (city) await AsyncStorage.setItem('pickupCity', city);
         }
       } catch {}
@@ -54,7 +58,10 @@ export default function AllOrdersScreen({ navigation }) {
       try {
         const storedCity = await AsyncStorage.getItem('pickupCity');
         const locStr = await AsyncStorage.getItem('location');
-        if (storedCity) setPickupCity(storedCity);
+        if (storedCity) {
+          setPickupCity(storedCity);
+          setPickupPoint(null);
+        }
         if (locStr) setLocation(JSON.parse(locStr));
         if (storedCity || locStr) {
           setDetected(true);
@@ -80,15 +87,15 @@ export default function AllOrdersScreen({ navigation }) {
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
-  }, [detected, token, location]);
+  }, [detected, token, location, pickupPoint]);
 
   async function fetchOrders() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (date) params.append('date', formatDate(date));
-      if (pickupCity) params.append('pickupCity', pickupCity);
-      if (dropoffCity) params.append('dropoffCity', dropoffCity);
+      if (pickupCity) params.append('pickupCity', pickupPoint?.city || pickupCity);
+      if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
       if (volume) params.append('minVolume', volume);
       if (weight) params.append('minWeight', weight);
       const query = params.toString();
@@ -96,12 +103,13 @@ export default function AllOrdersScreen({ navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       let list = data.available;
-      if (radius && location) {
+      const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
+      if (radius && origin) {
         const r = parseFloat(radius);
         if (!isNaN(r) && r > 0) {
           list = list.filter((o) => {
             if (!o.pickupLat || !o.pickupLon) return false;
-            const dist = haversine(location.latitude, location.longitude, o.pickupLat, o.pickupLon);
+            const dist = haversine(origin.latitude, origin.longitude, o.pickupLat, o.pickupLon);
             return dist <= r;
           });
         }
@@ -124,11 +132,12 @@ export default function AllOrdersScreen({ navigation }) {
     if (dropoffCity && !(o.dropoffCity || '').toLowerCase().includes(dropoffCity.toLowerCase())) return false;
     if (volume && parseFloat(o.volume || 0) < parseFloat(volume)) return false;
     if (weight && parseFloat(o.weight || 0) < parseFloat(weight)) return false;
-    if (radius && location) {
+    const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
+    if (radius && origin) {
       const r = parseFloat(radius);
       if (!isNaN(r) && r > 0) {
         if (!o.pickupLat || !o.pickupLon) return false;
-        const dist = haversine(location.latitude, location.longitude, o.pickupLat, o.pickupLon);
+        const dist = haversine(origin.latitude, origin.longitude, o.pickupLat, o.pickupLon);
         if (dist > r) return false;
       }
     }
@@ -140,8 +149,8 @@ export default function AllOrdersScreen({ navigation }) {
     if (wsRef.current) wsRef.current.close();
     const params = new URLSearchParams();
     if (date) params.append('date', formatDate(date));
-    if (pickupCity) params.append('pickupCity', pickupCity);
-    if (dropoffCity) params.append('dropoffCity', dropoffCity);
+    if (pickupCity) params.append('pickupCity', pickupPoint?.city || pickupCity);
+    if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
     if (volume) params.append('minVolume', volume);
     if (weight) params.append('minWeight', weight);
     const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream?${params}`;
@@ -177,7 +186,9 @@ export default function AllOrdersScreen({ navigation }) {
   function clearFilters() {
     setDate(new Date());
     setPickupCity('');
+    setPickupPoint(null);
     setDropoffCity('');
+    setDropoffPoint(null);
     setVolume('');
     setWeight('');
     setRadius('30');
@@ -215,16 +226,35 @@ export default function AllOrdersScreen({ navigation }) {
         <SafeAreaView style={styles.modalContainer}>
           <ScrollView contentContainerStyle={styles.filters}>
           <DateInput value={date} onChange={setDate} style={styles.input} />
-          <AppInput
-            placeholder="Місто завантаження"
+          <AddressSearchInput
+            placeholder="Місце завантаження"
             value={pickupCity}
-            onChangeText={setPickupCity}
+            onChangeText={(t) => {
+              setPickupCity(t);
+              if (!t) setPickupPoint(null);
+            }}
+            onSelect={setPickupPoint}
+            navigation={navigation}
+            onOpenMap={() => setFiltersVisible(false)}
+            onCloseMap={() => setFiltersVisible(true)}
+            lat={pickupPoint?.lat}
+            lon={pickupPoint?.lon}
+            currentLocation={location}
             style={styles.input}
           />
-          <AppInput
-            placeholder="Місто розвантаження"
+          <AddressSearchInput
+            placeholder="Місце розвантаження"
             value={dropoffCity}
-            onChangeText={setDropoffCity}
+            onChangeText={(t) => {
+              setDropoffCity(t);
+              if (!t) setDropoffPoint(null);
+            }}
+            onSelect={setDropoffPoint}
+            navigation={navigation}
+            onOpenMap={() => setFiltersVisible(false)}
+            onCloseMap={() => setFiltersVisible(true)}
+            lat={dropoffPoint?.lat}
+            lon={dropoffPoint?.lon}
             style={styles.input}
           />
           <AppInput
