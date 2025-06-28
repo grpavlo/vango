@@ -235,6 +235,7 @@ export default function AllOrdersScreen({ navigation }) {
             }}
             onSelect={setPickupPoint}
             navigation={navigation}
+            onOpenMap={() => setFiltersVisible(false)}
             lat={pickupPoint?.lat}
             lon={pickupPoint?.lon}
             style={styles.input}
@@ -248,6 +249,7 @@ export default function AllOrdersScreen({ navigation }) {
             }}
             onSelect={setDropoffPoint}
             navigation={navigation}
+            onOpenMap={() => setFiltersVisible(false)}
             lat={dropoffPoint?.lat}
             lon={dropoffPoint?.lon}
             style={styles.input}

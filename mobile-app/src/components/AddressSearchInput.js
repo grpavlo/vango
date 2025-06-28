@@ -11,6 +11,7 @@ export default function AddressSearchInput({
   onSelect,
   placeholder,
   navigation,
+  onOpenMap,
   lat,
   lon,
   style,
@@ -69,7 +70,8 @@ export default function AddressSearchInput({
         {navigation && (
           <TouchableOpacity
             style={styles.mapBtn}
-            onPress={() =>
+            onPress={() => {
+              if (onOpenMap) onOpenMap();
               navigation.navigate('MapSelect', {
                 address: value,
                 lat,
@@ -78,8 +80,8 @@ export default function AddressSearchInput({
                   onSelect(p);
                   onChangeText(p.text || value);
                 },
-              })
-            }
+              });
+            }}
           >
             <Ionicons name="map" size={24} color={colors.green} />
           </TouchableOpacity>
