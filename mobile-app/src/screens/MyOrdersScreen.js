@@ -189,10 +189,7 @@ export default function MyOrdersScreen({ navigation }) {
     const pending = item.status === 'PENDING';
     const candidate = item.driver || item.reservedDriver || item.candidateDriver;
     const candidateTime = item.candidateUntil
-      ? Math.max(
-          0,
-          Math.floor((now - (new Date(item.candidateUntil).getTime() - 15 * 60000)) / 60000)
-        )
+      ? Math.max(0, Math.ceil((new Date(item.candidateUntil) - now) / 60000))
       : 0;
     return (
       <TouchableOpacity
@@ -262,6 +259,22 @@ export default function MyOrdersScreen({ navigation }) {
             <Text style={styles.fieldLabel}>Статус: </Text>
             <Text style={styles.statusValue}>{statusLabels[item.status] || item.status}</Text>
           </Text>
+
+          {role === 'CUSTOMER' && item.status === 'PENDING' && (
+            <View style={styles.actionRow}>
+              <AppButton
+                title="Прийняти"
+                onPress={() => confirmDriver(item.id)}
+                style={styles.smallBtn}
+              />
+              <AppButton
+                title="Відхилити"
+                color="#EF4444"
+                onPress={() => rejectDriver(item.id)}
+                style={styles.smallBtn}
+              />
+            </View>
+          )}
 
           {role === 'DRIVER' && item.status === 'ACCEPTED' && (
             <AppButton title="Отримав вантаж" onPress={() => markReceived(item.id)} />
@@ -392,6 +405,8 @@ const styles = StyleSheet.create({
   fieldLabel: { fontWeight: '600', color: '#374151' },
   statusRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center' },
   statusValue: { fontWeight: '600', color: colors.green },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  smallBtn: { flex: 1, marginHorizontal: 4 },
   filters: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 },
   filterBtn: {
     height: 44,
