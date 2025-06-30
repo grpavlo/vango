@@ -7,7 +7,6 @@ import SettingsScreen from './SettingsScreen';
 import { colors } from '../components/Colors';
 import MyOrdersScreen from './MyOrdersScreen';
 import { useAuth } from '../AuthContext';
-import RoleSwitch from '../components/RoleSwitch';
 
 const Tab = createBottomTabNavigator();
 
@@ -32,15 +31,6 @@ export default function MainTabs() {
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.text },
         headerTitleAlign: 'center',
-        headerRight: () => (
-          <RoleSwitch
-            value={role}
-            onChange={(r) => {
-              if (r !== role) selectRole(r);
-            }}
-            style={{ marginRight: 12 }}
-          />
-        ),
       })}
     >
       {role === 'CUSTOMER' ? (
