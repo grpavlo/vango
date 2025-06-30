@@ -24,7 +24,11 @@ export default function MainTabs() {
           if (route.name === 'Settings') name = 'settings';
           return <Ionicons name={name} size={size} color={color} />;
         },
-        tabBarActiveTintColor: colors.green,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { color: colors.text },
       })}
     >
       {role === 'CUSTOMER' ? (
