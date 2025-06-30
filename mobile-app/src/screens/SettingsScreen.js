@@ -172,5 +172,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
   },
 });
