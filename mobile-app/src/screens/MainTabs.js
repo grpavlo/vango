@@ -29,6 +29,7 @@ export default function MainTabs() {
         tabBarStyle: { backgroundColor: colors.background },
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.text },
+        headerTitleAlign: 'center',
       })}
     >
       {role === 'CUSTOMER' ? (

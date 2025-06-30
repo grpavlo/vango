@@ -7,4 +7,11 @@ export const colors = {
   background: '#f9fafb',
   border: '#e5e7eb',
   press: '#e7f6ec',
+  primary500: '#16A34A',
+  primary100: '#DCFCE7',
+  gray900: '#0F172A',
+  gray700: '#374151',
+  gray500: '#64748B',
+  gray100: '#F1F5F9',
+  surface: '#FFFFFF',
 };
