@@ -67,6 +67,12 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          <RoleSwitch
+            value={role}
+            onChange={handleChange}
+            style={styles.profileSwitch}
+          />
+
           <AppButton
             title="Вийти"
             onPress={logout}
@@ -169,6 +175,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
+  },
+  profileSwitch: {
+    width: '100%',
+    marginBottom: 16,
   },
   list: {
     backgroundColor: colors.surface,
