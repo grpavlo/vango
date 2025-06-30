@@ -359,7 +359,7 @@ export default function CreateOrderScreen({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Ionicons name="download" size={20} color={colors.green} />
+        <Ionicons name="arrow-down-circle" size={20} color={colors.green} />
         <AppText style={styles.label}>Завантаження</AppText>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -381,7 +381,7 @@ export default function CreateOrderScreen({ navigation }) {
         </View>
       </View>
       <View style={styles.section}>
-        <Ionicons name="upload" size={20} color={colors.orange} />
+        <Ionicons name="arrow-up-circle" size={20} color={colors.orange} />
         <AppText style={styles.label}>Вивантаження</AppText>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
