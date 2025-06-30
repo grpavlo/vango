@@ -1,5 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Pressable, SafeAreaView, Linking, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Pressable,
+  SafeAreaView,
+  Linking,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/Colors';
 import AppButton from '../components/AppButton';
@@ -147,6 +157,29 @@ export default function MyOrdersScreen({ navigation }) {
     }
   }
 
+  function editOrder(order) {
+    navigation.navigate('EditOrder', { order });
+  }
+
+  function confirmDelete(id) {
+    Alert.alert('Підтвердження', 'Видалити вантаж?', [
+      { text: 'Скасувати' },
+      { text: 'OK', onPress: () => remove(id) },
+    ]);
+  }
+
+  async function remove(id) {
+    try {
+      await apiFetch(`/orders/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      load();
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   function renderItem({ item }) {
     const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
     const dropoffCity = item.dropoffCity || ((item.dropoffLocation || '').split(',')[1] || '').trim();
@@ -154,83 +187,82 @@ export default function MyOrdersScreen({ navigation }) {
     const now = new Date();
     const reserved = item.reservedBy && item.reservedUntil && new Date(item.reservedUntil) > now;
     const pending = item.status === 'PENDING';
+    const candidate = item.driver || item.reservedDriver || item.candidateDriver;
+    const candidateTime = item.candidateUntil
+      ? Math.max(
+          0,
+          Math.floor((now - (new Date(item.candidateUntil).getTime() - 15 * 60000)) / 60000)
+        )
+      : 0;
     return (
-      <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
-        <View style={[styles.item, reserved && styles.reservedItem]}>
-          {role === 'DRIVER' && item.customer && (
-            <View style={styles.driverBlock}>
-              <View style={styles.driverRow}>
-                <Ionicons name="person-circle" size={36} color={colors.green} />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text>{item.customer.name}</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('OrderDetail', { order: item, token })}
+        activeOpacity={0.8}
+      >
+        <View style={styles.card}>
+          {role === 'CUSTOMER' && candidate && reserved && (
+            <TouchableOpacity
+              style={styles.candidateRow}
+              activeOpacity={0.7}
+              onPress={() => candidate.phone && Linking.openURL(`tel:${candidate.phone}`)}
+            >
+              <View style={styles.candidateLeft}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{candidate.name.charAt(0)}</Text>
                 </View>
-                {item.customer.phone && (item.reservedBy || item.driverId) && (
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.customer.phone}`)}>
-                    <Ionicons name="call" size={28} color={colors.green} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              {reserved && (
-                <>
-                  <Text style={styles.timerText}>
-                    {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
-                  </Text>
-                  {!pending && (
-                    <AppButton
-                      title="Відмінити резерв"
-                      onPress={() => cancelReserve(item.id)}
-                      style={{ marginTop: 4 }}
-                    />
-                  )}
-                </>
-              )}
-            </View>
-          )}
-          {role === 'CUSTOMER' && (item.driver || item.reservedDriver || item.candidateDriver) && (
-            <View style={styles.driverBlock}>
-              <View style={styles.driverRow}>
-                <Ionicons name="person-circle" size={36} color={colors.green} />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text>{(item.driver || item.reservedDriver || item.candidateDriver).name}</Text>
-                  {(item.driver || item.reservedDriver || item.candidateDriver).rating && (
-                    <Text>Рейтинг: {(item.driver || item.reservedDriver || item.candidateDriver).rating.toFixed(1)}</Text>
+                <View style={styles.driverInfo}>
+                  <Text style={styles.driverName}>{candidate.name}</Text>
+                  {candidate.rating && (
+                    <Text style={styles.driverRating}>Рейтинг: {candidate.rating.toFixed(1)}</Text>
                   )}
                 </View>
-                {(item.driver || item.reservedDriver || item.candidateDriver).phone && (
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${(item.driver || item.reservedDriver || item.candidateDriver).phone}`)}>
-                    <Ionicons name="call" size={28} color={colors.green} />
-                  </TouchableOpacity>
-                )}
               </View>
-              {reserved && (
-                <Text style={styles.timerText}>
-                  {Math.ceil((new Date(item.reservedUntil) - now) / 60000)} хв
-                </Text>
-              )}
-              {pending && item.candidateDriver && (
-                <View style={styles.pendingRow}>
-                  <AppButton
-                    title="Підтвердити"
-                    onPress={() => confirmDriver(item.id)}
-                    style={{ flex: 1, marginRight: 4 }}
-                  />
-                  <AppButton
-                    title="Відхилити"
-                    color="red"
-                    onPress={() => rejectDriver(item.id)}
-                    style={{ flex: 1, marginLeft: 4 }}
-                  />
-                </View>
-              )}
-            </View>
+              <View style={styles.candidateRight}>
+                <Ionicons name="call" size={20} color={colors.green} />
+                <Text style={styles.timeLabel}>{candidateTime} хв</Text>
+              </View>
+            </TouchableOpacity>
           )}
-          <Text style={styles.itemNumber}>№ {item.id}</Text>
-          <Text style={styles.itemText}>Місто завантаження: {pickupCity}</Text>
-          <Text style={styles.itemText}>Місто розвантаження: {dropoffCity}</Text>
-          <Text style={styles.itemText}>Адреса розвантаження: {dropoffAddress}</Text>
-          <Text style={styles.itemText}>Дата створення: {new Date(item.createdAt).toLocaleDateString()}</Text>
-          <Text style={styles.itemText}>Ціна: {Math.round(item.price)} грн</Text>
-          <Text style={styles.itemText}>Статус: {statusLabels[item.status] || item.status}</Text>
+
+          <View style={styles.idRow}>
+            <Text style={styles.itemNumber}>№ {item.id}</Text>
+            {role === 'CUSTOMER' && item.status === 'CREATED' && (
+              <View style={styles.idActions}>
+                <TouchableOpacity onPress={() => editOrder(item)}>
+                  <Ionicons name="pencil" size={20} color={colors.green} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => confirmDelete(item.id)} style={{ marginLeft: 16 }}>
+                  <Ionicons name="trash" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.field}>
+            <Text style={styles.fieldLabel}>Місто завантаження: </Text>
+            {pickupCity}
+          </Text>
+          <Text style={styles.field}>
+            <Text style={styles.fieldLabel}>Місто розвантаження: </Text>
+            {dropoffCity}
+          </Text>
+          <Text style={styles.field}>
+            <Text style={styles.fieldLabel}>Адреса розвантаження: </Text>
+            {dropoffAddress}
+          </Text>
+          <Text style={styles.field}>
+            <Text style={styles.fieldLabel}>Дата створення: </Text>
+            {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+          <Text style={styles.field}>
+            <Text style={styles.fieldLabel}>Ціна: </Text>
+            {Math.round(item.price)} грн
+          </Text>
+          <Text style={styles.statusRow}>
+            <Text style={styles.fieldLabel}>Статус: </Text>
+            <Text style={styles.statusValue}>{statusLabels[item.status] || item.status}</Text>
+          </Text>
+
           {role === 'DRIVER' && item.status === 'ACCEPTED' && (
             <AppButton title="Отримав вантаж" onPress={() => markReceived(item.id)} />
           )}
@@ -277,16 +309,25 @@ export default function MyOrdersScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.filters}>
-        <Pressable style={[styles.filterBtn, filter === 'active' && styles.activeFilter]} onPress={() => setFilter('active')}>
-          <Text style={filter === 'active' ? styles.activeFilterText : null}>В роботі</Text>
+        <Pressable
+          style={[styles.filterBtn, filter === 'active' && styles.activeFilter]}
+          onPress={() => setFilter('active')}
+        >
+          <Text style={[styles.filterText, filter === 'active' && styles.activeFilterText]}>В роботі</Text>
         </Pressable>
-        <Pressable style={[styles.filterBtn, filter === 'posted' && styles.activeFilter]} onPress={() => setFilter('posted')}>
-          <Text style={filter === 'posted' ? styles.activeFilterText : null}>
+        <Pressable
+          style={[styles.filterBtn, filter === 'posted' && styles.activeFilter]}
+          onPress={() => setFilter('posted')}
+        >
+          <Text style={[styles.filterText, filter === 'posted' && styles.activeFilterText]}>
             {role === 'DRIVER' ? 'На підтвердженні' : 'Мої'}
           </Text>
         </Pressable>
-        <Pressable style={[styles.filterBtn, filter === 'history' && styles.activeFilter]} onPress={() => setFilter('history')}>
-          <Text style={filter === 'history' ? styles.activeFilterText : null}>Історія</Text>
+        <Pressable
+          style={[styles.filterBtn, filter === 'history' && styles.activeFilter]}
+          onPress={() => setFilter('history')}
+        >
+          <Text style={[styles.filterText, filter === 'history' && styles.activeFilterText]}>Історія</Text>
         </Pressable>
       </View>
       <FlatList
@@ -295,6 +336,7 @@ export default function MyOrdersScreen({ navigation }) {
         keyExtractor={(o) => o.id.toString()}
         onRefresh={refresh}
         refreshing={refreshing}
+        contentContainerStyle={{ paddingBottom: 80 }}
       />
     </SafeAreaView>
   );
@@ -302,27 +344,64 @@ export default function MyOrdersScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 12 },
-  item: {
-    padding: 12,
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingTop: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 24,
     marginHorizontal: 12,
     marginVertical: 6,
-    backgroundColor: '#fff',
-    borderRadius: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
   },
-  itemNumber: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  itemText: { color: '#333', marginTop: 2 },
-  filters: { flexDirection: 'row', justifyContent: 'space-around', margin: 8 },
-  filterBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
-  activeFilter: { backgroundColor: '#333' },
+  candidateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFF8F3',
+    borderColor: '#FFF8F3',
+    borderWidth: 1,
+    borderRadius: 12,
+    height: 56,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+  },
+  candidateLeft: { flexDirection: 'row', alignItems: 'center' },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  driverInfo: { marginLeft: 8 },
+  driverName: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  driverRating: { fontSize: 14, color: '#6B7280' },
+  candidateRight: { flexDirection: 'row', alignItems: 'center' },
+  timeLabel: { marginLeft: 4, fontSize: 14, color: '#EA580C' },
+  idRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  idActions: { flexDirection: 'row' },
+  itemNumber: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  field: { marginTop: 4, fontSize: 15, color: '#111827' },
+  fieldLabel: { fontWeight: '600', color: '#374151' },
+  statusRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center' },
+  statusValue: { fontWeight: '600', color: colors.green },
+  filters: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 },
+  filterBtn: {
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+  },
+  activeFilter: { backgroundColor: colors.green },
   activeFilterText: { color: '#fff' },
-  reservedItem: { borderColor: colors.orange, borderWidth: 2 },
-  driverBlock: { marginBottom: 8 },
-  driverRow: { flexDirection: 'row', alignItems: 'center' },
-  timerText: { textAlign: 'right', color: colors.orange },
-  pendingRow: { flexDirection: 'row', marginTop: 4 },
+  filterText: { fontSize: 16, fontWeight: '600', color: '#111827' },
 });
