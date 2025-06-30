@@ -15,6 +15,7 @@ export default function MainTabs() {
 
   return (
     <Tab.Navigator
+      key={role}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
           let name = 'list';
@@ -29,12 +30,13 @@ export default function MainTabs() {
         tabBarStyle: { backgroundColor: colors.background },
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { color: colors.text },
+        headerTitleAlign: 'center',
       })}
     >
       {role === 'CUSTOMER' ? (
         <>
-          <Tab.Screen name="Create" component={CreateOrderScreen} options={{ title: 'Створити' }} />
           <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої замовлення' }} />
+          <Tab.Screen name="Create" component={CreateOrderScreen} options={{ title: 'Створити' }} />
         </>
       ) : (
         <>
