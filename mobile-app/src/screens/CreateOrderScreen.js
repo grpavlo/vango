@@ -224,7 +224,10 @@ export default function CreateOrderScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <AppText style={styles.label}>Звідки</AppText>
+      <View style={styles.section}>
+        <Ionicons name="location" size={20} color={colors.green} />
+        <AppText style={styles.label}>Звідки</AppText>
+      </View>
       <View style={{ position: 'relative', zIndex: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <AppInput
@@ -254,7 +257,7 @@ export default function CreateOrderScreen({ navigation }) {
               })
             }
           >
-            <Ionicons name="map" size={24} color={colors.green} />
+            <Ionicons name="map" size={24} color={colors.orange} />
           </TouchableOpacity>
         </View>
         {pickupSuggestions.length > 0 && (
@@ -288,7 +291,10 @@ export default function CreateOrderScreen({ navigation }) {
         )}
       </View>
 
-      <AppText style={styles.label}>Куди</AppText>
+      <View style={styles.section}>
+        <Ionicons name="location" size={20} color={colors.orange} />
+        <AppText style={styles.label}>Куди</AppText>
+      </View>
       <View style={{ position: 'relative', zIndex: 9 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <AppInput
@@ -352,7 +358,10 @@ export default function CreateOrderScreen({ navigation }) {
         )}
       </View>
 
-      <AppText style={styles.label}>Завантаження</AppText>
+      <View style={styles.section}>
+        <Ionicons name="download" size={20} color={colors.green} />
+        <AppText style={styles.label}>Завантаження</AppText>
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <DateInput
           value={loadFrom}
@@ -371,7 +380,10 @@ export default function CreateOrderScreen({ navigation }) {
           <TimeInput value={loadTo} onChange={setLoadTo} style={{ marginVertical: 0 }} />
         </View>
       </View>
-      <AppText style={styles.label}>Вивантаження</AppText>
+      <View style={styles.section}>
+        <Ionicons name="upload" size={20} color={colors.orange} />
+        <AppText style={styles.label}>Вивантаження</AppText>
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <DateInput
           value={unloadFrom}
@@ -391,32 +403,35 @@ export default function CreateOrderScreen({ navigation }) {
       </View>
       </View>
 
-      <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+      <View style={styles.section}>
+        <Ionicons name="cube" size={20} color={colors.green} />
+        <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+      </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <AppInput style={styles.dim} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
         <AppInput style={styles.dim} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
         <AppInput style={styles.dim} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
       </View>
 
-      <AppText style={styles.label}>Вага, кг</AppText>
+      <AppText style={styles.labelStandalone}>Вага, кг</AppText>
       <AppInput value={weight} onChangeText={setWeight} keyboardType="numeric" />
 
-      <AppText style={styles.label}>Об'ємна вага, кг</AppText>
+      <AppText style={styles.labelStandalone}>Об'ємна вага, кг</AppText>
       <AppInput value={volWeight} editable={false} />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginLeft: 24 }}>
         <CheckBox value={loadHelp} onChange={setLoadHelp} label="Завантаження" />
         <CheckBox value={unloadHelp} onChange={setUnloadHelp} label="Розвантаження" />
       </View>
 
-      <AppText style={styles.label}>Оплата</AppText>
+      <AppText style={styles.labelStandalone}>Оплата</AppText>
       <OptionSwitch
         options={[{ label: 'Готівка', value: 'cash' }, { label: 'Карта', value: 'card' }]}
         value={payment}
         onChange={setPayment}
       />
 
-      <AppText style={styles.label}>Опис вантажу</AppText>
+      <AppText style={styles.labelStandalone}>Опис вантажу</AppText>
       <AppInput
         value={description}
         onChangeText={setDescription}
@@ -429,7 +444,7 @@ export default function CreateOrderScreen({ navigation }) {
 
       {systemPrice !== null && (
         <View style={{ marginTop: 16 }}>
-          <AppText style={styles.label}>
+          <AppText style={styles.labelStandalone}>
             Ціна: {Math.round(systemPrice * (1 + adjust / 100))} грн
           </AppText>
           <Slider
@@ -447,15 +462,20 @@ export default function CreateOrderScreen({ navigation }) {
         </View>
       )}
       <View style={styles.actions}>
-        <AppButton title="Створити" onPress={confirmCreate} style={{ flex: 1 }} />
+        <AppButton
+          title="Створити"
+          onPress={confirmCreate}
+          style={{ flex: 1, height: 56, borderRadius: 16 }}
+          textStyle={{ fontSize: 18, fontWeight: '600' }}
+        />
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  dim: { flex: 1 },
+  container: { padding: 24 },
+  dim: { width: 88, textAlign: 'center', height: 88 },
   suggestionsBox: {
     backgroundColor: '#fff',
     borderRadius: 8,
@@ -468,7 +488,9 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
   },
   suggestionMain: { fontSize: 16 },
-  label: { marginTop: 8, color: colors.text },
+  section: { flexDirection: 'row', alignItems: 'center', marginTop: 24 },
+  label: { marginLeft: 8, color: colors.text, fontWeight: '600' },
+  labelStandalone: { marginTop: 24, color: colors.text, fontWeight: '600' },
   suggestionsDropdown: {
     position: 'absolute',
     top: 50,
@@ -479,5 +501,5 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mapBtn: { marginLeft: 8 },
-  actions: { flexDirection: 'row', marginTop: 16 },
+  actions: { flexDirection: 'row', marginTop: 32 },
 });
