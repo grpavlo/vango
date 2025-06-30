@@ -54,6 +54,7 @@ export default function CreateOrderScreen({ navigation }) {
   const [description, setDescription] = useState('');
   const [systemPrice, setSystemPrice] = useState(null);
   const [adjust, setAdjust] = useState(0);
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     async function calcPrice() {
@@ -224,7 +225,9 @@ export default function CreateOrderScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <AppText style={styles.label}>Звідки</AppText>
+      {step === 1 ? (
+        <>
+          <AppText style={styles.label}>Звідки</AppText>
       <View style={{ position: 'relative', zIndex: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <AppInput
@@ -388,14 +391,18 @@ export default function CreateOrderScreen({ navigation }) {
           }}
           style={{ marginVertical: 0 }}
         />
-        <View style={{ flexDirection: 'column' }}>
-          <TimeInput value={unloadFrom} onChange={setUnloadFrom} style={{ marginVertical: 0 }} />
-          <TimeInput value={unloadTo} onChange={setUnloadTo} style={{ marginVertical: 0 }} />
-        </View>
+      <View style={{ flexDirection: 'column' }}>
+        <TimeInput value={unloadFrom} onChange={setUnloadFrom} style={{ marginVertical: 0 }} />
+        <TimeInput value={unloadTo} onChange={setUnloadTo} style={{ marginVertical: 0 }} />
+      </View>
 
       </View>
 
-      <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+      <AppButton title="Далі" onPress={() => setStep(2)} />
+        </>
+      ) : (
+        <>
+          <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <AppInput style={styles.dim} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
         <AppInput style={styles.dim} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
@@ -451,7 +458,12 @@ export default function CreateOrderScreen({ navigation }) {
         </View>
       )}
 
-      <AppButton title="Створити" onPress={confirmCreate} />
+          <View style={styles.actions}>
+            <AppButton title="Назад" onPress={() => setStep(1)} style={{ flex: 1, marginRight: 8 }} />
+            <AppButton title="Створити" onPress={confirmCreate} style={{ flex: 1, marginLeft: 8 }} />
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -482,4 +494,5 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   mapBtn: { marginLeft: 8 },
+  actions: { flexDirection: 'row', marginTop: 16 },
 });

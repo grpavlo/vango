@@ -43,7 +43,7 @@ export default function SettingsScreen() {
       <View style={styles.list}>
         <ListItem title="Профіль користувача" onPress={() => {}} />
         <ListItem title="Мова" onPress={() => {}} />
-        <ListItem title="Тема">
+        <ListItem title="Роль">
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View>
