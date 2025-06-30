@@ -15,6 +15,7 @@ export default function MainTabs() {
 
   return (
     <Tab.Navigator
+      key={role}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
           let name = 'list';

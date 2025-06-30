@@ -26,8 +26,10 @@ export default function SettingsScreen() {
     load();
   }, [token]);
 
-  function handleChange(r) {
-    if (r !== role) selectRole(r);
+  async function handleChange(r) {
+    if (r !== role) {
+      await selectRole(r);
+    }
   }
 
   const initials = user?.name
