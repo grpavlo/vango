@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Image, Modal, StyleSheet, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Image, Modal, StyleSheet, ScrollView, Pressable, Text } from 'react-native';
 import { useToast } from './Toast';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import AppButton from './AppButton';
+import { colors } from './Colors';
 
 export default function PhotoPicker({ photos, onChange }) {
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -44,9 +44,19 @@ export default function PhotoPicker({ photos, onChange }) {
 
   return (
     <View style={styles.container}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <AppButton title="Фото" onPress={takePhoto} style={{ flex: 1 }} />
-        <AppButton title="Галерея" onPress={pickFromLibrary} style={{ flex: 1 }} />
+      <View style={styles.row}>
+        <Pressable
+          onPress={takePhoto}
+          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+        >
+          <Text style={styles.actionText}>Фото</Text>
+        </Pressable>
+        <Pressable
+          onPress={pickFromLibrary}
+          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+        >
+          <Text style={styles.actionText}>Галерея</Text>
+        </Pressable>
       </View>
       {photos && photos.length > 0 && (
         <ScrollView horizontal style={{ marginTop: 8 }}>
@@ -83,6 +93,18 @@ export default function PhotoPicker({ photos, onChange }) {
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center' },
+  row: { flexDirection: 'row', gap: 8, width: '100%' },
+  action: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  actionPressed: { backgroundColor: '#F3F4F6' },
+  actionText: { fontWeight: '600', color: colors.text },
   thumbnail: { width: 100, height: 100, marginRight: 8 },
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
