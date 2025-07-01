@@ -362,45 +362,63 @@ export default function CreateOrderScreen({ navigation }) {
         <Ionicons name="arrow-down-circle" size={20} color={colors.green} />
         <AppText style={styles.label}>Завантаження</AppText>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <DateInput
+      <DateInput
+        value={loadFrom}
+        onChange={(d) => {
+          const from = new Date(loadFrom);
+          from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+          const to = new Date(loadTo);
+          to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+          setLoadFrom(from);
+          setLoadTo(to);
+        }}
+        style={{ marginTop: 0, marginBottom: 12 }}
+        placeholder="DD.MM.YYYY"
+      />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TimeInput
           value={loadFrom}
-          onChange={(d) => {
-            const from = new Date(loadFrom);
-            from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-            const to = new Date(loadTo);
-            to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-            setLoadFrom(from);
-            setLoadTo(to);
-          }}
-          style={{ marginVertical: 0 }}
+          onChange={setLoadFrom}
+          style={{ flex: 1 }}
+          placeholder="09:00"
         />
-        <View style={{ flexDirection: 'column' }}>
-          <TimeInput value={loadFrom} onChange={setLoadFrom} style={{ marginVertical: 0 }} />
-          <TimeInput value={loadTo} onChange={setLoadTo} style={{ marginVertical: 0 }} />
-        </View>
+        <TimeInput
+          value={loadTo}
+          onChange={setLoadTo}
+          style={{ flex: 1 }}
+          placeholder="18:00"
+        />
       </View>
       <View style={styles.section}>
         <Ionicons name="arrow-up-circle" size={20} color={colors.orange} />
         <AppText style={styles.label}>Вивантаження</AppText>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <DateInput
+      <DateInput
+        value={unloadFrom}
+        onChange={(d) => {
+          const from = new Date(unloadFrom);
+          from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+          const to = new Date(unloadTo);
+          to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+          setUnloadFrom(from);
+          setUnloadTo(to);
+        }}
+        style={{ marginTop: 0, marginBottom: 12 }}
+        placeholder="DD.MM.YYYY"
+      />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TimeInput
           value={unloadFrom}
-          onChange={(d) => {
-            const from = new Date(unloadFrom);
-            from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-            const to = new Date(unloadTo);
-            to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-            setUnloadFrom(from);
-            setUnloadTo(to);
-          }}
-          style={{ marginVertical: 0 }}
+          onChange={setUnloadFrom}
+          style={{ flex: 1 }}
+          placeholder="09:00"
         />
-      <View style={{ flexDirection: 'column' }}>
-        <TimeInput value={unloadFrom} onChange={setUnloadFrom} style={{ marginVertical: 0 }} />
-        <TimeInput value={unloadTo} onChange={setUnloadTo} style={{ marginVertical: 0 }} />
-      </View>
+        <TimeInput
+          value={unloadTo}
+          onChange={setUnloadTo}
+          style={{ flex: 1 }}
+          placeholder="18:00"
+        />
       </View>
 
       <View style={styles.section}>
