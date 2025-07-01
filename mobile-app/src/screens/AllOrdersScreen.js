@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     width: '100%',
   },
-  toggle: { marginHorizontal: 12 },
+  toggle: { marginVertical: 8 },
   radiusRow: {
     flexDirection: 'row',
     alignItems: 'center',
