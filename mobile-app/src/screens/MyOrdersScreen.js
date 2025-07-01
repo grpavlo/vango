@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
   SafeAreaView,
+  ScrollView,
   Linking,
   Alert,
 } from 'react-native';
@@ -321,7 +322,11 @@ export default function MyOrdersScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.filters}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
         <Pressable
           style={[styles.filterBtn, filter === 'active' && styles.activeFilter]}
           onPress={() => setFilter('active')}
@@ -342,7 +347,7 @@ export default function MyOrdersScreen({ navigation }) {
         >
           <Text style={[styles.filterText, filter === 'history' && styles.activeFilterText]}>Історія</Text>
         </Pressable>
-      </View>
+      </ScrollView>
       <FlatList
         data={filtered}
         renderItem={renderItem}
@@ -407,7 +412,12 @@ const styles = StyleSheet.create({
   statusValue: { fontWeight: '600', color: colors.green },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   smallBtn: { flex: 1, marginHorizontal: 4 },
-  filters: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 16 },
+  filters: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    marginVertical: 16,
+  },
   filterBtn: {
     height: 44,
     paddingHorizontal: 24,
@@ -415,6 +425,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   activeFilter: { backgroundColor: colors.green },
   activeFilterText: { color: '#fff' },
