@@ -19,20 +19,18 @@ export default function AppButton({
       ? colors.red
       : colors.green);
 
+  const getStyle = ({ pressed }) => [
+    styles.button,
+    {
+      backgroundColor: bgColor,
+      opacity: disabled ? 0.4 : 1,
+    },
+    pressed && { transform: [{ scale: 0.92 }] },
+    style,
+  ];
+
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: bgColor,
-          opacity: disabled ? 0.4 : 1,
-          transform: pressed ? [{ scale: 0.92 }] : undefined,
-        },
-        style,
-      ]}
-      disabled={disabled}
-      {...props}
-    >
+    <Pressable style={getStyle} disabled={disabled} {...props}>
       <Text style={[styles.text, textStyle]}>{title}</Text>
     </Pressable>
   );
