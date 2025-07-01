@@ -39,6 +39,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
+    marginLeft:10, marginRight:10 
   },
   row: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
   timeline: { width: 16, alignItems: 'center' },
