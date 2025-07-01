@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -76,10 +76,39 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [actionHeight, setActionHeight] = useState(0);
+  const wsRef = useRef(null);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName = customerName || (order.customer ? order.customer.name : null);
   const showContact = order.reservedBy || order.driverId
   const volume = calcVolume(order.dimensions);
+
+  useEffect(() => {
+    connectWs();
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, [token]);
+
+  function connectWs() {
+    if (!token) return;
+    if (wsRef.current) wsRef.current.close();
+    const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream`;
+    const ws = new WebSocket(url, null, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    wsRef.current = ws;
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.id === initialOrder.id) {
+          setOrder(data);
+        }
+      } catch (e) {
+        console.log('ws message error', e);
+      }
+    };
+    ws.onerror = (e) => console.log('ws error', e.message);
+  }
 
   useEffect(() => {
     async function fetchOrder() {
@@ -268,6 +297,30 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  async function confirmDriver() {
+    try {
+      const updated = await apiFetch(`/orders/${order.id}/confirm-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrder(updated);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function rejectDriver() {
+    try {
+      const updated = await apiFetch(`/orders/${order.id}/reject-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrder(updated);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   function renderActions() {
     const buttons = [];
 
@@ -298,16 +351,23 @@ export default function OrderDetailScreen({ route, navigation }) {
       );
     }
 
-    if (role === 'CUSTOMER' && order.status === 'DELIVERED') {
-      buttons.push(
-        <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
-      );
-    }
-
-    if (role === 'CUSTOMER' && order.status === 'CREATED' && !order.driverId) {
-      buttons.push(
-        <AppButton key="cancel-order" title="Скасувати" onPress={confirmDelete} variant="danger" />
-      );
+    if (role === 'CUSTOMER') {
+      if (order.status === 'DELIVERED') {
+        buttons.push(
+          <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
+        );
+      } else if (order.status === 'PENDING') {
+        buttons.push(
+          <View key="pending" style={styles.actionRow}>
+            <AppButton title="Прийняти" onPress={confirmDriver} style={styles.smallBtn} />
+            <AppButton title="Відхилити" onPress={rejectDriver} variant="danger" style={styles.smallBtn} />
+          </View>
+        );
+      } else if (order.status === 'CREATED' && order.reservedBy) {
+        buttons.push(
+          <AppButton key="cancel-reserve" title="Відмінити резерв" onPress={cancelReserve} variant="danger" />
+        );
+      }
     }
 
     return buttons.length > 0 ? buttons : <View style={{ height: 24 }} />;
@@ -581,6 +641,8 @@ const styles = StyleSheet.create({
   statusRowCard: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft:10, marginRight:10  },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8, marginLeft:10, marginRight:10  },
   statusValue: { fontSize: 18, fontWeight: '600' },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  smallBtn: { flex: 1, marginHorizontal: 4 },
   actionArea: {
     position: 'absolute',
     left: 0,
