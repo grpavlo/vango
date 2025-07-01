@@ -30,6 +30,22 @@ const statusLabels = {
   REJECTED: 'Відмовлено',
 };
 
+function statusColor(status) {
+  switch (status) {
+    case 'CREATED':
+      return colors.green;
+    case 'PENDING':
+      return '#FBBF24';
+    case 'REJECTED':
+    case 'CANCELLED':
+      return colors.red;
+    case 'COMPLETED':
+      return colors.gray900;
+    default:
+      return colors.green;
+  }
+}
+
 function formatTime(dateStr) {
   const d = new Date(dateStr);
   const pad = (n) => (n < 10 ? `0${n}` : n);
@@ -59,6 +75,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reserved, setReserved] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [actionHeight, setActionHeight] = useState(0);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName = customerName || (order.customer ? order.customer.name : null);
   const showContact = order.reservedBy || order.driverId
@@ -251,6 +268,51 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  function renderActions() {
+    const buttons = [];
+
+    if (role === 'DRIVER' && !order.driverId) {
+      if (!reserved) {
+        buttons.push(
+          <AppButton key="reserve" title="Резерв 10 хв" onPress={reserve} variant="success" />
+        );
+      } else {
+        buttons.push(
+          <AppButton key="cancel" title="Відмінити резерв" onPress={cancelReserve} variant="danger" />
+        );
+      }
+      buttons.push(
+        <AppButton key="take" title="Взяти" onPress={accept} variant="warning" />
+      );
+    }
+
+    if (role === 'DRIVER' && order.status === 'ACCEPTED') {
+      buttons.push(
+        <AppButton key="received" title="Отримав вантаж" onPress={() => markReceived(order.id)} />
+      );
+    }
+
+    if (role === 'DRIVER' && order.status === 'IN_PROGRESS') {
+      buttons.push(
+        <AppButton key="delivered" title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+      );
+    }
+
+    if (role === 'CUSTOMER' && order.status === 'DELIVERED') {
+      buttons.push(
+        <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
+      );
+    }
+
+    if (role === 'CUSTOMER' && order.status === 'CREATED' && !order.driverId) {
+      buttons.push(
+        <AppButton key="cancel-order" title="Скасувати" onPress={confirmDelete} variant="danger" />
+      );
+    }
+
+    return buttons.length > 0 ? buttons : <View style={{ height: 24 }} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {reserved && timeLeft !== null && (
@@ -261,23 +323,35 @@ export default function OrderDetailScreen({ route, navigation }) {
           </Text>
         </View>
       )}
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
-      <View style={styles.actions}>
+      <ScrollView contentContainerStyle={{ paddingBottom: actionHeight + 16 }}>
+      <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={28} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        {role === 'CUSTOMER' && !order.driverId && (
-          <View style={{ flexDirection: 'row' }}>
+        <Text style={styles.title}>Замовлення № {order.id}</Text>
+        {role === 'CUSTOMER' && !order.driverId ? (
+          <View style={styles.appActions}>
             <TouchableOpacity onPress={edit} style={styles.iconButton}>
-              <Ionicons name="pencil" size={28} color={colors.green} />
+              <Ionicons name="pencil" size={20} color={colors.green} />
             </TouchableOpacity>
             <TouchableOpacity onPress={confirmDelete} style={styles.iconButton}>
-              <Ionicons name="trash" size={28} color="red" />
+              <Ionicons name="trash" size={20} color={colors.red} />
             </TouchableOpacity>
           </View>
+        ) : (
+          <View style={{ width: 44 }} />
         )}
       </View>
-      <Text style={styles.title}>Замовлення № {order.id}</Text>
+
+      <View style={styles.statusCard}>
+        <Text style={styles.statusDate}>{new Date(order.createdAt).toLocaleString()}</Text>
+        <View style={styles.statusRowCard}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor(order.status) }]} />
+          <Text style={[styles.statusValue, { color: statusColor(order.status) }]}>
+            {statusLabels[order.status] || order.status}
+          </Text>
+        </View>
+      </View>
 
       {role === 'DRIVER' && showContact && contactPhone && (
         <View style={styles.driverCard}>
@@ -424,55 +498,28 @@ export default function OrderDetailScreen({ route, navigation }) {
           }))}
         />
       )}
-      {role === 'DRIVER' && order.status === 'ACCEPTED' && (
-        <AppButton title="Отримав вантаж" onPress={() => markReceived(order.id)} />
-      )}
-      {role === 'DRIVER' && order.status === 'IN_PROGRESS' && (
-        <AppButton title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
-      )}
-      {role === 'CUSTOMER' && order.status === 'DELIVERED' && (
-        <AppButton title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
-      )}
-      {role === 'DRIVER' && !order.driverId && (
-        <View style={styles.bottomButtons}>
-          {!reserved && <AppButton title="Резерв 10 хв" onPress={reserve} />}
-          {reserved && (
-            <View style={styles.reserveContainer}>
-              <View style={styles.reserveRow}>
-                <AppButton title="Відмінити резерв" onPress={cancelReserve} style={{ flex: 1 }} />
-                {showContact && contactPhone && (
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${contactPhone}`)} style={styles.callBtn}>
-                    <Ionicons name="call" size={32} color={colors.green} />
-                    {contactName && (
-                      <Text style={styles.nameText}>{contactName}</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-          <AppButton title="Взяти" color={colors.orange} onPress={accept} />
-        </View>
-      )}
+      
       </ScrollView>
+    <View style={styles.actionArea} onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}>
+      {renderActions()}
+    </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 24 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  iconButton: { padding: 4 },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  iconButton: { padding: 10 },
+  title: { fontSize: 18, fontWeight: '600', color: '#111827', textAlign: 'center' },
   row: { flexDirection: 'row', marginBottom: 8, alignItems: 'center' },
   label: { fontWeight: 'bold', marginRight: 8, fontSize: 16 },
   value: { fontSize: 16, flexShrink: 1 },
   rowIcon: { marginRight: 6 },
   detailsCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
@@ -483,20 +530,11 @@ const styles = StyleSheet.create({
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
   close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
-  callBtn: { padding: 8, flexDirection: 'row', alignItems: 'center' },
-  bottomButtons: { marginTop: 'auto' },
-  reserveContainer: { marginBottom: 8 },
-  reserveRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
   driverCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
@@ -518,5 +556,31 @@ const styles = StyleSheet.create({
   },
   timerText: { fontSize: 16, color: colors.orange, fontWeight: 'bold' },
   nameText: { marginLeft: 4, fontSize: 16 },
+  appBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  appActions: { flexDirection: 'row' },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusDate: { fontSize: 14, color: '#6B7280' },
+  statusRowCard: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  statusValue: { fontSize: 18, fontWeight: '600' },
+  actionArea: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
 });
 
