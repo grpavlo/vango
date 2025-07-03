@@ -10,7 +10,6 @@ import {
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
-import DateTimeInput from '../components/DateTimeInput';
 import DateInput from '../components/DateInput';
 import TimeInput from '../components/TimeInput';
 import { colors } from '../components/Colors';
