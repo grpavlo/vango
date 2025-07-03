@@ -47,8 +47,9 @@ const BottomSheet = React.forwardRef(function BottomSheet({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      // Start handling gesture only after some movement so taps work
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
       onPanResponderMove: (_, gesture) => {
         let newY = lastOffset.current + gesture.dy;
         newY = Math.max(expandedOffset, Math.min(collapsedOffset, newY));
