@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { colors } from './Colors';
 
-export default function OrderCard({ order, onPress }) {
+export default function OrderCard({ order, onPress, highlighted }) {
   const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
   const dropoffCity = order.dropoffCity || ((order.dropoffLocation || '').split(',')[1] || '').trim();
   const volume = calcVolume(order.dimensions);
@@ -31,7 +31,7 @@ export default function OrderCard({ order, onPress }) {
   }
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, highlighted && styles.highlighted]}>
       <View style={styles.mapContainer}>
         <MapView style={{ flex: 1 }} initialRegion={region}>
 
@@ -104,6 +104,10 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     elevation: 2,
+  },
+  highlighted: {
+    borderWidth: 2,
+    borderColor: colors.orange,
   },
   mapContainer: { height: 120, borderRadius: 8, overflow: 'hidden' },
   infoContainer: { paddingVertical: 4 },
