@@ -34,7 +34,19 @@ export default function AddressSearchInput({
         { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
-      setSuggestions(data);
+      const allowed = ['city', 'town', 'village', 'hamlet', 'locality'];
+      const used = new Set();
+      const cities = data.filter((item) => allowed.includes(item.type));
+      const unique = [];
+      for (const item of cities) {
+        const addr = item.address || {};
+        const cityName = addr.city || addr.town || addr.village || addr.state || '';
+        if (cityName && !used.has(cityName)) {
+          used.add(cityName);
+          unique.push({ ...item, display_name: cityName });
+        }
+      }
+      setSuggestions(unique);
     } catch {}
   }
 
@@ -61,7 +73,7 @@ export default function AddressSearchInput({
   }
 
   return (
-    <View style={{ position: 'relative', zIndex: 10 }}>
+    <View style={{ position: 'relative', zIndex: 100 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <AppInput
           placeholder={placeholder}
@@ -130,7 +142,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#fff',
-    zIndex: 100,
+    zIndex: 9999,
     elevation: 5,
   },
   mapBtn: { marginLeft: 8 },
