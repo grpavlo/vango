@@ -347,11 +347,11 @@ export default function AllOrdersScreen({ navigation }) {
             refreshing={refreshing}
             ListEmptyComponent={
               loading ? (
-                <>
+                <View style={styles.empty}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <OrderCardSkeleton key={i} />
                   ))}
-                </>
+                </View>
               ) : null
             }
           />
@@ -388,6 +388,7 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, marginHorizontal: 4 },
   closeBtn: { marginTop: 8 },
   modalContainer: { flex: 1 },
+  empty: { paddingVertical: 8 },
 });
 
 function haversine(lat1, lon1, lat2, lon2) {
