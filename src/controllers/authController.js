@@ -4,17 +4,6 @@ const User = require('../models/user');
 const { UserRole } = require('../models/user');
 const { JWT_SECRET } = require('../config');
 
-async function savePushToken(req, res) {
-  const { token } = req.body;
-  if (!token) return res.status(400).send('No token');
-  try {
-    req.user.pushToken = token;
-    await req.user.save();
-    res.json({ pushToken: token });
-  } catch (err) {
-    res.status(400).send('Failed to save token');
-  }
-}
 
 async function register(req, res) {
   const { name, email, password, city, phone } = req.body;
@@ -67,4 +56,4 @@ async function updateRole(req, res) {
   res.json({ role: req.user.role });
 }
 
-module.exports = { register, login, profile, updateRole, savePushToken };
+module.exports = { register, login, profile, updateRole };
