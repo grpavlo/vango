@@ -8,7 +8,8 @@ const BottomSheet = React.forwardRef(function BottomSheet({
   children,
   style,
 }, ref) {
-  const expandedOffset = SCREEN_HEIGHT * 0.1;
+  // Leave more space from the top when expanded
+  const expandedOffset = SCREEN_HEIGHT * 0.2;
   const collapsedOffset = SCREEN_HEIGHT - collapsedHeight;
 
   const [expanded, setExpanded] = useState(false);
@@ -46,8 +47,9 @@ const BottomSheet = React.forwardRef(function BottomSheet({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      // Start handling gesture only after some movement so taps work
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
       onPanResponderMove: (_, gesture) => {
         let newY = lastOffset.current + gesture.dy;
         newY = Math.max(expandedOffset, Math.min(collapsedOffset, newY));
