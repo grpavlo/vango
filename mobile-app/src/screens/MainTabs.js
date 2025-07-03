@@ -40,7 +40,11 @@ export default function MainTabs() {
         </>
       ) : (
         <>
-          <Tab.Screen name="All" component={AllOrdersScreen} options={{ headerShown: false }} />
+          <Tab.Screen
+            name="All"
+            component={AllOrdersScreen}
+            options={{ headerShown: false, title: 'Всі', tabBarLabel: 'Всі' }}
+          />
           <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Мої замовлення' }} />
         </>
       )}

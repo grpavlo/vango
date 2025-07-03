@@ -34,6 +34,7 @@ export default function AllOrdersScreen({ navigation }) {
   const [detected, setDetected] = useState(false);
   const sheetRef = useRef(null);
   const listRef = useRef(null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -222,6 +223,38 @@ export default function AllOrdersScreen({ navigation }) {
     sheetRef.current?.expand();
   }
 
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const origin = pickupPoint
+      ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) }
+      : location;
+
+    let coords = orders
+      .filter((o) => o.pickupLat && o.pickupLon)
+      .map((o) => ({ latitude: o.pickupLat, longitude: o.pickupLon }));
+
+    if (origin && radius) {
+      const r = parseFloat(radius);
+      if (!isNaN(r) && r > 0) {
+        const latDelta = r / 111;
+        const lonDelta = r / (111 * Math.cos((origin.latitude * Math.PI) / 180));
+        coords = coords.concat([
+          { latitude: origin.latitude + latDelta, longitude: origin.longitude + lonDelta },
+          { latitude: origin.latitude + latDelta, longitude: origin.longitude - lonDelta },
+          { latitude: origin.latitude - latDelta, longitude: origin.longitude + lonDelta },
+          { latitude: origin.latitude - latDelta, longitude: origin.longitude - lonDelta },
+        ]);
+      }
+    }
+
+    if (coords.length) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
+        animated: true,
+      });
+    }
+  }, [orders, radius, pickupPoint, location]);
+
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 }
@@ -229,7 +262,7 @@ export default function AllOrdersScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView style={{ flex: 1 }} initialRegion={region} showsUserLocation>
+      <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={region} showsUserLocation>
         {location && (
           <Circle
             center={location}
