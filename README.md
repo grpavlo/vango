@@ -21,3 +21,10 @@ npm run seed
 npm run dev
 ```
 
+## Searching for Nearby Orders
+
+The `GET /orders` endpoint accepts `lat`, `lon` and `radius` (in
+kilometers) query parameters. All orders with pickup coordinates inside
+the specified radius are returned. Coordinates are required – the
+service does not perform address geocoding for this filter.
+
