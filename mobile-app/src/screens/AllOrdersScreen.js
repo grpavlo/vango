@@ -20,8 +20,6 @@ export default function AllOrdersScreen({ navigation }) {
   const [date, setDate] = useState(new Date());
   const [pickupCity, setPickupCity] = useState('');
   const [pickupPoint, setPickupPoint] = useState(null);
-  const [dropoffCity, setDropoffCity] = useState('');
-  const [dropoffPoint, setDropoffPoint] = useState(null);
   const [volume, setVolume] = useState('');
   const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
@@ -107,9 +105,10 @@ export default function AllOrdersScreen({ navigation }) {
     const useRadius = radius && origin && !isNaN(parseFloat(radius));
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
-    if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
-    if (volume) params.append('minVolume', volume);
-    if (weight) params.append('minWeight', weight);
+    const vol = parseNumber(volume);
+    if (!isNaN(vol)) params.append('minVolume', vol);
+    const wt = parseNumber(weight);
+    if (!isNaN(wt)) params.append('minWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -145,9 +144,8 @@ export default function AllOrdersScreen({ navigation }) {
     if (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > now) return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date)) return false;
     if (pickupCity && !(o.pickupCity || '').toLowerCase().includes(pickupCity.toLowerCase())) return false;
-    if (dropoffCity && !(o.dropoffCity || '').toLowerCase().includes(dropoffCity.toLowerCase())) return false;
-    if (volume && parseFloat(o.volume || 0) < parseFloat(volume)) return false;
-    if (weight && parseFloat(o.weight || 0) < parseFloat(weight)) return false;
+    if (volume && parseFloat(o.volume || 0) < parseNumber(volume)) return false;
+    if (weight && parseFloat(o.weight || 0) < parseNumber(weight)) return false;
     const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
     if (radius && origin) {
       const r = parseFloat(radius);
@@ -171,9 +169,10 @@ export default function AllOrdersScreen({ navigation }) {
     const useRadius = radius && origin && !isNaN(parseFloat(radius));
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
-    if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
-    if (volume) params.append('minVolume', volume);
-    if (weight) params.append('minWeight', weight);
+    const vol = parseNumber(volume);
+    if (!isNaN(vol)) params.append('minVolume', vol);
+    const wt = parseNumber(weight);
+    if (!isNaN(wt)) params.append('minWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -213,8 +212,6 @@ export default function AllOrdersScreen({ navigation }) {
     setDate(new Date());
     setPickupCity('');
     setPickupPoint(null);
-    setDropoffCity('');
-    setDropoffPoint(null);
     setVolume('');
     setWeight('');
     setRadius('30');
@@ -330,21 +327,6 @@ export default function AllOrdersScreen({ navigation }) {
             currentLocation={location}
             style={styles.input}
           />
-          <AddressSearchInput
-            placeholder="Місце розвантаження"
-            value={dropoffCity}
-            onChangeText={(t) => {
-              setDropoffCity(t);
-              if (!t) setDropoffPoint(null);
-            }}
-            onSelect={setDropoffPoint}
-            navigation={navigation}
-            onOpenMap={() => setFiltersVisible(false)}
-            onCloseMap={() => setFiltersVisible(true)}
-            lat={dropoffPoint?.lat}
-            lon={dropoffPoint?.lon}
-            style={styles.input}
-          />
           <AppInput
             placeholder="Обʼєм м³"
             value={volume}
@@ -421,6 +403,11 @@ function formatDate(d) {
   if (!d) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function parseNumber(v) {
+  if (v === null || v === undefined) return NaN;
+  return parseFloat(String(v).replace(',', '.'));
 }
 
 const styles = StyleSheet.create({
