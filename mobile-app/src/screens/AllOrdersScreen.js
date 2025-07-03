@@ -399,6 +399,7 @@ export default function AllOrdersScreen({ navigation }) {
                 </View>
               ) : null
             }
+            contentContainerStyle={styles.listContent}
           />
         </View>
       </BottomSheet>
@@ -439,6 +440,7 @@ const styles = StyleSheet.create({
   closeBtn: { marginTop: 8 },
   modalContainer: { flex: 1 },
   empty: { paddingVertical: 8 },
+  listContent: { paddingBottom: 260 },
 });
 
 function haversine(lat1, lon1, lat2, lon2) {
