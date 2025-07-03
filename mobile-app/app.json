@@ -11,23 +11,30 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
-        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї"
-      }
+        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.pashagr.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "13e10178-3db7-42e7-811c-796768a59e41"
+      }
     }
   }
 }
