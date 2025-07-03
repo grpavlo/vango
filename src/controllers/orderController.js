@@ -90,7 +90,19 @@ async function createOrder(req, res) {
 }
 
 async function listAvailableOrders(req, res) {
-  const { city, pickupCity, dropoffCity, date, minVolume, maxVolume, minWeight, maxWeight } = req.query;
+  const {
+    city,
+    pickupCity,
+    dropoffCity,
+    date,
+    minVolume,
+    maxVolume,
+    minWeight,
+    maxWeight,
+    lat,
+    lon,
+    radius,
+  } = req.query;
   const { Op } = require('sequelize');
 
   const where = {
@@ -129,6 +141,41 @@ async function listAvailableOrders(req, res) {
   ];
   const orders = await Order.findAll({ where });
 
+  let centerLat = parseFloat(lat);
+  let centerLon = parseFloat(lon);
+  const searchRadius = radius ? parseFloat(radius) : null;
+  if ((isNaN(centerLat) || isNaN(centerLon)) && cityFilter && !pickupCity) {
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(cityFilter)}`
+      );
+      const geoData = await geoRes.json();
+      if (Array.isArray(geoData) && geoData[0]) {
+        centerLat = parseFloat(geoData[0].lat);
+        centerLon = parseFloat(geoData[0].lon);
+      }
+    } catch (err) {
+      console.log('Geocoding failed', err);
+    }
+  }
+
+  function inRadius(order) {
+    if (!searchRadius || isNaN(centerLat) || isNaN(centerLon)) return true;
+    if (!order.pickupLat || !order.pickupLon) return false;
+    const R = 6371; // km
+    const dLat = ((order.pickupLat - centerLat) * Math.PI) / 180;
+    const dLon = ((order.pickupLon - centerLon) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(centerLat * (Math.PI / 180)) *
+        Math.cos(order.pickupLat * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance <= searchRadius;
+  }
+
   function calcVolume(dimensions) {
     if (!dimensions) return null;
     const parts = dimensions.split('x').map((n) => parseFloat(n));
@@ -140,6 +187,7 @@ async function listAvailableOrders(req, res) {
     const vol = calcVolume(o.dimensions);
     if (minVolume && vol !== null && vol < parseFloat(minVolume)) return false;
     if (maxVolume && vol !== null && vol > parseFloat(maxVolume)) return false;
+    if (!inRadius(o)) return false;
     return true;
   });
 
