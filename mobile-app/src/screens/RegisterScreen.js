@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -52,10 +59,15 @@ export default function RegisterScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <AppText style={styles.label}>Ім'я</AppText>
-      <AppInput value={name} onChangeText={setName} placeholder="Ваше ім'я" />
-      <AppText style={styles.label}>Електронна пошта</AppText>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.container}>
+          <AppText style={styles.label}>Ім'я</AppText>
+          <AppInput value={name} onChangeText={setName} placeholder="Ваше ім'я" />
+          <AppText style={styles.label}>Електронна пошта</AppText>
       <AppInput
         value={email}
         onChangeText={setEmail}
@@ -72,9 +84,11 @@ export default function RegisterScreen({ navigation }) {
       <AppInput value={phone} onChangeText={setPhone} placeholder="380..." keyboardType="phone-pad" />
       <AppText style={styles.label}>Місто</AppText>
       <AppInput value={city} onChangeText={setCity} placeholder="Київ" />
-      {error && <AppText style={styles.error}>{error}</AppText>}
-      <AppButton title="Зареєструватися" onPress={handleRegister} />
-    </View>
+          {error && <AppText style={styles.error}>{error}</AppText>}
+          <AppButton title="Зареєструватися" onPress={handleRegister} />
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
