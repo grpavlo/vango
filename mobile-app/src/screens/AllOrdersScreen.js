@@ -225,16 +225,35 @@ export default function AllOrdersScreen({ navigation }) {
 
   useEffect(() => {
     if (!mapRef.current) return;
-    const coords = orders
+    const origin = pickupPoint
+      ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) }
+      : location;
+
+    let coords = orders
       .filter((o) => o.pickupLat && o.pickupLon)
       .map((o) => ({ latitude: o.pickupLat, longitude: o.pickupLon }));
+
+    if (origin && radius) {
+      const r = parseFloat(radius);
+      if (!isNaN(r) && r > 0) {
+        const latDelta = r / 111;
+        const lonDelta = r / (111 * Math.cos((origin.latitude * Math.PI) / 180));
+        coords = coords.concat([
+          { latitude: origin.latitude + latDelta, longitude: origin.longitude + lonDelta },
+          { latitude: origin.latitude + latDelta, longitude: origin.longitude - lonDelta },
+          { latitude: origin.latitude - latDelta, longitude: origin.longitude + lonDelta },
+          { latitude: origin.latitude - latDelta, longitude: origin.longitude - lonDelta },
+        ]);
+      }
+    }
+
     if (coords.length) {
       mapRef.current.fitToCoordinates(coords, {
         edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
         animated: true,
       });
     }
-  }, [orders]);
+  }, [orders, radius, pickupPoint, location]);
 
 
   const region = location
