@@ -73,8 +73,13 @@ export default function AddressSearchInput({
     setSuggestions([]);
   }
 
+  const containerStyle = {
+    position: 'relative',
+    zIndex: suggestions.length > 0 ? 1000 : 100,
+  };
+
   return (
-    <View style={{ position: 'relative', zIndex: 100 }}>
+    <View style={containerStyle}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <AppInput
           placeholder={placeholder}
