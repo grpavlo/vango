@@ -256,16 +256,19 @@ export default function AllOrdersScreen({ navigation }) {
   }, [orders, radius, pickupPoint, location]);
 
 
-  const region = location
-    ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 }
+  const originPoint = pickupPoint
+    ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) }
+    : location;
+  const region = originPoint
+    ? { latitude: originPoint.latitude, longitude: originPoint.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 }
     : { latitude: 50.45, longitude: 30.523, latitudeDelta: 0.2, longitudeDelta: 0.2 };
 
   return (
     <View style={{ flex: 1 }}>
       <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={region} showsUserLocation>
-        {location && (
+        {originPoint && (
           <Circle
-            center={location}
+            center={originPoint}
             radius={parseFloat(radius || '0') * 1000}
             fillColor="rgba(22,163,74,0.15)"
             strokeColor="rgba(22,163,74,0.4)"
