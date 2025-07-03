@@ -98,18 +98,28 @@ export default function AllOrdersScreen({ navigation }) {
   async function fetchOrders() {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (date) params.append('date', formatDate(date));
-      if (pickupCity) params.append('pickupCity', pickupPoint?.city || pickupCity);
-      if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
-      if (volume) params.append('minVolume', volume);
-      if (weight) params.append('minWeight', weight);
-      const query = params.toString();
+    const params = new URLSearchParams();
+    if (date) params.append('date', formatDate(date));
+    const origin = pickupPoint
+      ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) }
+      : location;
+
+    const useRadius = radius && origin && !isNaN(parseFloat(radius));
+    if (!useRadius && pickupCity)
+      params.append('pickupCity', pickupPoint?.city || pickupCity);
+    if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
+    if (volume) params.append('minVolume', volume);
+    if (weight) params.append('minWeight', weight);
+    if (useRadius) {
+      params.append('lat', origin.latitude);
+      params.append('lon', origin.longitude);
+      params.append('radius', parseFloat(radius));
+    }
+    const query = params.toString();
       const data = await apiFetch(`/orders${query ? `?${query}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       let list = data.available;
-      const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
       if (radius && origin) {
         const r = parseFloat(radius);
         if (!isNaN(r) && r > 0) {
@@ -155,10 +165,20 @@ export default function AllOrdersScreen({ navigation }) {
     if (wsRef.current) wsRef.current.close();
     const params = new URLSearchParams();
     if (date) params.append('date', formatDate(date));
-    if (pickupCity) params.append('pickupCity', pickupPoint?.city || pickupCity);
+    const origin = pickupPoint
+      ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) }
+      : location;
+    const useRadius = radius && origin && !isNaN(parseFloat(radius));
+    if (!useRadius && pickupCity)
+      params.append('pickupCity', pickupPoint?.city || pickupCity);
     if (dropoffCity) params.append('dropoffCity', dropoffPoint?.city || dropoffCity);
     if (volume) params.append('minVolume', volume);
     if (weight) params.append('minWeight', weight);
+    if (useRadius) {
+      params.append('lat', origin.latitude);
+      params.append('lon', origin.longitude);
+      params.append('radius', parseFloat(radius));
+    }
     const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream?${params}`;
     const ws = new WebSocket(url, null, {
       headers: { Authorization: `Bearer ${token}` },
