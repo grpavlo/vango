@@ -4,6 +4,7 @@ const Transaction = require('../models/transaction');
 const User = require('../models/user');
 const { SERVICE_FEE_PERCENT } = require('../config');
 const { broadcastOrder, broadcastDelete } = require('../ws');
+const { sendNotification } = require('../utils/notification');
 
 async function createOrder(req, res) {
   const {
@@ -257,6 +258,7 @@ async function reserveOrder(req, res) {
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
     broadcastOrder(order);
+    sendNotification(order.customerId, `Замовлення №${order.id} взято в резерв`, { orderId: order.id });
     res.json({
       order,
       phone: order.customer ? order.customer.phone : null,
