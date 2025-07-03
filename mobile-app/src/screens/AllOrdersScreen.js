@@ -106,9 +106,9 @@ export default function AllOrdersScreen({ navigation }) {
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
     const vol = parseNumber(volume);
-    if (!isNaN(vol)) params.append('minVolume', vol);
+    if (!isNaN(vol)) params.append('maxVolume', vol);
     const wt = parseNumber(weight);
-    if (!isNaN(wt)) params.append('minWeight', wt);
+    if (!isNaN(wt)) params.append('maxWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -144,8 +144,8 @@ export default function AllOrdersScreen({ navigation }) {
     if (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > now) return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date)) return false;
     if (pickupCity && !(o.pickupCity || '').toLowerCase().includes(pickupCity.toLowerCase())) return false;
-    if (volume && parseFloat(o.volume || 0) < parseNumber(volume)) return false;
-    if (weight && parseFloat(o.weight || 0) < parseNumber(weight)) return false;
+    if (volume && parseFloat(o.volume || 0) > parseNumber(volume)) return false;
+    if (weight && parseFloat(o.weight || 0) > parseNumber(weight)) return false;
     const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
     if (radius && origin) {
       const r = parseFloat(radius);
@@ -170,9 +170,9 @@ export default function AllOrdersScreen({ navigation }) {
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
     const vol = parseNumber(volume);
-    if (!isNaN(vol)) params.append('minVolume', vol);
+    if (!isNaN(vol)) params.append('maxVolume', vol);
     const wt = parseNumber(weight);
-    if (!isNaN(wt)) params.append('minWeight', wt);
+    if (!isNaN(wt)) params.append('maxWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -328,14 +328,14 @@ export default function AllOrdersScreen({ navigation }) {
             style={styles.input}
           />
           <AppInput
-            placeholder="Обʼєм м³"
+            placeholder="Обʼєм до м³"
             value={volume}
             onChangeText={setVolume}
             keyboardType="numeric"
             style={styles.input}
           />
           <AppInput
-            placeholder="Вага кг"
+            placeholder="Вага до кг"
             value={weight}
             onChangeText={setWeight}
             keyboardType="numeric"
