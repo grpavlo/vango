@@ -36,14 +36,14 @@ export default function AddressSearchInput({
       const data = await res.json();
       const allowed = ['city', 'town', 'village', 'hamlet', 'locality'];
       const used = new Set();
-      const cities = data.filter((item) => allowed.includes(item.type));
       const unique = [];
-      for (const item of cities) {
+      for (const item of data) {
+        if (!allowed.includes(item.type)) continue;
         const addr = item.address || {};
         const cityName = addr.city || addr.town || addr.village || addr.state || '';
         if (cityName && !used.has(cityName)) {
           used.add(cityName);
-          unique.push({ ...item, display_name: cityName });
+          unique.push(item);
         }
       }
       setSuggestions(unique);
@@ -58,17 +58,18 @@ export default function AddressSearchInput({
 
   function handleSelect(item) {
     const addr = item.address || {};
+    const cityName = addr.city || addr.town || addr.village || addr.state || '';
     const point = {
       text: item.display_name,
       lat: parseFloat(item.lat),
       lon: parseFloat(item.lon),
-      city: addr.city || addr.town || addr.village || addr.state || '',
+      city: cityName,
       address: [addr.road, addr.house_number].filter(Boolean).join(' '),
       country: addr.country || '',
       postcode: addr.postcode || '',
     };
     onSelect(point);
-    onChangeText(item.display_name);
+    onChangeText(cityName);
     setSuggestions([]);
   }
 
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
   suggestionMain: { fontSize: 16 },
   suggestionsDropdown: {
     position: 'absolute',
-    top: 50,
+    top: '100%',
     left: 0,
     right: 0,
     backgroundColor: '#fff',
