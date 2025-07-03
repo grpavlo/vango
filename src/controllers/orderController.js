@@ -141,23 +141,9 @@ async function listAvailableOrders(req, res) {
   ];
   const orders = await Order.findAll({ where });
 
-  let centerLat = parseFloat(lat);
-  let centerLon = parseFloat(lon);
+  const centerLat = parseFloat(lat);
+  const centerLon = parseFloat(lon);
   const searchRadius = radius ? parseFloat(radius) : null;
-  if ((isNaN(centerLat) || isNaN(centerLon)) && cityFilter && !pickupCity) {
-    try {
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(cityFilter)}`
-      );
-      const geoData = await geoRes.json();
-      if (Array.isArray(geoData) && geoData[0]) {
-        centerLat = parseFloat(geoData[0].lat);
-        centerLon = parseFloat(geoData[0].lon);
-      }
-    } catch (err) {
-      console.log('Geocoding failed', err);
-    }
-  }
 
   function inRadius(order) {
     if (!searchRadius || isNaN(centerLat) || isNaN(centerLon)) return true;
