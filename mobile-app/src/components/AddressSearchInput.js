@@ -34,19 +34,7 @@ export default function AddressSearchInput({
         { headers: { 'User-Agent': 'vango-app' } }
       );
       const data = await res.json();
-      const allowed = ['city', 'town', 'village', 'hamlet', 'locality'];
-      const used = new Set();
-      const unique = [];
-      for (const item of data) {
-        if (!allowed.includes(item.type)) continue;
-        const addr = item.address || {};
-        const cityName = addr.city || addr.town || addr.village || addr.state || '';
-        if (cityName && !used.has(cityName)) {
-          used.add(cityName);
-          unique.push(item);
-        }
-      }
-      setSuggestions(unique);
+      setSuggestions(data);
     } catch {}
   }
 
@@ -69,7 +57,7 @@ export default function AddressSearchInput({
       postcode: addr.postcode || '',
     };
     onSelect(point);
-    onChangeText(cityName);
+    onChangeText(item.display_name);
     setSuggestions([]);
   }
 
