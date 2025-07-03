@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import DatePicker from 'react-native-date-picker';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import AppInput from './AppInput';
 
@@ -11,11 +11,18 @@ export default function UniversalDateTimeInput({
   placeholder,
   style,
 }) {
-  const [open, setOpen] = useState(false);
+  const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
+  const [tempDate, setTempDate] = useState(value || new Date());
 
   return (
     <View>
-      <TouchableOpacity onPress={() => setOpen(true)}>
+      <TouchableOpacity
+        onPress={() => {
+          if (mode === 'time') setShowTime(true);
+          else setShowDate(true);
+        }}
+      >
         <View>
           <AppInput
             value={format(value, mode)}
@@ -32,17 +39,43 @@ export default function UniversalDateTimeInput({
           />
         </View>
       </TouchableOpacity>
-      <DatePicker
-        modal
-        open={open}
-        date={value || new Date()}
-        mode={mode}
-        onConfirm={(date) => {
-          setOpen(false);
-          onChange(date);
-        }}
-        onCancel={() => setOpen(false)}
-      />
+      {showDate && (
+        <DateTimePicker
+          value={value || new Date()}
+          mode="date"
+          is24Hour
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          onChange={(_e, selected) => {
+            setShowDate(false);
+            if (!selected) return;
+            const newDate = new Date(selected);
+            if (mode === 'datetime') {
+              setTempDate(newDate);
+              setShowTime(true);
+            } else {
+              onChange(newDate);
+            }
+          }}
+        />
+      )}
+      {showTime && (
+        <DateTimePicker
+          value={mode === 'datetime' ? tempDate : value || new Date()}
+          mode="time"
+          is24Hour
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(_e, selected) => {
+            setShowTime(false);
+            if (!selected) return;
+            const base = mode === 'datetime' ? tempDate : value || new Date();
+            const newDate = new Date(base);
+            newDate.setHours(selected.getHours());
+            newDate.setMinutes(selected.getMinutes());
+            onChange(newDate);
+          }}
+        />
+      )}
+
     </View>
   );
 }
