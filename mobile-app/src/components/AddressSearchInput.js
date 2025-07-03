@@ -76,6 +76,7 @@ export default function AddressSearchInput({
   const containerStyle = {
     position: 'relative',
     zIndex: suggestions.length > 0 ? 1000 : 100,
+    elevation: suggestions.length > 0 ? 50 : 0,
   };
 
   return (
