@@ -8,27 +8,41 @@ import AppText from '../components/AppText';
 import { apiFetch } from '../api';
 import ListItem from '../components/ListItem';
 import { colors } from '../components/Colors';
+import ProfileCardSkeleton from '../components/ProfileCardSkeleton';
 
 export default function SettingsScreen() {
   const { logout, role, selectRole, token } = useAuth();
   const [user, setUser] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
     async function load() {
       if (!token) return;
       try {
+        setLoadingProfile(true);
         const me = await apiFetch('/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(me);
       } catch {}
+      finally {
+        setLoadingProfile(false);
+      }
     }
     load();
   }, [token]);
 
   async function handleChange(r) {
     if (r !== role) {
+      setLoadingProfile(true);
       await selectRole(r);
+      try {
+        const me = await apiFetch('/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(me);
+      } catch {}
+      setLoadingProfile(false);
     }
   }
 
@@ -40,11 +54,14 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      {user && (
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <AppText style={styles.avatarText}>{initials}</AppText>
-          </View>
+      {loadingProfile ? (
+        <ProfileCardSkeleton />
+      ) : (
+        user && (
+          <View style={styles.profileCard}>
+            <View style={styles.avatar}>
+              <AppText style={styles.avatarText}>{initials}</AppText>
+            </View>
           <AppText style={styles.name}>{user.name}</AppText>
           <AppText style={styles.phone}>{user.phone}</AppText>
 
