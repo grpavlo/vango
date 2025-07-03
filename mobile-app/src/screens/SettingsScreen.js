@@ -52,9 +52,9 @@ export default function SettingsScreen() {
     .slice(0, 2)
     .join('');
 
-  return (
-    <View style={styles.container}>
-      {loadingProfile ? (
+    return (
+      <View style={styles.container}>
+        {loadingProfile ? (
         <ProfileCardSkeleton />
       ) : (
         user && (
@@ -96,18 +96,19 @@ export default function SettingsScreen() {
             style={styles.logoutButton}
           />
         </View>
+      )
       )}
-
-      <View style={styles.list}>
+         <View style={styles.list}>
         <ListItem title="Профіль користувача" onPress={() => {}} icon="person" />
         <ListItem title="Мова" onPress={() => {}} icon="globe" />
         <ListItem title="Роль" icon="swap-horizontal">
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View>
-    </View>
-  );
+      </View>
+    )
 }
+ 
 
 const styles = StyleSheet.create({
   container: {
