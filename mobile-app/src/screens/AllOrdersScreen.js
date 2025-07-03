@@ -33,6 +33,8 @@ export default function AllOrdersScreen({ navigation }) {
   const sheetRef = useRef(null);
   const listRef = useRef(null);
   const mapRef = useRef(null);
+  const [highlightedId, setHighlightedId] = useState(null);
+  const highlightTimer = useRef(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -90,6 +92,7 @@ export default function AllOrdersScreen({ navigation }) {
     connectWs();
     return () => {
       if (wsRef.current) wsRef.current.close();
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
     };
   }, [detected, token, location, pickupPoint]);
 
@@ -227,6 +230,7 @@ export default function AllOrdersScreen({ navigation }) {
     return (
       <OrderCard
         order={item}
+        highlighted={item.id === highlightedId}
         onPress={() => navigation.navigate('OrderDetail', { order: item, token })}
       />
     );
@@ -237,6 +241,9 @@ export default function AllOrdersScreen({ navigation }) {
     if (index >= 0 && listRef.current) {
       listRef.current.scrollToIndex({ index, animated: true });
     }
+    setHighlightedId(id);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightedId(null), 3000);
     sheetRef.current?.expand();
   }
 
