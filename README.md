@@ -21,18 +21,6 @@ npm run seed
 npm run dev
 ```
 
-### Push Notifications
-
-Remote push notifications require an Expo development build. Running
-the app in Expo Go will not receive notifications.
-
-Ensure the EAS project ID is defined in `mobile-app/app.json` under
-`extra.eas.projectId` so the client can register for a push token.
-Create a development build using EAS (for example
-`eas build --profile development`) and install it on your device.
-
-Set the `EXPO_ACCESS_TOKEN` environment variable on the server so the
-backend can send notifications through Expo.
 
 ## Searching for Nearby Orders
 
