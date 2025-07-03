@@ -81,7 +81,12 @@ export default function MapSelectScreen({ navigation, route }) {
         <Ionicons name="arrow-back" size={32} color="#333" />
       </TouchableOpacity>
       {marker && (
-        <AppButton title="Підтвердити" onPress={confirm} style={styles.confirm} />
+        <AppButton
+          title="Підтвердити"
+          onPress={confirm}
+          style={styles.confirm}
+          fullWidth={false}
+        />
       )}
     </View>
   );

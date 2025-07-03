@@ -9,6 +9,7 @@ export default function AppButton({
   style,
   textStyle,
   disabled,
+  fullWidth = true,
   ...props
 }) {
   const bgColor =
@@ -25,6 +26,7 @@ export default function AppButton({
       backgroundColor: bgColor,
       opacity: disabled ? 0.4 : 1,
     },
+    fullWidth && { width: '100%' },
     pressed && { transform: [{ scale: 0.92 }] },
     style,
   ];
@@ -42,7 +44,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
     marginVertical: 4,
   },
   text: {
