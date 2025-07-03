@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { apiFetch } from './api';
 
 const AuthContext = createContext({});
@@ -37,6 +39,30 @@ export function AuthProvider({ children }) {
     }
     load();
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    async function registerPush() {
+      try {
+        if (!Device.isDevice) return;
+        let { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') {
+          const req = await Notifications.requestPermissionsAsync();
+          status = req.status;
+        }
+        if (status !== 'granted') return;
+        const { data } = await Notifications.getExpoPushTokenAsync();
+        await apiFetch('/auth/push-token', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ token: data }),
+        });
+      } catch (e) {
+        console.log('push token error', e.message);
+      }
+    }
+    registerPush();
+  }, [token]);
 
   const login = async (tok, r) => {
     await AsyncStorage.setItem('token', tok);

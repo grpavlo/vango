@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ToastProvider } from './src/components/Toast';
@@ -10,6 +10,8 @@ import MainTabs from './src/screens/MainTabs';
 import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
 import EditOrderScreen from './src/screens/EditOrderScreen';
+import * as Notifications from 'expo-notifications';
+import { navigationRef, navigate } from './src/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,10 +42,27 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const responseListener = useRef();
+
+  useEffect(() => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const id = response.notification.request.content.data.orderId;
+        if (id) {
+          navigate('OrderDetail', { orderId: id });
+        }
+      }
+    );
+    return () => {
+      if (responseListener.current)
+        Notifications.removeNotificationSubscription(responseListener.current);
+    };
+  }, []);
+
   return (
     <ToastProvider>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <RootNavigator />
         </NavigationContainer>
       </AuthProvider>

@@ -66,7 +66,7 @@ function calcVolume(dimensions) {
 }
 
 export default function OrderDetailScreen({ route, navigation }) {
-  const { order: initialOrder } = route.params;
+  const { order: initialOrder, orderId } = route.params;
   const [order, setOrder] = useState(initialOrder);
   const [previewIndex, setPreviewIndex] = useState(null);
   const { token, role } = useAuth();
@@ -100,7 +100,8 @@ export default function OrderDetailScreen({ route, navigation }) {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data.id === initialOrder.id) {
+        const id = initialOrder ? initialOrder.id : orderId;
+        if (data.id === id) {
           setOrder(data);
         }
       } catch (e) {
@@ -113,7 +114,8 @@ export default function OrderDetailScreen({ route, navigation }) {
   useEffect(() => {
     async function fetchOrder() {
       try {
-        const data = await apiFetch(`/orders/${initialOrder.id}`, {
+        const id = initialOrder ? initialOrder.id : orderId;
+        const data = await apiFetch(`/orders/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setOrder(data);
@@ -124,7 +126,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     fetchOrder();
     const sub = navigation.addListener('focus', fetchOrder);
     return sub;
-  }, [initialOrder.id, navigation, token]);
+  }, [initialOrder && initialOrder.id, orderId, navigation, token]);
 
 
   useEffect(() => {
