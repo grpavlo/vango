@@ -145,6 +145,7 @@ async function listAvailableOrders(req, res) {
   const centerLon = parseFloat(lon);
   const searchRadius = radius ? parseFloat(radius) : null;
 
+
   function inRadius(order) {
     if (!searchRadius || isNaN(centerLat) || isNaN(centerLon)) return true;
     if (!order.pickupLat || !order.pickupLon) return false;
