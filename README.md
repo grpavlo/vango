@@ -21,6 +21,13 @@ npm run seed
 npm run dev
 ```
 
+### Push Notifications
+
+Remote push notifications require an Expo development build.
+Running the app in Expo Go will not receive notifications.
+Set the `EXPO_ACCESS_TOKEN` environment variable on the server so
+the backend can send notifications through Expo.
+
 ## Searching for Nearby Orders
 
 The `GET /orders` endpoint accepts `lat`, `lon` and `radius` (in

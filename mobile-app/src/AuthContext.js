@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { apiFetch } from './api';
 
 const AuthContext = createContext({});
@@ -51,7 +52,12 @@ export function AuthProvider({ children }) {
           status = req.status;
         }
         if (status !== 'granted') return;
-        const { data } = await Notifications.getExpoPushTokenAsync();
+        const projectId =
+          Constants?.expoConfig?.extra?.eas?.projectId ||
+          Constants?.easConfig?.projectId;
+        const { data } = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
         await apiFetch('/auth/push-token', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
