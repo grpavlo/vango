@@ -8,7 +8,8 @@ const BottomSheet = React.forwardRef(function BottomSheet({
   children,
   style,
 }, ref) {
-  const expandedOffset = SCREEN_HEIGHT * 0.1;
+  // Leave more space from the top when expanded
+  const expandedOffset = SCREEN_HEIGHT * 0.2;
   const collapsedOffset = SCREEN_HEIGHT - collapsedHeight;
 
   const [expanded, setExpanded] = useState(false);
