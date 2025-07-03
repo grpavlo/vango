@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView } from 'react-native';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
@@ -10,6 +11,8 @@ import AppButton from '../components/AppButton';
 import DateInput from '../components/DateInput';
 import OrderCard from '../components/OrderCard';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
+import BottomSheet from '../components/BottomSheet';
+import { colors } from '../components/Colors';
 
 export default function AllOrdersScreen({ navigation }) {
   const { token } = useAuth();
@@ -29,6 +32,8 @@ export default function AllOrdersScreen({ navigation }) {
   const [location, setLocation] = useState(null);
   const wsRef = useRef(null);
   const [detected, setDetected] = useState(false);
+  const sheetRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     async function detectCity() {
@@ -209,19 +214,46 @@ export default function AllOrdersScreen({ navigation }) {
     );
   }
 
-  if (loading && orders.length === 0) {
-    return (
-      <SafeAreaView style={styles.container}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <OrderCardSkeleton key={i} />
-        ))}
-      </SafeAreaView>
-    );
+  function onMarkerPress(id) {
+    const index = orders.findIndex((o) => o.id === id);
+    if (index >= 0 && listRef.current) {
+      listRef.current.scrollToIndex({ index, animated: true });
+    }
+    sheetRef.current?.expand();
   }
 
+
+  const region = location
+    ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 }
+    : { latitude: 50.45, longitude: 30.523, latitudeDelta: 0.2, longitudeDelta: 0.2 };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <AppButton title="Фільтр" onPress={() => setFiltersVisible(true)} style={styles.toggle} />
+    <View style={{ flex: 1 }}>
+      <MapView style={{ flex: 1 }} initialRegion={region} showsUserLocation>
+        {location && (
+          <Circle
+            center={location}
+            radius={parseFloat(radius || '0') * 1000}
+            fillColor="rgba(22,163,74,0.15)"
+            strokeColor="rgba(22,163,74,0.4)"
+          />
+        )}
+        {orders.map(
+          (o) =>
+            o.pickupLat &&
+            o.pickupLon && (
+              <Marker
+                key={o.id}
+                coordinate={{ latitude: o.pickupLat, longitude: o.pickupLon }}
+                pinColor={colors.orange}
+                onPress={() => onMarkerPress(o.id)}
+              />
+            )
+        )}
+      </MapView>
+      <BottomSheet ref={sheetRef}>
+        <View style={{ paddingHorizontal: 12, flex: 1 }}>
+          <AppButton title="Фільтр" onPress={() => setFiltersVisible(true)} style={styles.toggle} />
       <Modal visible={filtersVisible} animationType="slide" onRequestClose={() => setFiltersVisible(false)}>
         <SafeAreaView style={styles.modalContainer}>
           <ScrollView contentContainerStyle={styles.filters}>
@@ -306,14 +338,26 @@ export default function AllOrdersScreen({ navigation }) {
         </ScrollView>
       </SafeAreaView>
       </Modal>
-      <FlatList
-        data={orders}
-        renderItem={renderItem}
-        keyExtractor={(o) => o.id.toString()}
-        onRefresh={refresh}
-        refreshing={refreshing}
-      />
-    </SafeAreaView>
+          <FlatList
+            ref={listRef}
+            data={orders}
+            renderItem={renderItem}
+            keyExtractor={(o) => o.id.toString()}
+            onRefresh={refresh}
+            refreshing={refreshing}
+            ListEmptyComponent={
+              loading ? (
+                <>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <OrderCardSkeleton key={i} />
+                  ))}
+                </>
+              ) : null
+            }
+          />
+        </View>
+      </BottomSheet>
+    </View>
   );
 }
 
@@ -324,7 +368,6 @@ function formatDate(d) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 12 },
   filters: {
     padding: 16,
   },
@@ -332,8 +375,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     width: '100%',
   },
-  toggle: { margin:8,     width: 'auto',
-  },
+  toggle: { marginVertical: 8, width: '100%' },
   radiusRow: {
     flexDirection: 'row',
     alignItems: 'center',
