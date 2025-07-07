@@ -19,11 +19,15 @@ function buildWhere(query, userId, ignoreReserve = false) {
   if (city) where.pickupCity = city;
   if (query.dropoffCity) where.dropoffCity = query.dropoffCity;
   if (query.date) {
-    const start = new Date(query.date);
-    const end = new Date(query.date);
-    end.setDate(end.getDate() + 1);
-    where.loadFrom = { [Op.gte]: start };
-    where.loadTo = { [Op.lt]: end };
+    const { parseDate } = require('./utils/date');
+    const parsed = parseDate(query.date);
+    if (parsed) {
+      const start = new Date(parsed);
+      const end = new Date(parsed);
+      end.setDate(end.getDate() + 1);
+      where.loadFrom = { [Op.gte]: start };
+      where.loadTo = { [Op.lt]: end };
+    }
   }
   if (query.minWeight || query.maxWeight) {
     where.weight = {};
