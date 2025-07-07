@@ -27,18 +27,13 @@ export default function OrderListScreen({ navigation }) {
   }, []);
 
   function renderItem({ item }) {
-    const pickupCity = item.pickupCity || ((item.pickupLocation || '').split(',')[1] || '').trim();
-    const pickupAddress = item.pickupAddress || ((item.pickupLocation || '').split(',')[0] || '').trim();
-    const dropoffCity = item.dropoffCity || ((item.dropoffLocation || '').split(',')[1] || '').trim();
-    const dropoffAddress = item.dropoffAddress || ((item.dropoffLocation || '').split(',')[0] || '').trim();
+    const pickup = item.pickupLocation || [item.pickupCity, item.pickupAddress].filter(Boolean).join(', ');
+    const dropoff = item.dropoffLocation || [item.dropoffCity, item.dropoffAddress].filter(Boolean).join(', ');
     return (
       <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { order: item, token })}>
         <View style={styles.item}>
           <Text style={styles.route}>
-            <Text style={{ fontWeight: 'bold' }}>{pickupCity}</Text>
-            {pickupAddress ? `, ${pickupAddress}` : ''} ➔{' '}
-            <Text style={{ fontWeight: 'bold' }}>{dropoffCity}</Text>
-            {dropoffAddress ? `, ${dropoffAddress}` : ''}
+            {pickup} ➔ {dropoff}
           </Text>
         </View>
       </TouchableOpacity>
