@@ -118,7 +118,6 @@ async function listAvailableOrders(req, res) {
   if (date) {
     const { parseDate } = require('../utils/date');
     const parsed = parseDate(date);
-    console.log('[listAvailableOrders] date query=', date, 'parsed=', parsed);
     if (parsed) {
       const start = new Date(parsed);
       const end = new Date(parsed);
@@ -144,7 +143,6 @@ async function listAvailableOrders(req, res) {
       ],
     },
   ];
-  console.log('[listAvailableOrders] where=', JSON.stringify(where));
   const orders = await Order.findAll({ where });
 
   const centerLat = parseFloat(lat);

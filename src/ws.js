@@ -21,7 +21,6 @@ function buildWhere(query, userId, ignoreReserve = false) {
   if (query.date) {
     const { parseDate } = require('./utils/date');
     const parsed = parseDate(query.date);
-    console.log('[buildWhere] date query=', query.date, 'parsed=', parsed);
     if (parsed) {
       const start = new Date(parsed);
       const end = new Date(parsed);
@@ -47,7 +46,6 @@ function buildWhere(query, userId, ignoreReserve = false) {
       },
     ];
   }
-  console.log('[buildWhere] where=', JSON.stringify(where));
   return where;
 }
 
