@@ -10,6 +10,7 @@ import ListItem from '../components/ListItem';
 import { colors } from '../components/Colors';
 import ProfileCardSkeleton from '../components/ProfileCardSkeleton';
 import { useToast } from '../components/Toast';
+import { getPushToken } from '../notifications';
 
 export default function SettingsScreen() {
   const { logout, role, selectRole, token } = useAuth();
@@ -51,12 +52,23 @@ export default function SettingsScreen() {
   async function handleTestPush() {
     console.log('Sending test push');
     try {
+      const expoToken = await getPushToken();
+      if (!expoToken) {
+        toast.show('Не отримано push token. Перевірте дозволи на сповіщення');
+        return;
+      }
+      await apiFetch('/auth/push-token', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ token: expoToken }),
+      });
       await apiFetch('/auth/push-test', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.show('Тестове сповіщення надіслано');
     } catch (e) {
+      console.log('test push error', e.message);
       toast.show(e.message);
     }
   }

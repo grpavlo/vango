@@ -65,7 +65,10 @@ async function updatePushToken(req, res) {
 }
 
 async function testPush(req, res) {
-  if (!req.user.pushToken) return res.status(400).send('No push token');
+  if (!req.user.pushToken) {
+    console.log('Push test requested but no token for user', req.user.id);
+    return res.status(400).send('No push token');
+  }
   const { sendPush } = require('../utils/push');
   console.log('Test push requested by', req.user.id);
   await sendPush(

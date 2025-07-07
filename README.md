@@ -29,4 +29,11 @@ kilometers) query parameters. All orders with pickup coordinates inside
 the specified radius are returned. Coordinates are required – the
 service does not perform address geocoding for this filter.
 
+## Testing Push Notifications
+
+Use `POST /auth/push-test` with an authenticated request to send a test
+notification to the current user. The endpoint logs the attempt on the
+server. In the mobile app, open **Settings** and tap **"Тест
+сповіщення"** to trigger this request.
+
 
