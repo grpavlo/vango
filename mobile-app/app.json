@@ -11,13 +11,13 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї"
-      }
+      },
+      "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
       "adaptiveIcon": {
