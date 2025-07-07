@@ -261,7 +261,11 @@ async function reserveOrder(req, res) {
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
     broadcastOrder(order);
-    if (order.customer && order.customer.pushToken) {
+    if (
+      order.customer &&
+      order.customer.pushToken &&
+      order.customer.pushConsent
+    ) {
       const { sendPush } = require('../utils/push');
       sendPush(
         order.customer.pushToken,

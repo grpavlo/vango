@@ -30,6 +30,7 @@ User.init(
     city: { type: DataTypes.STRING },
     phone: { type: DataTypes.STRING },
     pushToken: { type: DataTypes.STRING },
+    pushConsent: { type: DataTypes.BOOLEAN, defaultValue: false },
     balance: { type: DataTypes.FLOAT, defaultValue: 0 },
   },
   {

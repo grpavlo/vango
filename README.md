@@ -36,4 +36,11 @@ notification to the current user. The endpoint logs the attempt on the
 server. In the mobile app, open **Settings** and tap **"Тест
 сповіщення"** to trigger this request.
 
+## Push Notification Consent
+
+Users must explicitly agree to receiving push notifications. Call
+`PUT /auth/push-consent` with `{ "consent": true }` in the request body
+to enable notifications for the current user. Pass `false` to revoke the
+consent.
+
 
