@@ -15,7 +15,9 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
-        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї"
+        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
       },
       "bundleIdentifier": "com.pashagr.mobile"
     },
@@ -25,7 +27,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pashagr.mobile"
+      "package": "com.pashagr.mobile",
+      "permissions": ["NOTIFICATIONS"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
