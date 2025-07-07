@@ -64,4 +64,17 @@ async function updatePushToken(req, res) {
   res.sendStatus(204);
 }
 
-module.exports = { register, login, profile, updateRole, updatePushToken };
+async function testPush(req, res) {
+  if (!req.user.pushToken) return res.status(400).send('No push token');
+  const { sendPush } = require('../utils/push');
+  console.log('Test push requested by', req.user.id);
+  await sendPush(
+    req.user.pushToken,
+    'Test Notification',
+    'This is a test notification',
+    { test: true }
+  );
+  res.sendStatus(204);
+}
+
+module.exports = { register, login, profile, updateRole, updatePushToken, testPush };

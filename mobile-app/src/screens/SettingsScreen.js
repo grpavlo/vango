@@ -9,11 +9,13 @@ import { apiFetch } from '../api';
 import ListItem from '../components/ListItem';
 import { colors } from '../components/Colors';
 import ProfileCardSkeleton from '../components/ProfileCardSkeleton';
+import { useToast } from '../components/Toast';
 
 export default function SettingsScreen() {
   const { logout, role, selectRole, token } = useAuth();
   const [user, setUser] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const toast = useToast();
 
   useEffect(() => {
     async function load() {
@@ -43,6 +45,19 @@ export default function SettingsScreen() {
         setUser(me);
       } catch {}
       setLoadingProfile(false);
+    }
+  }
+
+  async function handleTestPush() {
+    console.log('Sending test push');
+    try {
+      await apiFetch('/auth/push-test', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.show('Тестове сповіщення надіслано');
+    } catch (e) {
+      toast.show(e.message);
     }
   }
 
@@ -105,6 +120,7 @@ export default function SettingsScreen() {
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View>
+      <AppButton title="Тест сповіщення" onPress={handleTestPush} style={styles.testButton} />
     </View>
   );
 }
@@ -192,6 +208,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
+  },
+  testButton: {
+    width: '100%',
+    marginTop: 16,
   },
   profileSwitch: {
     width: '100%',
