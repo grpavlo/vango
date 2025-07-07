@@ -6,9 +6,32 @@ const Order = require('./models/order');
 async function seed() {
   await db.sync({ force: true });
 
-  const customer = await User.create({ name: 'Alice', email: 'alice@example.com', password: 'pass', role: UserRole.BOTH, city: 'NYC', phone: '380000000001' });
-  const driver = await User.create({ name: 'Bob', email: 'bob@example.com', password: 'pass', role: UserRole.BOTH, city: 'NYC', phone: '380000000002' });
-  await User.create({ name: 'Admin', email: 'admin@example.com', password: 'admin', role: UserRole.ADMIN, phone: '380000000003' });
+  const customer = await User.create({
+    name: 'Alice',
+    email: 'alice@example.com',
+    password: 'pass',
+    role: UserRole.BOTH,
+    city: 'NYC',
+    phone: '380000000001',
+    pushConsent: true,
+  });
+  const driver = await User.create({
+    name: 'Bob',
+    email: 'bob@example.com',
+    password: 'pass',
+    role: UserRole.BOTH,
+    city: 'NYC',
+    phone: '380000000002',
+    pushConsent: true,
+  });
+  await User.create({
+    name: 'Admin',
+    email: 'admin@example.com',
+    password: 'admin',
+    role: UserRole.ADMIN,
+    phone: '380000000003',
+    pushConsent: true,
+  });
 
   await Order.create({
     customerId: customer.id,
