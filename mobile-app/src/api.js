@@ -1,4 +1,4 @@
-export const HOST_URL = 'http://192.168.0.11:20004';
+export const HOST_URL = 'http://192.168.95.22:20004';
 export const API_URL = `${HOST_URL}/api`;
 
 export async function apiFetch(path, options = {}) {

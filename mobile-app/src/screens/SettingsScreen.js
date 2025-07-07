@@ -95,7 +95,7 @@ export default function SettingsScreen() {
             onPress={logout}
             style={styles.logoutButton}
           />
-        </View>
+        </View>)
       )}
 
       <View style={styles.list}>
