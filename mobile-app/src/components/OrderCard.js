@@ -93,7 +93,7 @@ function calcVolume(dimensions) {
 
 function formatDate(d) {
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
 const styles = StyleSheet.create({

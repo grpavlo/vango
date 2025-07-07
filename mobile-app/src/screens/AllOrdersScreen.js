@@ -410,7 +410,7 @@ export default function AllOrdersScreen({ navigation }) {
 function formatDate(d) {
   if (!d) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
 function parseNumber(v) {
