@@ -19,11 +19,33 @@ function buildWhere(query, userId, ignoreReserve = false) {
   if (city) where.pickupCity = city;
   if (query.dropoffCity) where.dropoffCity = query.dropoffCity;
   if (query.date) {
-    const start = new Date(query.date);
-    const end = new Date(query.date);
-    end.setDate(end.getDate() + 1);
-    where.loadFrom = { [Op.gte]: start };
-    where.loadTo = { [Op.lt]: end };
+    let parsed;
+    if (query.date.includes('.')) {
+      const parts = query.date.split('.');
+      if (parts.length === 2) {
+        const [d, m] = parts.map(Number);
+        if (!isNaN(d) && !isNaN(m)) {
+          const y = new Date().getFullYear();
+          parsed = new Date(y, m - 1, d);
+        }
+      } else if (parts.length === 3) {
+        const [d, m, y] = parts.map(Number);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          parsed = new Date(y, m - 1, d);
+        }
+      }
+    }
+    if (!parsed) {
+      const tmp = new Date(query.date);
+      if (!isNaN(tmp)) parsed = tmp;
+    }
+    if (parsed) {
+      const start = parsed;
+      const end = new Date(parsed);
+      end.setDate(end.getDate() + 1);
+      where.loadFrom = { [Op.gte]: start };
+      where.loadTo = { [Op.lt]: end };
+    }
   }
   if (query.minWeight || query.maxWeight) {
     where.weight = {};
