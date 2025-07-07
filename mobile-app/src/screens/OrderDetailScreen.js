@@ -55,7 +55,7 @@ function formatTime(dateStr) {
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
 function calcVolume(dimensions) {
@@ -460,12 +460,18 @@ export default function OrderDetailScreen({ route, navigation }) {
       <View style={styles.row}>
         <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <Text style={styles.label}>Звідки:</Text>
-        <Text style={styles.value}>{order.pickupLocation}</Text>
+        <Text style={styles.value}>
+          <Text style={{ fontWeight: 'bold' }}>{order.pickupCity}</Text>
+          {order.pickupAddress ? `, ${order.pickupAddress}` : ''}
+        </Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="flag-outline" size={20} color={colors.green} style={styles.rowIcon} />
         <Text style={styles.label}>Куди:</Text>
-        <Text style={styles.value}>{order.dropoffLocation}</Text>
+        <Text style={styles.value}>
+          <Text style={{ fontWeight: 'bold' }}>{order.dropoffCity}</Text>
+          {order.dropoffAddress ? `, ${order.dropoffAddress}` : ''}
+        </Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="cube-outline" size={20} color="#555" style={styles.rowIcon} />
