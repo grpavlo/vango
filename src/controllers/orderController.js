@@ -116,28 +116,11 @@ async function listAvailableOrders(req, res) {
   if (dropoffCity) where.dropoffCity = dropoffCity;
 
   if (date) {
-    let parsed;
-    if (date.includes('.')) {
-      const parts = date.split('.');
-      if (parts.length === 2) {
-        const [d, m] = parts.map(Number);
-        if (!isNaN(d) && !isNaN(m)) {
-          const y = new Date().getFullYear();
-          parsed = new Date(y, m - 1, d);
-        }
-      } else if (parts.length === 3) {
-        const [d, m, y] = parts.map(Number);
-        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
-          parsed = new Date(y, m - 1, d);
-        }
-      }
-    }
-    if (!parsed) {
-      const tmp = new Date(date);
-      if (!isNaN(tmp)) parsed = tmp;
-    }
+    const { parseDate } = require('../utils/date');
+    const parsed = parseDate(date);
+    console.log('[listAvailableOrders] date query=', date, 'parsed=', parsed);
     if (parsed) {
-      const start = parsed;
+      const start = new Date(parsed);
       const end = new Date(parsed);
       end.setDate(end.getDate() + 1);
       where.loadFrom = { [Op.gte]: start };
@@ -161,6 +144,7 @@ async function listAvailableOrders(req, res) {
       ],
     },
   ];
+  console.log('[listAvailableOrders] where=', JSON.stringify(where));
   const orders = await Order.findAll({ where });
 
   const centerLat = parseFloat(lat);
