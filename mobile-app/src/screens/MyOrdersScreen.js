@@ -238,11 +238,11 @@ export default function MyOrdersScreen({ navigation }) {
 
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Місто завантаження: </Text>
-            {pickupCity}
+            <Text style={{ fontWeight: 'bold' }}>{pickupCity}</Text>
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Місто розвантаження: </Text>
-            {dropoffCity}
+            <Text style={{ fontWeight: 'bold' }}>{dropoffCity}</Text>
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Адреса розвантаження: </Text>
