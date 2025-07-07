@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ToastProvider } from './src/components/Toast';
@@ -11,6 +12,10 @@ import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
 import EditOrderScreen from './src/screens/EditOrderScreen';
 import { navigationRef, navigate } from './src/navigationRef';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({ shouldShowAlert: true }),
+});
 
 const Stack = createNativeStackNavigator();
 
@@ -40,6 +45,14 @@ function RootNavigator() {
   );
 }
 export default function App() {
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const id = response.notification.request.content.data.orderId;
+      if (id) navigate('OrderDetail', { id });
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <ToastProvider>
       <AuthProvider>

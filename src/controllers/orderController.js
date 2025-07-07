@@ -263,6 +263,15 @@ async function reserveOrder(req, res) {
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
     broadcastOrder(order);
+    if (order.customer && order.customer.pushToken) {
+      const { sendPush } = require('../utils/push');
+      sendPush(
+        order.customer.pushToken,
+        'Замовлення у резерві',
+        'Водій взяв ваше замовлення в резерв',
+        { orderId: order.id }
+      );
+    }
     res.json({
       order,
       phone: order.customer ? order.customer.phone : null,

@@ -56,4 +56,12 @@ async function updateRole(req, res) {
   res.json({ role: req.user.role });
 }
 
-module.exports = { register, login, profile, updateRole };
+async function updatePushToken(req, res) {
+  const token = req.body && req.body.token;
+  if (!token) return res.status(400).send('Token required');
+  req.user.pushToken = token;
+  await req.user.save();
+  res.sendStatus(204);
+}
+
+module.exports = { register, login, profile, updateRole, updatePushToken };

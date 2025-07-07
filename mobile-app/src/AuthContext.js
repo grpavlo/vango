@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from './api';
+import { getPushToken } from './notifications';
 
 const AuthContext = createContext({});
 
@@ -70,6 +71,25 @@ export function AuthProvider({ children }) {
       }
     }
   };
+
+  useEffect(() => {
+    if (!token) return;
+    async function register() {
+      try {
+        const expoToken = await getPushToken();
+        if (expoToken) {
+          await apiFetch('/auth/push-token', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ token: expoToken }),
+          });
+        }
+      } catch (e) {
+        console.log('push token error', e.message);
+      }
+    }
+    register();
+  }, [token]);
 
   const logout = async () => {
     await AsyncStorage.multiRemove(['token', 'role']);
