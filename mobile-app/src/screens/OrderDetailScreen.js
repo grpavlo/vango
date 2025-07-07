@@ -461,16 +461,24 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <Text style={styles.label}>Звідки:</Text>
         <Text style={styles.value}>
-          <Text style={{ fontWeight: 'bold' }}>{order.pickupCity}</Text>
-          {order.pickupAddress ? `, ${order.pickupAddress}` : ''}
+          {order.pickupLocation || (
+            <>
+              <Text style={{ fontWeight: 'bold' }}>{order.pickupCity}</Text>
+              {order.pickupAddress ? `, ${order.pickupAddress}` : ''}
+            </>
+          )}
         </Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="flag-outline" size={20} color={colors.green} style={styles.rowIcon} />
         <Text style={styles.label}>Куди:</Text>
         <Text style={styles.value}>
-          <Text style={{ fontWeight: 'bold' }}>{order.dropoffCity}</Text>
-          {order.dropoffAddress ? `, ${order.dropoffAddress}` : ''}
+          {order.dropoffLocation || (
+            <>
+              <Text style={{ fontWeight: 'bold' }}>{order.dropoffCity}</Text>
+              {order.dropoffAddress ? `, ${order.dropoffAddress}` : ''}
+            </>
+          )}
         </Text>
       </View>
       <View style={styles.row}>
