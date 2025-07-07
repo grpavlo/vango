@@ -8,9 +8,10 @@ async function sendPush(to, title, body, data = {}) {
   }
   try {
     console.log('Sending push', { to, title, body, data });
-    await expo.sendPushNotificationsAsync([
+    const receipts = await expo.sendPushNotificationsAsync([
       { to, sound: 'default', title, body, data },
     ]);
+    console.log('Push receipts', receipts);
   } catch (err) {
     console.error('Failed to send push', err);
   }
