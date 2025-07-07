@@ -116,11 +116,33 @@ async function listAvailableOrders(req, res) {
   if (dropoffCity) where.dropoffCity = dropoffCity;
 
   if (date) {
-    const start = new Date(date);
-    const end = new Date(date);
-    end.setDate(end.getDate() + 1);
-    where.loadFrom = { [Op.gte]: start };
-    where.loadTo = { [Op.lt]: end };
+    let parsed;
+    if (date.includes('.')) {
+      const parts = date.split('.');
+      if (parts.length === 2) {
+        const [d, m] = parts.map(Number);
+        if (!isNaN(d) && !isNaN(m)) {
+          const y = new Date().getFullYear();
+          parsed = new Date(y, m - 1, d);
+        }
+      } else if (parts.length === 3) {
+        const [d, m, y] = parts.map(Number);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          parsed = new Date(y, m - 1, d);
+        }
+      }
+    }
+    if (!parsed) {
+      const tmp = new Date(date);
+      if (!isNaN(tmp)) parsed = tmp;
+    }
+    if (parsed) {
+      const start = parsed;
+      const end = new Date(parsed);
+      end.setDate(end.getDate() + 1);
+      where.loadFrom = { [Op.gte]: start };
+      where.loadTo = { [Op.lt]: end };
+    }
   }
 
   if (minWeight || maxWeight) {
