@@ -246,11 +246,12 @@ export default function MyOrdersScreen({ navigation }) {
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Адреса розвантаження: </Text>
-            {dropoffAddress}
+            <Text style={{ fontWeight: 'bold' }}>{dropoffCity}</Text>
+            {dropoffAddress ? `, ${dropoffAddress}` : ''}
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Дата створення: </Text>
-            {new Date(item.createdAt).toLocaleDateString()}
+            {formatDate(new Date(item.createdAt))}
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Ціна: </Text>
@@ -431,3 +432,8 @@ const styles = StyleSheet.create({
   activeFilterText: { color: '#fff' },
   filterText: { fontSize: 16, fontWeight: '600', color: '#111827' },
 });
+
+function formatDate(d) {
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+}
