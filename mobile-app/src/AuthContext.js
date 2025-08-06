@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch } from './api';
+import { apiFetch, setUnauthorizedHandler } from './api';
 import { getPushToken } from './notifications';
+import { navigate } from './navigationRef';
+import { Modal, View, Text, StyleSheet, Button } from 'react-native';
 
 const AuthContext = createContext({});
 
@@ -9,6 +11,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -95,7 +98,17 @@ export function AuthProvider({ children }) {
     await AsyncStorage.multiRemove(['token', 'role']);
     setToken(null);
     setRole(null);
+    setShowLogoutModal(true);
   };
+
+  const confirmLogout = () => {
+    setShowLogoutModal(false);
+    navigate('Login');
+  };
+
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+  }, [logout]);
 
   const selectRole = async (r) => {
     if (!token) return;
@@ -115,8 +128,36 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{ token, role, loading, login, logout, selectRole }}>
       {children}
+      <Modal visible={showLogoutModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalText}>Session ended. Please log in again.</Text>
+            <Button title="OK" onPress={confirmLogout} />
+          </View>
+        </View>
+      </Modal>
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 8,
+    width: '80%',
+  },
+  modalText: {
+    marginBottom: 16,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+});

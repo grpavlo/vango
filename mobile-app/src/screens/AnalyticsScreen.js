@@ -38,13 +38,16 @@ export default function AnalyticsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text>Average Price: {data.avgPrice}</Text>
-      <Text>Delivered Orders: {data.deliveredCount}</Text>
-      <Text>Average Delivery Time: {data.avgTime}</Text>
+      <Text style={styles.metric}>Average Price: {data.avgPrice}</Text>
+      <Text style={styles.metric}>Delivered Orders: {data.deliveredCount}</Text>
+      <Text style={styles.metric}>Average Delivery Time: {data.avgTime}</Text>
+      <Text style={styles.metric}>Active Sessions: {data.active_sessions}</Text>
+      <Text style={styles.metric}>End Sessions: {data.end_sessions}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 }
+  container: { flex: 1, padding: 16 },
+  metric: { marginVertical: 4, fontSize: 16 }
 });
