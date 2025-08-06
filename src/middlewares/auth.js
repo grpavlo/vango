@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
 const User = require('../models/user');
+const Session = require('../models/session');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -11,7 +12,14 @@ async function authenticate(req, res, next) {
     const user = await User.findByPk(payload.id);
     if (!user) return res.status(401).send('Недійсний токен');
     if (user.blocked) return res.status(403).send('Користувача заблоковано');
+
+    const session = await Session.findOne({
+      where: { userId: user.id, token },
+    });
+    if (!session) return res.status(401).send('Сесію завершено');
+
     req.user = user;
+    req.session = session;
     next();
   } catch (err) {
     res.status(401).send('Невірний токен');

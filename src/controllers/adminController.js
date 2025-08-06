@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const { setServiceFee } = require('../config');
 const Order = require('../models/order');
+const Session = require('../models/session');
 
 async function listUsers(_req, res) {
   const users = await User.findAll();
@@ -46,4 +47,26 @@ async function analytics(_req, res) {
   res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime });
 }
 
-module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics };
+async function listSessions(req, res) {
+  const { id } = req.params;
+  const sessions = await Session.findAll({ where: { userId: id } });
+  res.json(sessions);
+}
+
+async function terminateSession(req, res) {
+  const { id, sessionId } = req.params;
+  const session = await Session.findOne({ where: { id: sessionId, userId: id } });
+  if (!session) return res.status(404).send('Сесію не знайдено');
+  await session.destroy();
+  res.sendStatus(204);
+}
+
+module.exports = {
+  listUsers,
+  blockDriver,
+  unblockDriver,
+  updateServiceFee,
+  analytics,
+  listSessions,
+  terminateSession,
+};

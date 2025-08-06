@@ -11,6 +11,7 @@ const ratingRoutes = require('./routes/ratingRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
+require('./models/session');
 const { Op } = require('sequelize');
 
 dotenv.config();
