@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { UserRole } = require('../models/user');
 const { JWT_SECRET } = require('../config');
+const Session = require('../models/session');
+const UAParser = require('ua-parser-js');
 
 
 async function register(req, res) {
@@ -33,6 +35,25 @@ async function login(req, res) {
       return;
     }
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    const parser = new UAParser(req.headers['user-agent']);
+    const browser = parser.getBrowser().name || 'Unknown';
+    const device = parser.getDevice().model || parser.getOS().name || 'Unknown';
+    const ip =
+      (req.headers['x-forwarded-for'] || '').split(',')[0] ||
+      req.socket.remoteAddress;
+
+    const existing = await Session.findOne({
+      where: { userId: user.id, browser, device },
+    });
+    if (existing) {
+      existing.token = token;
+      existing.ip = ip;
+      await existing.save();
+    } else {
+      await Session.create({ userId: user.id, token, ip, browser, device });
+    }
+
     res.json({ token, role: user.role });
   } catch (err) {
     res.status(400).send('Помилка входу');
