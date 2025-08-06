@@ -41,6 +41,8 @@ export default function AnalyticsScreen() {
       <Text>Average Price: {data.avgPrice}</Text>
       <Text>Delivered Orders: {data.deliveredCount}</Text>
       <Text>Average Delivery Time: {data.avgTime}</Text>
+      <Text>Active Sessions: {data.activeSessions}</Text>
+      <Text>Ended Sessions: {data.endedSessions}</Text>
     </View>
   );
 }
