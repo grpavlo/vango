@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch } from './api';
+import { apiFetch, setUnauthorizedHandler } from './api';
 import { getPushToken } from './notifications';
+import { navigate } from './navigationRef';
 
 const AuthContext = createContext({});
 
@@ -95,7 +96,12 @@ export function AuthProvider({ children }) {
     await AsyncStorage.multiRemove(['token', 'role']);
     setToken(null);
     setRole(null);
+    navigate('Login');
   };
+
+  useEffect(() => {
+    setUnauthorizedHandler(logout);
+  }, [logout]);
 
   const selectRole = async (r) => {
     if (!token) return;

@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const { setServiceFee } = require('../config');
 const Order = require('../models/order');
+const { Op } = require('sequelize');
 
 async function listUsers(_req, res) {
   const users = await User.findAll();
@@ -43,7 +44,17 @@ async function analytics(_req, res) {
   const avgPrice = (await Order.sum('price')) / (await Order.count());
   const deliveredOrders = await Order.findAll({ where: { status: 'DELIVERED' } });
   const avgTime = deliveredOrders.length;
-  res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime });
+  const activeSessions = await Order.count({
+    where: {
+      status: { [Op.notIn]: ['COMPLETED', 'DELIVERED', 'CANCELLED', 'REJECTED'] },
+    },
+  });
+  const endedSessions = await Order.count({
+    where: {
+      status: { [Op.in]: ['COMPLETED', 'DELIVERED', 'CANCELLED', 'REJECTED'] },
+    },
+  });
+  res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime, activeSessions, endedSessions });
 }
 
 module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics };
