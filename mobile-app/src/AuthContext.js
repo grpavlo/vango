@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutMessage, setLogoutMessage] = useState('Session ended. Redirecting to login…');
 
   useEffect(() => {
     async function load() {
@@ -95,10 +96,15 @@ export function AuthProvider({ children }) {
     register();
   }, [token]);
 
-  const logout = async () => {
+  const logout = async (msg) => {
     await AsyncStorage.multiRemove(['token', 'role']);
     setToken(null);
     setRole(null);
+    const text =
+      typeof msg === 'string' && msg
+        ? msg.replace(/_/g, ' ')
+        : 'Session ended. Redirecting to login…';
+    setLogoutMessage(text);
     setShowLogoutModal(true);
     setTimeout(() => {
       setShowLogoutModal(false);
@@ -131,7 +137,7 @@ export function AuthProvider({ children }) {
       <Modal visible={showLogoutModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalText}>Session ended. Redirecting to login…</Text>
+            <Text style={styles.modalText}>{logoutMessage}</Text>
           </View>
         </View>
       </Modal>

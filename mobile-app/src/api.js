@@ -16,12 +16,12 @@ export async function apiFetch(path, options = {}) {
     headers,
     ...options,
   });
+  const text = await res.text();
   if (res.status === 401 && unauthorizedHandler) {
-    unauthorizedHandler();
+    unauthorizedHandler(text);
   }
   if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error);
+    throw new Error(text);
   }
-  return res.json();
+  return text ? JSON.parse(text) : {};
 }
