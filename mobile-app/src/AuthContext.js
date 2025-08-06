@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, setUnauthorizedHandler } from './api';
 import { getPushToken } from './notifications';
 import { navigate } from './navigationRef';
-import { Modal, View, Text, StyleSheet, Button } from 'react-native';
+import { Modal, View, Text, StyleSheet } from 'react-native';
 
 
 const AuthContext = createContext({});
@@ -100,11 +100,10 @@ export function AuthProvider({ children }) {
     setToken(null);
     setRole(null);
     setShowLogoutModal(true);
-  };
-
-  const confirmLogout = () => {
-    setShowLogoutModal(false);
-    navigate('Login');
+    setTimeout(() => {
+      setShowLogoutModal(false);
+      navigate('Login');
+    }, 1500);
   };
 
   useEffect(() => {
@@ -132,8 +131,7 @@ export function AuthProvider({ children }) {
       <Modal visible={showLogoutModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalText}>Session ended. Please log in again.</Text>
-            <Button title="OK" onPress={confirmLogout} />
+            <Text style={styles.modalText}>Session ended. Redirecting to login…</Text>
           </View>
         </View>
       </Modal>
@@ -153,12 +151,16 @@ const styles = StyleSheet.create({
   modalBox: {
     backgroundColor: '#fff',
     padding: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     width: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
   modalText: {
-    marginBottom: 16,
     textAlign: 'center',
     fontSize: 16,
+    fontWeight: '500',
   },
 });

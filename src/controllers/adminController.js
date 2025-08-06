@@ -44,17 +44,17 @@ async function analytics(_req, res) {
   const avgPrice = (await Order.sum('price')) / (await Order.count());
   const deliveredOrders = await Order.findAll({ where: { status: 'DELIVERED' } });
   const avgTime = deliveredOrders.length;
-  const active_sessions = await Order.count({
+  const activeSessions = await Order.count({
     where: {
       status: { [Op.notIn]: ['COMPLETED', 'DELIVERED', 'CANCELLED', 'REJECTED'] },
     },
   });
-  const end_sessions = await Order.count({
+  const endedSessions = await Order.count({
     where: {
       status: { [Op.in]: ['COMPLETED', 'DELIVERED', 'CANCELLED', 'REJECTED'] },
     },
   });
-  res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime, active_sessions, end_sessions });
+  res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime, activeSessions, endedSessions });
 }
 
 module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics };
