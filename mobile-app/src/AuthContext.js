@@ -5,6 +5,7 @@ import { getPushToken } from './notifications';
 import { navigate } from './navigationRef';
 import { Modal, View, Text, StyleSheet, Button } from 'react-native';
 
+
 const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
