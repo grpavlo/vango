@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
 
 import AppText from '../components/AppText';
 import AppInput from '../components/AppInput';
@@ -50,6 +50,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <AppText style={styles.label}>Електронна пошта</AppText>
       <AppInput
         value={email}
