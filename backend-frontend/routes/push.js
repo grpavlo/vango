@@ -25,11 +25,12 @@ router.post('/push', async (req, res) => {
   try {
     const upstream = await fetch(
       `${process.env.APP_SERVER_URL || 'http://localhost:3000'}/api/admin/push`,
+
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: auth,
+
           'x-admin-secret': process.env.ADMIN_SECRET || 'secret',
         },
         body: JSON.stringify({ message }),
