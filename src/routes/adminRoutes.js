@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { authenticate, authorize } = require('../middlewares/auth');
-const { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics } = require('../controllers/adminController');
+const { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics, sendPush } = require('../controllers/adminController');
 const { UserRole } = require('../models/user');
 
 const router = Router();
@@ -10,5 +10,12 @@ router.post('/drivers/:id/block', authenticate, authorize([UserRole.ADMIN]), blo
 router.post('/drivers/:id/unblock', authenticate, authorize([UserRole.ADMIN]), unblockDriver);
 router.post('/service-fee', authenticate, authorize([UserRole.ADMIN]), updateServiceFee);
 router.get('/analytics', authenticate, authorize([UserRole.ADMIN]), analytics);
+router.post('/push', (req, res) => {
+  const secret = req.headers['x-admin-secret'];
+  if (secret !== (process.env.ADMIN_SECRET || 'secret')) {
+    return res.status(403).send('Доступ заборонено');
+  }
+  return sendPush(req, res);
+});
 
 module.exports = router;

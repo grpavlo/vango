@@ -1,6 +1,8 @@
 const User = require('../models/user');
 const { setServiceFee } = require('../config');
 const Order = require('../models/order');
+const { Op } = require('sequelize');
+const { sendNotification } = require('../utils/notification');
 
 async function listUsers(_req, res) {
   const users = await User.findAll();
@@ -46,4 +48,12 @@ async function analytics(_req, res) {
   res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime });
 }
 
-module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics };
+async function sendPush(req, res) {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: 'message is required' });
+  const users = await User.findAll({ where: { pushToken: { [Op.not]: null } } });
+  await Promise.all(users.map((u) => sendNotification(u.id, message)));
+  res.json({ sent: users.length });
+}
+
+module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics, sendPush };
