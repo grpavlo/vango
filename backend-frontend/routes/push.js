@@ -24,6 +24,7 @@ router.post('/push', async (req, res) => {
   } catch (err) {
     console.error('Error forwarding push notification', err);
     res.status(500).json({ error: err.message || 'Failed to send push' });
+
   }
 });
 
