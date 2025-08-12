@@ -17,6 +17,7 @@ router.post('/push', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
+
   const { message } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'message is required' });
@@ -25,6 +26,7 @@ router.post('/push', async (req, res) => {
   try {
     const upstream = await fetch(
       `${process.env.APP_SERVER_URL || 'http://localhost:3000'}/api/admin/push`,
+
       {
         method: 'POST',
         headers: {
