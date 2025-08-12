@@ -54,7 +54,7 @@ router.post('/push', async (req, res) => {
     console.error('Error forwarding push notification', err);
     res.status(500).json({ error: 'Failed to send push' });
   }
+
 });
 
 module.exports = router;
-
