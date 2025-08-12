@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const AdminLogin = () => {
+const AdminLogin = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -17,6 +17,7 @@ const AdminLogin = () => {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('token', data.token);
+        onLogin(data.token);
         setMessage('Вхід виконано');
         setMessageType('success');
       } else {
