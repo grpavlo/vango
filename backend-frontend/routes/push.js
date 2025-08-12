@@ -24,8 +24,11 @@ router.post('/push', async (req, res) => {
     } catch (e) {
       data = { error: text || 'Unknown error' };
     }
-
     if (!response.ok) {
+      if (!text) {
+        data = { error: response.statusText || `Request failed with status ${response.status}` };
+      }
+
       return res.status(response.status).json(data);
     }
     res.json(data);
