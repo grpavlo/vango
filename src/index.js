@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -14,6 +15,11 @@ const Order = require('./models/order');
 const { Op } = require('sequelize');
 
 dotenv.config();
+
+// Generate a shared admin secret on startup if one isn't provided
+if (!process.env.ADMIN_SECRET) {
+  process.env.ADMIN_SECRET = crypto.randomBytes(32).toString('hex');
+}
 
 const app = express();
 app.use(express.json());
