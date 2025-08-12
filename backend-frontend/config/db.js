@@ -1,9 +1,13 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.ADMIN_DB_URL ||
-    'postgres://postgres:postgres@localhost:5432/backend_frontend'
+  user: 'postgres',
+  password: '1',
+  host: 'localhost',
+  port: 5432,
+  database: 'backend-frontend'
 });
+
 
 async function initDb() {
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
