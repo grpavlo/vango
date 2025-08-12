@@ -24,6 +24,7 @@ router.post('/push', async (req, res) => {
     } catch (e) {
       data = { error: text || 'Unknown error' };
     }
+
     if (!response.ok) {
       return res.status(response.status).json(data);
     }
