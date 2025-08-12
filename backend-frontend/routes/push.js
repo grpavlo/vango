@@ -12,7 +12,7 @@ router.post('/push', async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     const role = String(decoded.role || '').toUpperCase();
-    if (role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
+    if (role !== 'ADMIN' && role !== 'superuser') return res.status(403).json({ error: 'Forbidden' });
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
   }
