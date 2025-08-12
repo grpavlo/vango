@@ -17,7 +17,6 @@ router.post('/push', async (req, res) => {
     return res.status(401).json({ error: 'Invalid token' });
   }
 
-
   const { message } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'message is required' });
@@ -31,6 +30,7 @@ router.post('/push', async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+
           'x-admin-secret': process.env.ADMIN_SECRET || 'secret',
         },
         body: JSON.stringify({ message }),

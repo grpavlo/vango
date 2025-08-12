@@ -9,7 +9,7 @@ Backend API for a logistics service mobile app using Node.js, Express and Postgr
 npm install
 ```
 
-2. Configure environment variables by copying `.env.example` to `.env` and setting values.
+2. Configure environment variables by copying `.env.example` to `.env` and setting values. In addition to `JWT_SECRET`, define `ADMIN_SECRET` shared by the admin backend and main server to authorize push requests between servers.
 
 3. Run database migrations and seed basic data:
 ```bash

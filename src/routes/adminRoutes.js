@@ -10,12 +10,18 @@ router.post('/drivers/:id/block', authenticate, authorize([UserRole.ADMIN]), blo
 router.post('/drivers/:id/unblock', authenticate, authorize([UserRole.ADMIN]), unblockDriver);
 router.post('/service-fee', authenticate, authorize([UserRole.ADMIN]), updateServiceFee);
 router.get('/analytics', authenticate, authorize([UserRole.ADMIN]), analytics);
-router.post('/push', (req, res) => {
-  const secret = req.headers['x-admin-secret'];
-  if (secret !== (process.env.ADMIN_SECRET || 'secret')) {
-    return res.status(403).send('Доступ заборонено');
+router.post(
+  '/push',
+  authenticate,
+  authorize([UserRole.ADMIN]),
+  (req, res) => {
+    const secret = req.headers['x-admin-secret'];
+    if (secret !== (process.env.ADMIN_SECRET || 'secret')) {
+      return res.status(403).send('Доступ заборонено');
+    }
+    return sendPush(req, res);
   }
-  return sendPush(req, res);
-});
+);
+
 
 module.exports = router;
