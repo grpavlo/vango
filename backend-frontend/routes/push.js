@@ -17,9 +17,14 @@ router.post('/push', async (req, res) => {
       body: JSON.stringify({ message }),
     });
     const data = await response.json();
-    res.status(response.status).json(data);
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to send push' });
+    console.error('Error forwarding push notification', err);
+    res.status(500).json({ error: err.message || 'Failed to send push' });
+
   }
 });
 
