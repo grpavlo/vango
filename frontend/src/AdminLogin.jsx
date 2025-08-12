@@ -4,6 +4,7 @@ const AdminLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,33 +17,38 @@ const AdminLogin = () => {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('token', data.token);
-        setMessage('Logged in');
+        setMessage('Вхід виконано');
+        setMessageType('success');
       } else {
-        setMessage(data.message || 'Login failed');
+        setMessage(data.message || 'Помилка входу');
+        setMessageType('error');
       }
     } catch (err) {
-      setMessage('Error connecting to server');
+      setMessage('Помилка з’єднання з сервером');
+      setMessageType('error');
     }
   };
 
   return (
-    <div>
-      <h2>Admin Login</h2>
-      <form onSubmit={handleSubmit}>
+    <div className="login-container">
+      <h2 className="login-title">Вхід адміністратора</h2>
+      <form className="login-form" onSubmit={handleSubmit}>
         <input
-          placeholder="Username"
+          className="login-input"
+          placeholder="Ім'я користувача"
           value={username}
           onChange={e => setUsername(e.target.value)}
         />
         <input
+          className="login-input"
           type="password"
-          placeholder="Password"
+          placeholder="Пароль"
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
-        <button type="submit">Login</button>
+        <button className="login-button" type="submit">Увійти</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p className={`login-message ${messageType}`}>{message}</p>}
     </div>
   );
 };
