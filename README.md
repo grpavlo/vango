@@ -21,6 +21,20 @@ npm run seed
 npm run dev
 ```
 
+## Sending Admin Push Notifications
+
+The `backend-frontend` service includes a helper script that logs in and
+forwards a push message to the main API. Set the admin credentials in the
+environment and provide the message to send:
+
+```bash
+cd backend-frontend
+ADMIN_USERNAME=<user> ADMIN_PASSWORD=<pass> npm run push -- "Test message"
+```
+
+The script obtains a JWT via `/login` and calls `/push` with the proper
+authorization headers so the notification is delivered successfully.
+
 ## Searching for Nearby Orders
 
 The `GET /orders` endpoint accepts `lat`, `lon` and `radius` (in
