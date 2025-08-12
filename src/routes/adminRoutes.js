@@ -5,6 +5,11 @@ const { UserRole } = require('../models/user');
 
 const router = Router();
 
+// Expose the dynamically generated admin secret for trusted internal services
+router.get('/secret', (req, res) => {
+  res.json({ secret: process.env.ADMIN_SECRET || '' });
+});
+
 router.get('/users', authenticate, authorize([UserRole.ADMIN]), listUsers);
 router.post('/drivers/:id/block', authenticate, authorize([UserRole.ADMIN]), blockDriver);
 router.post('/drivers/:id/unblock', authenticate, authorize([UserRole.ADMIN]), unblockDriver);
@@ -22,6 +27,5 @@ router.post(
     return sendPush(req, res);
   }
 );
-
 
 module.exports = router;

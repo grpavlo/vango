@@ -30,6 +30,7 @@ router.post('/push', async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: auth,
 
           'x-admin-secret': process.env.ADMIN_SECRET || 'secret',
         },
