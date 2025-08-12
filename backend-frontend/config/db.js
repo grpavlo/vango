@@ -1,19 +1,19 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-const DB_PATH = path.join(__dirname, '..', 'admin.db');
+const pool = new Pool({
+  connectionString: process.env.ADMIN_DB_URL ||
+    'postgres://postgres:postgres@localhost:5432/backend_frontend'
+});
 
-function initDb() {
-  const db = new sqlite3.Database(DB_PATH);
-  db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT,
-      role TEXT
-    )`);
-  });
-  return db;
+async function initDb() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE,
+    password TEXT,
+    role TEXT
+  )`);
+  return pool;
 }
 
-module.exports = { initDb, DB_PATH };
+module.exports = { initDb };
+

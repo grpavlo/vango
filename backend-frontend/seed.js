@@ -1,10 +1,9 @@
 const { initDb } = require('./config/db');
 const User = require('./models/user');
 
-const db = initDb();
-const userModel = new User(db);
-
 async function seed() {
+  const pool = await initDb();
+  const userModel = new User(pool);
   try {
     const admin = await userModel.findByUsername('admin');
     if (!admin) {
@@ -13,11 +12,12 @@ async function seed() {
     } else {
       console.log('Superuser already exists');
     }
-    db.close();
   } catch (err) {
     console.error('Seeding error', err);
-    db.close();
+  } finally {
+    await pool.end();
   }
 }
 
 seed();
+

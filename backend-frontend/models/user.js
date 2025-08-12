@@ -1,33 +1,24 @@
 const bcrypt = require('bcryptjs');
 
 class User {
-  constructor(db) {
-    this.db = db;
+  constructor(pool) {
+    this.pool = pool;
   }
 
-  create(username, password, role = 'user') {
-    return new Promise((resolve, reject) => {
-      bcrypt.hash(password, 10).then(hash => {
-        this.db.run(
-          'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-          [username, hash, role],
-          function (err) {
-            if (err) return reject(err);
-            resolve({ id: this.lastID, username, role });
-          }
-        );
-      }).catch(reject);
-    });
+  async create(username, password, role = 'user') {
+    const hash = await bcrypt.hash(password, 10);
+    const result = await this.pool.query(
+      'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
+      [username, hash, role]
+    );
+    return result.rows[0];
   }
 
-  findByUsername(username) {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      });
-    });
+  async findByUsername(username) {
+    const result = await this.pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    return result.rows[0];
   }
 }
 
 module.exports = User;
+
