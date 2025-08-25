@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const { setServiceFee } = require('../config');
 const Order = require('../models/order');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const { sendNotification } = require('../utils/notification');
 
 async function listUsers(_req, res) {
@@ -48,6 +48,32 @@ async function analytics(_req, res) {
   res.json({ avgPrice, deliveredCount: deliveredOrders.length, avgTime });
 }
 
+async function pickupAddressReport(req, res) {
+  const { start, end, city } = req.query;
+  const where = {};
+  if (city) where.pickupCity = city;
+  if (start || end) {
+    where.createdAt = {};
+    if (start) where.createdAt[Op.gte] = new Date(start);
+    if (end) where.createdAt[Op.lte] = new Date(end);
+  }
+  const rows = await Order.findAll({
+    where,
+    attributes: ['pickupAddress', [fn('COUNT', col('id')), 'orderCount']],
+    group: ['pickupAddress'],
+  });
+  const report = rows.map((row) => {
+    const count = parseInt(row.get('orderCount'), 10);
+    return {
+      pickupAddress: row.pickupAddress,
+      clicks: count,
+      orders: count,
+      display: `${count} (${count})`,
+    };
+  });
+  res.json(report);
+}
+
 async function sendPush(req, res) {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'message is required' });
@@ -56,4 +82,4 @@ async function sendPush(req, res) {
   res.json({ sent: users.length });
 }
 
-module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics, sendPush };
+module.exports = { listUsers, blockDriver, unblockDriver, updateServiceFee, analytics, pickupAddressReport, sendPush };
