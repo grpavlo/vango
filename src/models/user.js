@@ -5,6 +5,8 @@ const UserRole = {
   DRIVER: 'DRIVER',
   CUSTOMER: 'CUSTOMER',
   ADMIN: 'ADMIN',
+  DISPATCHER: 'DISPATCHER',
+  TEAMLEAD: 'TEAMLEAD',
   BOTH: 'BOTH',
 };
 
