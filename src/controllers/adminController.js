@@ -64,6 +64,7 @@ async function pickupAddressReport(req, res) {
   }
 
   // clicks filtered by city, orders filtered only by NY time range
+
   const [clicks, orders] = await Promise.all([
     Order.count({ where: clickWhere }),
     Order.count({ where: orderWhere }),
