@@ -52,6 +52,7 @@ async function analytics(_req, res) {
 async function pickupAddressReport(req, res) {
   const { start, end, city, idManager } = req.query;
 
+  console.log('pickupAddressReport params', req.query);
 
   const clickWhere = {};
   if (city) clickWhere.pickupCity = city;
@@ -65,8 +66,13 @@ async function pickupAddressReport(req, res) {
     orderWhere.createdAt = { [Op.between]: [from.toDate(), to.toDate()] };
   }
 
+  console.log('pickupAddressReport filters', { clickWhere, orderWhere });
+
   const [clicks, stats] = await Promise.all([
-    Order.count({ where: clickWhere }),
+    Order.count({
+      where: clickWhere,
+      logging: (sql) => console.log('pickupAddressReport SQL clicks', sql),
+    }),
     Order.findOne({
       attributes: [
         [fn('COUNT', col('*')), 'count'],
@@ -74,10 +80,13 @@ async function pickupAddressReport(req, res) {
       ],
       where: orderWhere,
       raw: true,
+      logging: (sql) => console.log('pickupAddressReport SQL orders', sql),
     }),
 
-    
+
   ]);
+
+  console.log('pickupAddressReport stats', { clicks, stats });
 
   const orders = Number(stats?.count || 0);
   const lastCreated = stats?.lastCreated || null;
