@@ -75,7 +75,7 @@ async function pickupAddressReport(req, res) {
   });
 
 
-  const [clicks, lastCreated] = await Promise.all([
+  const [clicks, lastCreated, ordersCount] = await Promise.all([
     Order.count({
       where: clickWhere,
       logging: (sql) => console.log('pickupAddressReport SQL clicks', sql),
@@ -84,13 +84,16 @@ async function pickupAddressReport(req, res) {
       where: orderWhere,
       logging: (sql) => console.log('pickupAddressReport SQL lastCreated', sql),
     }),
-
+    Order.count({
+      where: orderWhere,
+      logging: (sql) => console.log('pickupAddressReport SQL ordersCount', sql),
+    }),
 
   ]);
 
-  console.log('pickupAddressReport stats', { clicks, lastCreated });
+  console.log('pickupAddressReport stats', { clicks, lastCreated, ordersCount });
 
-  const result = { clicks, lastCreated };
+  const result = { clicks, lastCreated, ordersCount };
   console.log('pickupAddressReport response', result);
   res.json(result);
 }
