@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const { setServiceFee } = require('../config');
 const Order = require('../models/order');
-const { Op, fn, col } = require('sequelize');
+const { Op } = require('sequelize');
 const { sendNotification } = require('../utils/notification');
 const moment = require('moment-timezone');
 
@@ -75,30 +75,22 @@ async function pickupAddressReport(req, res) {
   });
 
 
-  const [clicks, stats] = await Promise.all([
+  const [clicks, lastCreated] = await Promise.all([
     Order.count({
       where: clickWhere,
       logging: (sql) => console.log('pickupAddressReport SQL clicks', sql),
     }),
-    Order.findOne({
-      attributes: [
-        [fn('COUNT', col('*')), 'count'],
-        [fn('MAX', col('createdAt')), 'lastCreated'],
-      ],
+    Order.max('createdAt', {
       where: orderWhere,
-      raw: true,
-      logging: (sql) => console.log('pickupAddressReport SQL orders', sql),
+      logging: (sql) => console.log('pickupAddressReport SQL lastCreated', sql),
     }),
 
 
   ]);
 
-  console.log('pickupAddressReport stats', { clicks, stats });
+  console.log('pickupAddressReport stats', { clicks, lastCreated });
 
-  const orders = Number(stats?.count || 0);
-  const lastCreated = stats?.lastCreated || null;
-
-  const result = { clicks, orders, lastCreated, display: `${clicks} (${orders})` };
+  const result = { clicks, lastCreated };
   console.log('pickupAddressReport response', result);
   res.json(result);
 }
