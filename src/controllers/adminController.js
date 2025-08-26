@@ -75,7 +75,10 @@ async function pickupAddressReport(req, res) {
   });
 
   const [clicks, stats] = await Promise.all([
-    Order.count({ where: clickWhere }),
+    Order.count({
+      where: clickWhere,
+      logging: (sql) => console.log('pickupAddressReport SQL clicks', sql),
+    }),
     Order.findOne({
       attributes: [
         [fn('COUNT', col('*')), 'count'],
@@ -83,6 +86,7 @@ async function pickupAddressReport(req, res) {
       ],
       where: orderWhere,
       raw: true,
+      logging: (sql) => console.log('pickupAddressReport SQL orders', sql),
     }),
 
 
