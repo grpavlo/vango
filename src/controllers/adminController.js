@@ -52,6 +52,7 @@ async function analytics(_req, res) {
 async function pickupAddressReport(req, res) {
   const { start, end, city, idManager } = req.query;
 
+  console.log('pickupAddressReport params', req.query);
 
   const clickWhere = {};
   if (city) clickWhere.pickupCity = city;
@@ -65,14 +66,8 @@ async function pickupAddressReport(req, res) {
     orderWhere.createdAt = { [Op.between]: [from.toDate(), to.toDate()] };
   }
 
-  console.log('pickupAddressReport params', {
-    start,
-    end,
-    city,
-    idManager,
-    clickWhere,
-    orderWhere,
-  });
+  console.log('pickupAddressReport filters', { clickWhere, orderWhere });
+
 
   const [clicks, stats] = await Promise.all([
     Order.count({
