@@ -59,13 +59,14 @@ async function pickupAddressReport(req, res) {
   }
   const rows = await Order.findAll({
     where,
-    attributes: ['pickupAddress', [fn('COUNT', col('id')), 'orderCount']],
-    group: ['pickupAddress'],
+    attributes: ['pickupLocation', [fn('COUNT', col('id')), 'orderCount']],
+    group: ['pickupLocation'],
+    raw: true,
   });
-  const report = rows.map((row) => {
-    const count = parseInt(row.get('orderCount'), 10);
+  const report = rows.map(({ pickupLocation, orderCount }) => {
+    const count = parseInt(orderCount, 10);
     return {
-      pickupAddress: row.pickupAddress,
+      pickupAddress: pickupLocation,
       clicks: count,
       orders: count,
       display: `${count} (${count})`,
