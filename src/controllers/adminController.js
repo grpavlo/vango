@@ -68,6 +68,7 @@ async function pickupAddressReport(req, res) {
 
   console.log('pickupAddressReport filters', { clickWhere, orderWhere });
 
+
   const [clicks, stats] = await Promise.all([
     Order.count({
       where: clickWhere,
