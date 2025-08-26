@@ -50,27 +50,39 @@ async function analytics(_req, res) {
 }
 
 async function pickupAddressReport(req, res) {
-  const { start, end, city } = req.query;
+  const { start, end, city, idManager } = req.query;
+
 
   const clickWhere = {};
   if (city) clickWhere.pickupCity = city;
 
   const orderWhere = {};
+  if (idManager) orderWhere.idManager = idManager;
   if (start || end) {
     const tz = 'America/New_York';
-    orderWhere.createdAt = {};
-    if (start) orderWhere.createdAt[Op.gte] = moment.tz(start, tz).toDate();
-    if (end) orderWhere.createdAt[Op.lte] = moment.tz(end, tz).toDate();
+    const from = moment.tz(start || end, tz).startOf('day');
+    const to = moment.tz(end || start, tz).endOf('day');
+    orderWhere.createdAt = { [Op.between]: [from.toDate(), to.toDate()] };
   }
 
-  // clicks filtered by city, orders filtered only by NY time range
-
-  const [clicks, orders] = await Promise.all([
+  const [clicks, stats] = await Promise.all([
     Order.count({ where: clickWhere }),
-    Order.count({ where: orderWhere }),
+    Order.findOne({
+      attributes: [
+        [fn('COUNT', col('*')), 'count'],
+        [fn('MAX', col('createdAt')), 'lastCreated'],
+      ],
+      where: orderWhere,
+      raw: true,
+    }),
+
+    
   ]);
 
-  res.json({ clicks, orders, display: `${clicks} (${orders})` });
+  const orders = Number(stats?.count || 0);
+  const lastCreated = stats?.lastCreated || null;
+
+  res.json({ clicks, orders, lastCreated, display: `${clicks} (${orders})` });
 }
 
 async function sendPush(req, res) {
