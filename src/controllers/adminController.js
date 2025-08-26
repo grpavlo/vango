@@ -58,15 +58,21 @@ async function pickupAddressReport(req, res) {
   if (city) clickWhere.pickupCity = city;
 
   const orderWhere = {};
+  let from;
+  let to;
   if (idManager) orderWhere.idManager = idManager;
   if (start || end) {
     const tz = 'America/New_York';
-    const from = moment.tz(start || end, tz).startOf('day');
-    const to = moment.tz(end || start, tz).endOf('day');
+    from = moment.tz(start || end, tz).startOf('day');
+    to = moment.tz(end || start, tz).endOf('day');
     orderWhere.createdAt = { [Op.between]: [from.toDate(), to.toDate()] };
   }
 
-  console.log('pickupAddressReport filters', { clickWhere, orderWhere });
+  console.log('pickupAddressReport filters', {
+    clickWhere,
+    orderWhere,
+    range: { from: from?.toISOString(), to: to?.toISOString() },
+  });
 
 
   const [clicks, stats] = await Promise.all([
@@ -92,7 +98,9 @@ async function pickupAddressReport(req, res) {
   const orders = Number(stats?.count || 0);
   const lastCreated = stats?.lastCreated || null;
 
-  res.json({ clicks, orders, lastCreated, display: `${clicks} (${orders})` });
+  const result = { clicks, orders, lastCreated, display: `${clicks} (${orders})` };
+  console.log('pickupAddressReport response', result);
+  res.json(result);
 }
 
 async function sendPush(req, res) {
