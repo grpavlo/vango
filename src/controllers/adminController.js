@@ -3,6 +3,7 @@ const { setServiceFee } = require('../config');
 const Order = require('../models/order');
 const { Op, fn, col } = require('sequelize');
 const { sendNotification } = require('../utils/notification');
+const moment = require('moment-timezone');
 
 async function listUsers(_req, res) {
   const users = await User.findAll();
@@ -52,25 +53,48 @@ async function pickupAddressReport(req, res) {
   const { start, end, city } = req.query;
   const where = {};
   if (city) where.pickupCity = city;
-  if (start || end) {
-    where.createdAt = {};
-    if (start) where.createdAt[Op.gte] = new Date(start);
-    if (end) where.createdAt[Op.lte] = new Date(end);
-  }
-  const rows = await Order.findAll({
+
+  // Total clicks by pickup address
+  const clickRowsPromise = Order.findAll({
     where,
-    attributes: ['pickupAddress', [fn('COUNT', col('id')), 'orderCount']],
-    group: ['pickupAddress'],
+    attributes: ['pickupLocation', [fn('COUNT', col('id')), 'clickCount']],
+    group: ['pickupLocation'],
+    raw: true,
   });
-  const report = rows.map((row) => {
-    const count = parseInt(row.get('orderCount'), 10);
+
+  // Orders created within specified NY time range
+  const orderWhere = { ...where };
+  if (start || end) {
+    orderWhere.createdAt = {};
+    const tz = 'America/New_York';
+    if (start) orderWhere.createdAt[Op.gte] = moment.tz(start, tz).toDate();
+    if (end) orderWhere.createdAt[Op.lte] = moment.tz(end, tz).toDate();
+  }
+  const orderRowsPromise = Order.findAll({
+    where: orderWhere,
+    attributes: ['pickupLocation', [fn('COUNT', col('id')), 'orderCount']],
+    group: ['pickupLocation'],
+    raw: true,
+  });
+
+  const [clickRows, orderRows] = await Promise.all([clickRowsPromise, orderRowsPromise]);
+
+  const orderMap = {};
+  orderRows.forEach(({ pickupLocation, orderCount }) => {
+    orderMap[pickupLocation] = parseInt(orderCount, 10);
+  });
+
+  const report = clickRows.map(({ pickupLocation, clickCount }) => {
+    const clicks = parseInt(clickCount, 10);
+    const orders = orderMap[pickupLocation] || 0;
     return {
-      pickupAddress: row.pickupAddress,
-      clicks: count,
-      orders: count,
-      display: `${count} (${count})`,
+      pickupAddress: pickupLocation,
+      clicks,
+      orders,
+      display: `${clicks} (${orders})`,
     };
   });
+
   res.json(report);
 }
 
