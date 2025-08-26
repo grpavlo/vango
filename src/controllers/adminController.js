@@ -51,21 +51,21 @@ async function analytics(_req, res) {
 
 async function pickupAddressReport(req, res) {
   const { start, end, city } = req.query;
-  const where = {};
-  if (city) where.pickupCity = city;
 
-  // Filter orders by NY time range when provided
-  const orderWhere = { ...where };
+  const clickWhere = {};
+  if (city) clickWhere.pickupCity = city;
+
+  const orderWhere = {};
   if (start || end) {
-    orderWhere.createdAt = {};
     const tz = 'America/New_York';
+    orderWhere.createdAt = {};
     if (start) orderWhere.createdAt[Op.gte] = moment.tz(start, tz).toDate();
     if (end) orderWhere.createdAt[Op.lte] = moment.tz(end, tz).toDate();
   }
 
-  // Aggregate total clicks and orders for the period
+  // clicks filtered by city, orders filtered only by NY time range
   const [clicks, orders] = await Promise.all([
-    Order.count({ where }),
+    Order.count({ where: clickWhere }),
     Order.count({ where: orderWhere }),
   ]);
 
