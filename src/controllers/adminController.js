@@ -65,6 +65,15 @@ async function pickupAddressReport(req, res) {
     orderWhere.createdAt = { [Op.between]: [from.toDate(), to.toDate()] };
   }
 
+  console.log('pickupAddressReport params', {
+    start,
+    end,
+    city,
+    idManager,
+    clickWhere,
+    orderWhere,
+  });
+
   const [clicks, stats] = await Promise.all([
     Order.count({ where: clickWhere }),
     Order.findOne({
@@ -76,8 +85,10 @@ async function pickupAddressReport(req, res) {
       raw: true,
     }),
 
-    
+
   ]);
+
+  console.log('pickupAddressReport stats', { clicks, stats });
 
   const orders = Number(stats?.count || 0);
   const lastCreated = stats?.lastCreated || null;
