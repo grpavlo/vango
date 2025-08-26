@@ -1,8 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchUserRanks } from './api/ranks.js';
+import { connectOrdersStream } from './utils/socket.js';
 
 const AdminMenu = ({ token, onLogout }) => {
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
+  const wsRef = useRef(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchUserRanks(token).catch(() => {});
+    wsRef.current = connectOrdersStream(token);
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [token]);
 
   const sendPush = async (e) => {
     e.preventDefault();
