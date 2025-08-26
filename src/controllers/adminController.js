@@ -74,6 +74,7 @@ async function pickupAddressReport(req, res) {
     range: { from: from?.toISOString(), to: to?.toISOString() },
   });
 
+
   const [clicks, stats] = await Promise.all([
     Order.count({
       where: clickWhere,
