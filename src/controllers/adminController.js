@@ -54,15 +54,7 @@ async function pickupAddressReport(req, res) {
   const where = {};
   if (city) where.pickupCity = city;
 
-  // Total clicks by pickup address
-  const clickRowsPromise = Order.findAll({
-    where,
-    attributes: ['pickupLocation', [fn('COUNT', col('id')), 'clickCount']],
-    group: ['pickupLocation'],
-    raw: true,
-  });
-
-  // Orders created within specified NY time range
+  // Filter orders by NY time range when provided
   const orderWhere = { ...where };
   if (start || end) {
     orderWhere.createdAt = {};
@@ -70,32 +62,14 @@ async function pickupAddressReport(req, res) {
     if (start) orderWhere.createdAt[Op.gte] = moment.tz(start, tz).toDate();
     if (end) orderWhere.createdAt[Op.lte] = moment.tz(end, tz).toDate();
   }
-  const orderRowsPromise = Order.findAll({
-    where: orderWhere,
-    attributes: ['pickupLocation', [fn('COUNT', col('id')), 'orderCount']],
-    group: ['pickupLocation'],
-    raw: true,
-  });
 
-  const [clickRows, orderRows] = await Promise.all([clickRowsPromise, orderRowsPromise]);
+  // Aggregate total clicks and orders for the period
+  const [clicks, orders] = await Promise.all([
+    Order.count({ where }),
+    Order.count({ where: orderWhere }),
+  ]);
 
-  const orderMap = {};
-  orderRows.forEach(({ pickupLocation, orderCount }) => {
-    orderMap[pickupLocation] = parseInt(orderCount, 10);
-  });
-
-  const report = clickRows.map(({ pickupLocation, clickCount }) => {
-    const clicks = parseInt(clickCount, 10);
-    const orders = orderMap[pickupLocation] || 0;
-    return {
-      pickupAddress: pickupLocation,
-      clicks,
-      orders,
-      display: `${clicks} (${orders})`,
-    };
-  });
-
-  res.json(report);
+  res.json({ clicks, orders, display: `${clicks} (${orders})` });
 }
 
 async function sendPush(req, res) {
