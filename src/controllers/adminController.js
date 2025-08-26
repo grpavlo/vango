@@ -54,8 +54,8 @@ async function pickupAddressReport(req, res) {
   const where = {};
   if (city) where.pickupCity = city;
 
-  // Filter orders by NY time range when provided
-  const orderWhere = { ...where };
+  // Filter orders only by NY time range when provided, ignoring city
+  const orderWhere = {};
   if (start || end) {
     orderWhere.createdAt = {};
     const tz = 'America/New_York';
@@ -63,7 +63,7 @@ async function pickupAddressReport(req, res) {
     if (end) orderWhere.createdAt[Op.lte] = moment.tz(end, tz).toDate();
   }
 
-  // Aggregate total clicks and orders for the period
+  // Aggregate total clicks (city scoped) and orders (time scoped) for the period
   const [clicks, orders] = await Promise.all([
     Order.count({ where }),
     Order.count({ where: orderWhere }),
