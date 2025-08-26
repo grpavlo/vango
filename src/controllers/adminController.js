@@ -52,6 +52,7 @@ async function analytics(_req, res) {
 async function pickupAddressReport(req, res) {
   const { start, end, city, idManager } = req.query;
 
+
   const clickWhere = {};
   if (city) clickWhere.pickupCity = city;
 
@@ -74,6 +75,8 @@ async function pickupAddressReport(req, res) {
       where: orderWhere,
       raw: true,
     }),
+
+    
   ]);
 
   const orders = Number(stats?.count || 0);
