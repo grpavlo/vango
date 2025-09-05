@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../components/AppButton';
 import { useAuth } from '../AuthContext';
@@ -9,14 +9,11 @@ import { apiFetch } from '../api';
 import ListItem from '../components/ListItem';
 import { colors } from '../components/Colors';
 import ProfileCardSkeleton from '../components/ProfileCardSkeleton';
-import { useToast } from '../components/Toast';
-import { getPushToken } from '../notifications';
 
 export default function SettingsScreen() {
   const { logout, role, selectRole, token } = useAuth();
   const [user, setUser] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const toast = useToast();
 
   useEffect(() => {
     async function load() {
@@ -49,36 +46,6 @@ export default function SettingsScreen() {
     }
   }
 
-  async function handleTestPush() {
-    console.log('Sending test push');
-    try {
-      const expoToken = await getPushToken();
-      if (!expoToken) {
-        toast.show('Не отримано push token. Перевірте дозволи на сповіщення');
-        return;
-      }
-      // Ensure consent is enabled on backend
-      await apiFetch('/auth/push-consent', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ consent: true }),
-      });
-      await apiFetch('/auth/push-token', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ token: expoToken }),
-      });
-      await apiFetch('/auth/push-test', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.show('Тестове сповіщення надіслано');
-    } catch (e) {
-      console.log('test push error', e.message);
-      toast.show(e.message);
-    }
-  }
-
   const initials = user?.name
     ?.split(' ')
     .map((n) => n[0])
@@ -86,7 +53,7 @@ export default function SettingsScreen() {
     .join('');
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {loadingProfile ? (
         <ProfileCardSkeleton />
       ) : (
@@ -138,8 +105,7 @@ export default function SettingsScreen() {
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View>
-      <AppButton title="Тест сповіщення" onPress={handleTestPush} style={styles.testButton} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -147,6 +113,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.gray100,
+  },
+  content: {
     padding: 24,
   },
   profileCard: {
@@ -226,10 +194,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
-  },
-  testButton: {
-    width: '100%',
-    marginTop: 16,
   },
   profileSwitch: {
     width: '100%',
