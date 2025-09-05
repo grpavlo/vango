@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiFetch, API_URL, HOST_URL } from '../api';
 import { useAuth } from '../AuthContext';
 import { useToast } from '../components/Toast';
+import { registerCallback } from '../callbackRegistry';
 
 export default function EditOrderScreen({ route, navigation }) {
   const { token } = useAuth();
@@ -253,17 +254,18 @@ export default function EditOrderScreen({ route, navigation }) {
           />
           <TouchableOpacity
             style={styles.mapBtn}
-            onPress={() =>
+            onPress={() => {
+              const onSelectId = registerCallback((p) => {
+                setPickup(p);
+                setPickupQuery(p.text || pickupQuery);
+              });
               navigation.navigate('MapSelect', {
                 address: pickupQuery,
                 lat: pickup?.lat,
                 lon: pickup?.lon,
-                onSelect: (p) => {
-                  setPickup(p);
-                  setPickupQuery(p.text || pickupQuery);
-                },
-              })
-            }
+                onSelectId,
+              });
+            }}
           >
             <Ionicons name="map" size={24} color={colors.green} />
           </TouchableOpacity>
@@ -321,17 +323,18 @@ export default function EditOrderScreen({ route, navigation }) {
           />
           <TouchableOpacity
             style={styles.mapBtn}
-            onPress={() =>
+            onPress={() => {
+              const onSelectId = registerCallback((p) => {
+                setDropoff(p);
+                setDropoffQuery(p.text || dropoffQuery);
+              });
               navigation.navigate('MapSelect', {
                 address: dropoffQuery,
                 lat: dropoff?.lat,
                 lon: dropoff?.lon,
-                onSelect: (p) => {
-                  setDropoff(p);
-                  setDropoffQuery(p.text || dropoffQuery);
-                },
-              })
-            }
+                onSelectId,
+              });
+            }}
           >
             <Ionicons name="map" size={24} color={colors.green} />
           </TouchableOpacity>

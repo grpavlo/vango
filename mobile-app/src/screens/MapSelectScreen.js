@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Marker } from 'react-native-maps';
+import AppMap from '../components/AppMap';
 import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../components/AppButton';
 import { getCallback, unregisterCallback } from '../callbackRegistry';
@@ -88,16 +89,15 @@ export default function MapSelectScreen({ navigation, route }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView
+      <AppMap
         ref={mapRef}
         style={{ flex: 1 }}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
         onRegionChangeComplete={setRegion}
         onPress={(e) => setMarker(e.nativeEvent.coordinate)}
       >
         {marker && <Marker coordinate={marker} />}
-      </MapView>
+      </AppMap>
       <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={32} color="#333" />
       </TouchableOpacity>

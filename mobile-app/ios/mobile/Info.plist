@@ -95,5 +95,8 @@
     <string>Light</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <!-- Google Maps iOS SDK API key for react-native-maps (PROVIDER_GOOGLE) -->
+    <key>GMSApiKey</key>
+    <string>AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc</string>
   </dict>
 </plist>

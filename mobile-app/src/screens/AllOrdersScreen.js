@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView, Platform } from 'react-native';
-import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Marker, Circle } from 'react-native-maps';
+import AppMap from '../components/AppMap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
@@ -289,10 +290,9 @@ export default function AllOrdersScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView
+      <AppMap
         ref={mapRef}
         style={{ flex: 1 }}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         initialRegion={region}
         showsUserLocation
       >
@@ -310,13 +310,13 @@ export default function AllOrdersScreen({ navigation }) {
             o.pickupLon && (
               <Marker
                 key={o.id}
-                coordinate={{ latitude: o.pickupLat, longitude: o.pickupLon }}
+                coordinate={{ latitude: Number(o.pickupLat), longitude: Number(o.pickupLon) }}
                 pinColor={colors.orange}
                 onPress={() => onMarkerPress(o.id)}
               />
             )
         )}
-      </MapView>
+      </AppMap>
       <BottomSheet ref={sheetRef}>
         <View style={{ paddingHorizontal: 12, flex: 1 }}>
           <AppButton title="Фільтр" onPress={() => setFiltersVisible(true)} style={styles.toggle} />

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Platform } from 'react-native';
+import { Marker } from 'react-native-maps';
+import AppMap from './AppMap';
 import { colors } from './Colors';
 
 export default function OrderCard({ order, onPress, highlighted }) {
@@ -34,25 +34,23 @@ export default function OrderCard({ order, onPress, highlighted }) {
   return (
     <View style={[styles.card, highlighted && styles.highlighted]}>
       <View style={styles.mapContainer}>
-        <MapView
+        <AppMap
           style={{ flex: 1 }}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           initialRegion={region}
         >
-
           {order.pickupLat && order.pickupLon && (
             <Marker
-              coordinate={{ latitude: order.pickupLat, longitude: order.pickupLon }}
+              coordinate={{ latitude: Number(order.pickupLat), longitude: Number(order.pickupLon) }}
               pinColor={colors.orange}
             />
           )}
           {order.dropoffLat && order.dropoffLon && (
             <Marker
-              coordinate={{ latitude: order.dropoffLat, longitude: order.dropoffLon }}
+              coordinate={{ latitude: Number(order.dropoffLat), longitude: Number(order.dropoffLon) }}
               pinColor={colors.green}
             />
           )}
-        </MapView>
+        </AppMap>
       </View>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.infoContainer}>
         <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>

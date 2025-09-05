@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"
+        "googleMapsApiKey": "AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc"
       },
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
@@ -35,7 +35,7 @@
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"
+          "apiKey": "AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc"
         }
       },
       "package": "com.pashagr.mobile",
