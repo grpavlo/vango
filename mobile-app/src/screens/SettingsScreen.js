@@ -57,6 +57,12 @@ export default function SettingsScreen() {
         toast.show('Не отримано push token. Перевірте дозволи на сповіщення');
         return;
       }
+      // Ensure consent is enabled on backend
+      await apiFetch('/auth/push-consent', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ consent: true }),
+      });
       await apiFetch('/auth/push-token', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },

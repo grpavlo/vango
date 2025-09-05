@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../components/AppButton';
+import { getCallback, unregisterCallback } from '../callbackRegistry';
 
 export default function MapSelectScreen({ navigation, route }) {
-  const { onSelect, address, lat, lon, onClose, userLat, userLon } = route.params || {};
+  const { onSelectId, onCloseId, address, lat, lon, userLat, userLon } = route.params || {};
+  const onSelect = getCallback(onSelectId);
+  const onClose = getCallback(onCloseId);
   const [region, setRegion] = useState({
     latitude: lat ? parseFloat(lat) : userLat ? parseFloat(userLat) : 50.4501,
     longitude: lon ? parseFloat(lon) : userLon ? parseFloat(userLon) : 30.5234,
@@ -13,6 +16,7 @@ export default function MapSelectScreen({ navigation, route }) {
     longitudeDelta: 0.05,
   });
   const [marker, setMarker] = useState(lat && lon ? { latitude: parseFloat(lat), longitude: parseFloat(lon) } : null);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     async function geocode() {
@@ -26,7 +30,12 @@ export default function MapSelectScreen({ navigation, route }) {
           if (data && data[0]) {
             const la = parseFloat(data[0].lat);
             const lo = parseFloat(data[0].lon);
-            setRegion({ latitude: la, longitude: lo, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+            const newRegion = { latitude: la, longitude: lo, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+            setRegion(newRegion);
+            // Move the map if user already panned (keep map interactive)
+            if (mapRef.current?.animateToRegion) {
+              mapRef.current.animateToRegion(newRegion, 500);
+            }
             setMarker({ latitude: la, longitude: lo });
           }
         } catch {}
@@ -37,10 +46,15 @@ export default function MapSelectScreen({ navigation, route }) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (onClose) onClose();
+      try {
+        if (onClose) onClose();
+      } finally {
+        unregisterCallback(onSelectId);
+        unregisterCallback(onCloseId);
+      }
     });
     return unsubscribe;
-  }, [navigation, onClose]);
+  }, [navigation, onClose, onCloseId, onSelectId]);
 
   async function confirm() {
     if (onSelect && marker) {
@@ -74,7 +88,14 @@ export default function MapSelectScreen({ navigation, route }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView style={{ flex: 1 }} region={region} onPress={(e) => setMarker(e.nativeEvent.coordinate)}>
+      <MapView
+        ref={mapRef}
+        style={{ flex: 1 }}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        initialRegion={region}
+        onRegionChangeComplete={setRegion}
+        onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+      >
         {marker && <Marker coordinate={marker} />}
       </MapView>
       <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>

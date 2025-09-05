@@ -13,11 +13,17 @@
     },
     "ios": {
       "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-        "UIBackgroundModes": ["fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
       },
       "bundleIdentifier": "com.pashagr.mobile"
     },
@@ -27,11 +33,24 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"
+        }
+      },
       "package": "com.pashagr.mobile",
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": [
+        "NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "13e10178-3db7-42e7-811c-796768a59e41"
+      }
+    },
+    "owner": "pashagr"
   }
 }

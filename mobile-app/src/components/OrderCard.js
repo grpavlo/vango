@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Platform } from 'react-native';
 import { colors } from './Colors';
 
 export default function OrderCard({ order, onPress, highlighted }) {
@@ -33,7 +34,11 @@ export default function OrderCard({ order, onPress, highlighted }) {
   return (
     <View style={[styles.card, highlighted && styles.highlighted]}>
       <View style={styles.mapContainer}>
-        <MapView style={{ flex: 1 }} initialRegion={region}>
+        <MapView
+          style={{ flex: 1 }}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          initialRegion={region}
+        >
 
           {order.pickupLat && order.pickupLon && (
             <Marker

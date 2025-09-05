@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AppInput from './AppInput';
 import AppText from './AppText';
 import { colors } from './Colors';
+import { registerCallback } from '../callbackRegistry';
 
 export default function AddressSearchInput({
   value,
@@ -81,17 +82,19 @@ export default function AddressSearchInput({
             style={styles.mapBtn}
             onPress={() => {
               if (onOpenMap) onOpenMap();
+              const onSelectId = registerCallback((p) => {
+                onSelect(p);
+                onChangeText(p.text || value);
+              });
+              const onCloseId = registerCallback(onCloseMap);
               navigation.navigate('MapSelect', {
                 address: value,
                 lat,
                 lon,
                 userLat: currentLocation?.latitude,
                 userLon: currentLocation?.longitude,
-                onSelect: (p) => {
-                  onSelect(p);
-                  onChangeText(p.text || value);
-                },
-                onClose: onCloseMap,
+                onSelectId,
+                onCloseId,
               });
             }}
           >

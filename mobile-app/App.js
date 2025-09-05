@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,7 +23,13 @@ const Stack = createNativeStackNavigator();
 function RootNavigator() {
   const { token, role, loading } = useAuth();
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -48,7 +55,7 @@ export default function App() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       const id = response.notification.request.content.data.orderId;
-      if (id) navigate('OrderDetail', { id });
+      if (id) navigate('OrderDetail', { orderId: id });
     });
     return () => sub.remove();
   }, []);

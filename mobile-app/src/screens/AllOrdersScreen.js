@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView } from 'react-native';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import { View, FlatList, StyleSheet, Modal, SafeAreaView, ScrollView, Platform } from 'react-native';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useAuth } from '../AuthContext';
@@ -289,7 +289,13 @@ export default function AllOrdersScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={region} showsUserLocation>
+      <MapView
+        ref={mapRef}
+        style={{ flex: 1 }}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        initialRegion={region}
+        showsUserLocation
+      >
         {originPoint && (
           <Circle
             center={originPoint}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch } from './api';
+import { apiFetch, setUnauthorizedHandler } from './api';
 import { getPushToken } from './notifications';
 
 const AuthContext = createContext({});
@@ -9,6 +9,15 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Register global unauthorized handler early to catch 401s during initial load
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      await AsyncStorage.multiRemove(['token', 'role']);
+      setToken(null);
+      setRole(null);
+    });
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -83,6 +92,12 @@ export function AuthProvider({ children }) {
             headers: { Authorization: `Bearer ${token}` },
             body: JSON.stringify({ token: expoToken }),
           });
+          // Mark user consent to receive pushes on the backend
+          await apiFetch('/auth/push-consent', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ consent: true }),
+          });
         }
       } catch (e) {
         console.log('push token error', e.message);
@@ -96,6 +111,13 @@ export function AuthProvider({ children }) {
     setToken(null);
     setRole(null);
   };
+
+  // (Redundant safeguard) Keep handler in sync after logout definition
+  useEffect(() => {
+    setUnauthorizedHandler(async () => {
+      await logout();
+    });
+  }, [logout]);
 
   const selectRole = async (r) => {
     if (!token) return;
