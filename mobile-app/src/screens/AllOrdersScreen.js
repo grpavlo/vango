@@ -21,8 +21,6 @@ export default function AllOrdersScreen({ navigation }) {
   const [date, setDate] = useState(new Date());
   const [pickupCity, setPickupCity] = useState('');
   const [pickupPoint, setPickupPoint] = useState(null);
-  const [volume, setVolume] = useState('');
-  const [weight, setWeight] = useState('');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
@@ -109,10 +107,6 @@ export default function AllOrdersScreen({ navigation }) {
     const useRadius = radius && origin && !isNaN(parseFloat(radius));
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
-    const vol = parseNumber(volume);
-    if (!isNaN(vol)) params.append('maxVolume', vol);
-    const wt = parseNumber(weight);
-    if (!isNaN(wt)) params.append('maxWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -148,8 +142,6 @@ export default function AllOrdersScreen({ navigation }) {
     if (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > now) return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date)) return false;
     if (pickupCity && !(o.pickupCity || '').toLowerCase().includes(pickupCity.toLowerCase())) return false;
-    if (volume && parseFloat(o.volume || 0) > parseNumber(volume)) return false;
-    if (weight && parseFloat(o.weight || 0) > parseNumber(weight)) return false;
     const origin = pickupPoint ? { latitude: parseFloat(pickupPoint.lat), longitude: parseFloat(pickupPoint.lon) } : location;
     if (radius && origin) {
       const r = parseFloat(radius);
@@ -173,10 +165,6 @@ export default function AllOrdersScreen({ navigation }) {
     const useRadius = radius && origin && !isNaN(parseFloat(radius));
     if (!useRadius && pickupCity)
       params.append('pickupCity', pickupPoint?.city || pickupCity);
-    const vol = parseNumber(volume);
-    if (!isNaN(vol)) params.append('maxVolume', vol);
-    const wt = parseNumber(weight);
-    if (!isNaN(wt)) params.append('maxWeight', wt);
     if (useRadius) {
       params.append('lat', origin.latitude);
       params.append('lon', origin.longitude);
@@ -216,8 +204,6 @@ export default function AllOrdersScreen({ navigation }) {
     setDate(new Date());
     setPickupCity('');
     setPickupPoint(null);
-    setVolume('');
-    setWeight('');
     setRadius('30');
   }
 
@@ -340,20 +326,6 @@ export default function AllOrdersScreen({ navigation }) {
             currentLocation={location}
             style={styles.input}
           />
-          <AppInput
-            placeholder="Обʼєм до м³"
-            value={volume}
-            onChangeText={setVolume}
-            keyboardType="numeric"
-            style={styles.input}
-          />
-          <AppInput
-            placeholder="Вага до кг"
-            value={weight}
-            onChangeText={setWeight}
-            keyboardType="numeric"
-            style={styles.input}
-          />
           <View style={styles.radiusRow}>
             <AppButton
               title="-"
@@ -417,11 +389,6 @@ function formatDate(d) {
   if (!d) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
-}
-
-function parseNumber(v) {
-  if (v === null || v === undefined) return NaN;
-  return parseFloat(String(v).replace(',', '.'));
 }
 
 const styles = StyleSheet.create({
