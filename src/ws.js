@@ -29,11 +29,6 @@ function buildWhere(query, userId, ignoreReserve = false) {
       where.loadTo = { [Op.lt]: end };
     }
   }
-  if (query.minWeight || query.maxWeight) {
-    where.weight = {};
-    if (query.minWeight) where.weight[Op.gte] = parseFloat(query.minWeight);
-    if (query.maxWeight) where.weight[Op.lte] = parseFloat(query.maxWeight);
-  }
   if (!ignoreReserve) {
     const now = new Date();
     where[Op.and] = [

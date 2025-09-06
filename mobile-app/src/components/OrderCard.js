@@ -8,7 +8,6 @@ import { colors } from './Colors';
 export default function OrderCard({ order, onPress, highlighted }) {
   const pickupCity = order.pickupCity || ((order.pickupLocation || '').split(',')[1] || '').trim();
   const dropoffCity = order.dropoffCity || ((order.dropoffLocation || '').split(',')[1] || '').trim();
-  const volume = calcVolume(order.dimensions);
 
   let region;
   const pLat = order.pickupLat;
@@ -55,9 +54,6 @@ export default function OrderCard({ order, onPress, highlighted }) {
       <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.infoContainer}>
         <Text style={styles.route}>{pickupCity} ➔ {dropoffCity}</Text>
         <Text style={styles.info}>Завантаження: {formatDate(new Date(order.loadFrom))}</Text>
-        <Text style={styles.info}>
-          Обʼєм: {volume !== null ? volume.toFixed(2) : '?'} м³, Вага: {order.weight} кг
-        </Text>
         <Text style={styles.info}>Ціна: {Math.round(order.price)} грн</Text>
         <View style={styles.iconRow}>
           <Ionicons
@@ -85,13 +81,6 @@ export default function OrderCard({ order, onPress, highlighted }) {
       </TouchableOpacity>
     </View>
   );
-}
-
-function calcVolume(dimensions) {
-  if (!dimensions) return null;
-  const parts = dimensions.split('x').map((n) => parseFloat(n));
-  if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
-  return parts[0] * parts[1] * parts[2];
 }
 
 function formatDate(d) {

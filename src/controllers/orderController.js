@@ -18,8 +18,6 @@ async function createOrder(req, res) {
     dropoffAddress,
     dropoffPostcode,
     cargoType,
-    dimensions,
-    weight,
     loadFrom,
     loadTo,
     unloadFrom,
@@ -28,7 +26,6 @@ async function createOrder(req, res) {
     pickupLon,
     dropoffLat,
     dropoffLon,
-    volWeight,
     loadHelp,
     unloadHelp,
     payment,
@@ -61,9 +58,6 @@ async function createOrder(req, res) {
       dropoffAddress,
       dropoffPostcode,
       cargoType,
-      dimensions,
-      weight,
-      volWeight,
       pickupLat,
       pickupLon,
       dropoffLat,
@@ -95,10 +89,6 @@ async function listAvailableOrders(req, res) {
     pickupCity,
     dropoffCity,
     date,
-    minVolume,
-    maxVolume,
-    minWeight,
-    maxWeight,
     lat,
     lon,
     radius,
@@ -125,12 +115,6 @@ async function listAvailableOrders(req, res) {
       where.loadFrom = { [Op.gte]: start };
       where.loadTo = { [Op.lt]: end };
     }
-  }
-
-  if (minWeight || maxWeight) {
-    where.weight = {};
-    if (minWeight) where.weight[Op.gte] = parseFloat(minWeight);
-    if (maxWeight) where.weight[Op.lte] = parseFloat(maxWeight);
   }
 
   const now = new Date();
@@ -167,20 +151,7 @@ async function listAvailableOrders(req, res) {
     return distance <= searchRadius;
   }
 
-  function calcVolume(dimensions) {
-    if (!dimensions) return null;
-    const parts = dimensions.split('x').map((n) => parseFloat(n));
-    if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
-    return parts[0] * parts[1] * parts[2];
-  }
-
-  const filtered = orders.filter((o) => {
-    const vol = calcVolume(o.dimensions);
-    if (minVolume && vol !== null && vol < parseFloat(minVolume)) return false;
-    if (maxVolume && vol !== null && vol > parseFloat(maxVolume)) return false;
-    if (!inRadius(o)) return false;
-    return true;
-  });
+  const filtered = orders.filter(inRadius);
 
   const takenOrders = await Order.findAll({
     where: { status: 'ACCEPTED' },
@@ -452,9 +423,6 @@ async function updateOrder(req, res) {
       'dropoffAddress',
       'dropoffPostcode',
       'cargoType',
-      'dimensions',
-      'weight',
-      'volWeight',
       'pickupLat',
       'pickupLon',
       'dropoffLat',

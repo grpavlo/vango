@@ -58,13 +58,6 @@ function formatDate(dateStr) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
-function calcVolume(dimensions) {
-  if (!dimensions) return null;
-  const parts = dimensions.split('x').map((n) => parseFloat(n));
-  if (parts.length !== 3 || parts.some((n) => isNaN(n))) return null;
-  return parts[0] * parts[1] * parts[2];
-}
-
 export default function OrderDetailScreen({ route, navigation }) {
   const { order: initialOrder, orderId } = route.params;
   const [order, setOrder] = useState(initialOrder);
@@ -79,8 +72,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const wsRef = useRef(null);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName = customerName || (order.customer ? order.customer.name : null);
-  const showContact = order.reservedBy || order.driverId
-  const volume = calcVolume(order.dimensions);
+  const showContact = order.reservedBy || order.driverId;
 
   useEffect(() => {
     connectWs();
@@ -480,21 +472,6 @@ export default function OrderDetailScreen({ route, navigation }) {
             </>
           )}
         </Text>
-      </View>
-      <View style={styles.row}>
-        <Ionicons name="cube-outline" size={20} color="#555" style={styles.rowIcon} />
-        <Text style={styles.label}>Габарити:</Text>
-        <Text style={styles.value}>{order.dimensions}</Text>
-      </View>
-      <View style={styles.row}>
-        <Ionicons name="fitness-outline" size={20} color="#555" style={styles.rowIcon} />
-        <Text style={styles.label}>Вага:</Text>
-        <Text style={styles.value}>{order.weight}</Text>
-      </View>
-      <View style={styles.row}>
-        <Ionicons name="cube-outline" size={20} color="#555" style={styles.rowIcon} />
-        <Text style={styles.label}>Об'єм:</Text>
-        <Text style={styles.value}>{volume !== null ? volume.toFixed(2) : '?'} м³</Text>
       </View>
       <View style={styles.row}>
         <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />

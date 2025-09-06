@@ -58,11 +58,11 @@ export default function EditOrderScreen({ route, navigation }) {
       : null
   );
   const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
-  const [length, setLength] = useState(order.dimensions.split('x')[0] || '');
-  const [width, setWidth] = useState(order.dimensions.split('x')[1] || '');
-  const [height, setHeight] = useState(order.dimensions.split('x')[2] || '');
-  const [weight, setWeight] = useState(String(order.weight || ''));
-  const [volWeight, setVolWeight] = useState(String(order.volWeight || '0'));
+  // const [length, setLength] = useState(order.dimensions.split('x')[0] || '');
+  // const [width, setWidth] = useState(order.dimensions.split('x')[1] || '');
+  // const [height, setHeight] = useState(order.dimensions.split('x')[2] || '');
+  // const [weight, setWeight] = useState(String(order.weight || ''));
+  // const [volWeight, setVolWeight] = useState(String(order.volWeight || '0'));
   const [loadHelp, setLoadHelp] = useState(order.loadHelp);
   const [unloadHelp, setUnloadHelp] = useState(order.unloadHelp);
   const [payment, setPayment] = useState(order.payment || 'cash');
@@ -104,13 +104,13 @@ export default function EditOrderScreen({ route, navigation }) {
     calcPrice();
   }, [pickup, dropoff]);
 
-  useEffect(() => {
-    const l = parseFloat(length) || 0;
-    const w = parseFloat(width) || 0;
-    const h = parseFloat(height) || 0;
-    const v = l * w * h * 250;
-    setVolWeight(v.toFixed(2));
-  }, [length, width, height]);
+  // useEffect(() => {
+  //   const l = parseFloat(length) || 0;
+  //   const w = parseFloat(width) || 0;
+  //   const h = parseFloat(height) || 0;
+  //   const v = l * w * h * 250;
+  //   setVolWeight(v.toFixed(2));
+  // }, [length, width, height]);
 
   async function save() {
     try {
@@ -137,14 +137,14 @@ export default function EditOrderScreen({ route, navigation }) {
         fd.append('city', pickup.city);
       }
       fd.append('cargoType', description);
-      fd.append('dimensions', `${length}x${width}x${height}`);
-      fd.append('weight', weight || '0');
+      // fd.append('dimensions', `${length}x${width}x${height}`);
+      // fd.append('weight', weight || '0');
       fd.append('loadFrom', loadFrom.toISOString());
       fd.append('loadTo', loadTo.toISOString());
       fd.append('unloadFrom', unloadFrom.toISOString());
       fd.append('unloadTo', unloadTo.toISOString());
       fd.append('insurance', 'false');
-      fd.append('volWeight', volWeight);
+      // fd.append('volWeight', volWeight);
       fd.append('loadHelp', loadHelp ? 'true' : 'false');
       fd.append('unloadHelp', unloadHelp ? 'true' : 'false');
       fd.append('payment', payment);
@@ -434,6 +434,7 @@ export default function EditOrderScreen({ route, navigation }) {
         />
       </View>
 
+      {/*
       <View style={styles.section}>
         <Ionicons name="cube" size={20} color={colors.green} />
         <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
@@ -449,6 +450,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
       <AppText style={styles.labelStandalone}>Об'ємна вага, кг</AppText>
       <AppInput value={volWeight} editable={false} />
+      */}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginLeft: 24 }}>
         <CheckBox value={loadHelp} onChange={setLoadHelp} label="Завантаження" />
@@ -508,7 +510,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: 24 },
-  dim: { width: 88, textAlign: 'center', height: 88 },
+  // dim: { width: 88, textAlign: 'center', height: 88 },
   suggestionsBox: {
     backgroundColor: '#fff',
     borderRadius: 8,

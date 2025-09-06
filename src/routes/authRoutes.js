@@ -6,7 +6,6 @@ const {
   updateRole,
   updatePushToken,
   updatePushConsent,
-  testPush,
 } = require('../controllers/authController');
 const { authenticate } = require('../middlewares/auth');
 
@@ -17,6 +16,5 @@ router.get('/me', authenticate, profile);
 router.put('/role', authenticate, updateRole);
 router.put('/push-token', authenticate, updatePushToken);
 router.put('/push-consent', authenticate, updatePushConsent);
-router.post('/push-test', authenticate, testPush);
 
 module.exports = router;

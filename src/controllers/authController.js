@@ -71,25 +71,6 @@ async function updatePushConsent(req, res) {
   res.json({ pushConsent: req.user.pushConsent });
 }
 
-async function testPush(req, res) {
-  if (!req.user.pushToken) {
-    console.log('Push test requested but no token for user', req.user.id);
-    return res.status(400).send('No push token');
-  }
-  if (!req.user.pushConsent) {
-    return res.status(400).send('Push not allowed');
-  }
-  const { sendPush } = require('../utils/push');
-  console.log('Test push requested by', req.user.id);
-  await sendPush(
-    req.user.pushToken,
-    'Test Notification',
-    'This is a test notification',
-    { test: true }
-  );
-  res.sendStatus(204);
-}
-
 module.exports = {
   register,
   login,
@@ -97,5 +78,4 @@ module.exports = {
   updateRole,
   updatePushToken,
   updatePushConsent,
-  testPush,
 };
