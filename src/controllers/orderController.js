@@ -303,6 +303,19 @@ async function acceptOrder(req, res) {
       include: { model: require('../models/user'), as: 'customer' },
     });
     broadcastOrder(updated);
+    if (
+      updated.customer &&
+      updated.customer.pushToken &&
+      updated.customer.pushConsent
+    ) {
+      const { sendPush } = require('../utils/push');
+      sendPush(
+        updated.customer.pushToken,
+        'Замовлення прийнято',
+        'Водій взяв ваш вантаж',
+        { orderId: updated.id }
+      );
+    }
     res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося прийняти замовлення');
@@ -326,11 +339,27 @@ async function confirmDriver(req, res) {
     order.history = [...(order.history || []), { status: 'ACCEPTED', at: new Date() }];
     await order.save();
     const updated = await Order.findByPk(orderId, {
-      include: { model: require('../models/user'), as: 'customer' },
+      include: [
+        { model: require('../models/user'), as: 'customer' },
+        { model: require('../models/user'), as: 'driver' },
+      ],
     });
     broadcastOrder(updated);
     const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
     await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+    if (
+      updated.driver &&
+      updated.driver.pushToken &&
+      updated.driver.pushConsent
+    ) {
+      const { sendPush } = require('../utils/push');
+      sendPush(
+        updated.driver.pushToken,
+        'Замовлення підтверджено',
+        'Замовник прийняв ваше замовлення',
+        { orderId: updated.id }
+      );
+    }
     res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося підтвердити водія');
@@ -344,6 +373,7 @@ async function rejectDriver(req, res) {
     if (!order || order.customerId !== req.user.id || order.status !== 'PENDING') {
       return res.status(400).send('Неможливо відхилити');
     }
+    const driver = await User.findByPk(order.candidateDriverId);
     order.candidateDriverId = null;
     order.candidateUntil = null;
     order.reservedBy = null;
@@ -359,6 +389,15 @@ async function rejectDriver(req, res) {
       include: { model: require('../models/user'), as: 'customer' },
     });
     broadcastOrder(updated);
+    if (driver && driver.pushToken && driver.pushConsent) {
+      const { sendPush } = require('../utils/push');
+      sendPush(
+        driver.pushToken,
+        'Замовлення відхилено',
+        'Замовник відхилив вашу кандидатуру',
+        { orderId: updated.id }
+      );
+    }
     res.json(updated);
   } catch (err) {
     res.status(400).send('Не вдалося відхилити водія');
@@ -379,7 +418,31 @@ async function updateStatus(req, res) {
     order.history = [...(order.history || []), { status, at: new Date() }];
     await order.save();
     broadcastOrder(order);
-    if (status === 'COMPLETED') {
+    if (status === OrderStatus.IN_PROGRESS && order.customerId) {
+      const customer = await User.findByPk(order.customerId);
+      if (customer && customer.pushToken && customer.pushConsent) {
+        const { sendPush } = require('../utils/push');
+        sendPush(
+          customer.pushToken,
+          'Водій отримав вантаж',
+          'Водій підтвердив отримання вантажу',
+          { orderId: order.id }
+        );
+      }
+    }
+    if (status === OrderStatus.DELIVERED && order.customerId) {
+      const customer = await User.findByPk(order.customerId);
+      if (customer && customer.pushToken && customer.pushConsent) {
+        const { sendPush } = require('../utils/push');
+        sendPush(
+          customer.pushToken,
+          'Доставку підтверджено',
+          'Водій повідомив про доставку',
+          { orderId: order.id }
+        );
+      }
+    }
+    if (status === OrderStatus.COMPLETED) {
       const tx = await Transaction.findOne({ where: { orderId: order.id } });
       if (tx && tx.status === 'PENDING') {
         tx.status = 'RELEASED';
@@ -391,6 +454,18 @@ async function updateStatus(req, res) {
             driver.balance += amount;
             await driver.save();
           }
+        }
+      }
+      if (order.driverId) {
+        const driver = await User.findByPk(order.driverId);
+        if (driver && driver.pushToken && driver.pushConsent) {
+          const { sendPush } = require('../utils/push');
+          sendPush(
+            driver.pushToken,
+            'Замовник підтвердив доставку',
+            'Замовник підтвердив отримання вантажу',
+            { orderId: order.id }
+          );
         }
       }
     }
