@@ -13,6 +13,7 @@ import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
 import EditOrderScreen from './src/screens/EditOrderScreen';
 import { navigationRef, navigate } from './src/navigationRef';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowAlert: true }),
@@ -61,12 +62,16 @@ export default function App() {
   }, []);
 
   return (
+   
     <ToastProvider>
-      <AuthProvider>
+      <AuthProvider> 
+        
         <NavigationContainer ref={navigationRef}>
           <RootNavigator />
-        </NavigationContainer>
+        </NavigationContainer> 
+      
       </AuthProvider>
     </ToastProvider>
+   
   );
 }

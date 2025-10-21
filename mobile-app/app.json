@@ -25,12 +25,15 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
+     "config": {
+        "googleMaps": { "apiKey": "API_KEY" }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-
+      "softwareKeyboardLayoutMode": "pan",
       "package": "com.pashagr.mobile",
       "permissions": [
         "NOTIFICATIONS"

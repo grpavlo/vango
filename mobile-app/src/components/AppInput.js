@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import { colors } from './Colors';
 
+
 export default function AppInput({ style, ...props }) {
   const [focused, setFocused] = useState(false);
   return (

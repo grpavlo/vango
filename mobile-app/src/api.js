@@ -1,4 +1,4 @@
-export const HOST_URL = 'http://192.168.0.11:20004';
+export const HOST_URL = 'http://192.168.0.170:20004';
 export const API_URL = `${HOST_URL}/api`;
 
 // Optional global handler to react on 401 Unauthorized (e.g., logout + redirect)
