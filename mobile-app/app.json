@@ -26,7 +26,7 @@
     },
     "android": {
      "config": {
-        "googleMaps": { "apiKey": "API_KEY" }
+        "googleMaps": { "apiKey": "" }
       },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
