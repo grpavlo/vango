@@ -20,12 +20,14 @@ const ClosedOfficeFormPageContent = ({ navigation, route }) => {
     const [description, setDescription] = useState('');
 
     const handleTakePictures = useCallback(() => {
-        navigation.navigate('WorkOnVisitPage', {
+        navigation.navigate('TakeMediaPage', {
             routeName,
             idRoute,
             idCheckpoint,
+            dispatchPhone,
+            officePhone,
         });
-    }, [navigation, routeName, idRoute, idCheckpoint]);
+    }, [navigation, routeName, idRoute, idCheckpoint, dispatchPhone, officePhone]);
 
     const handleHelp = useCallback(() => {
         navigation.navigate('CheckpointViewPage', {
