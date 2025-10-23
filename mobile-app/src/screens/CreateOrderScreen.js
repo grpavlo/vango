@@ -80,32 +80,33 @@ export default function CreateOrderScreen({ navigation }) {
   const [systemPrice, setSystemPrice] = useState(null);
   const [adjust, setAdjust] = useState(0);
   const [outerScrollEnabled, setOuterScrollEnabled] = useState(true);
+  const [agreedPrice, setAgreedPrice] = useState(false);
 
   useEffect(() => {
     const open = pickupSuggestions.length > 0 || dropoffSuggestions.length > 0;
     setOuterScrollEnabled(!open);
   }, [pickupSuggestions, dropoffSuggestions]);
 
-  useEffect(() => {
-    async function calcPrice() {
-      if (pickup && dropoff) {
-        try {
-          const res = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
-          );
-          const data = await res.json();
-          if (data.routes && data.routes[0]) {
-            const km = data.routes[0].distance / 1000;
-            const base = km * 50;
-            setSystemPrice(base);
-          }
-        } catch (err) {
-          console.log(err);
-        }
-      }
-    }
-    calcPrice();
-  }, [pickup, dropoff]);
+  // useEffect(() => {
+  //   async function calcPrice() {
+  //     if (pickup && dropoff) {
+  //       try {
+  //         const res = await fetch(
+  //           `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
+  //         );
+  //         const data = await res.json();
+  //         if (data.routes && data.routes[0]) {
+  //           const km = data.routes[0].distance / 1000;
+  //           const base = km * 50;
+  //           setSystemPrice(base);
+  //         }
+  //       } catch (err) {
+  //         console.log(err);
+  //       }
+  //     }
+  //   }
+  //   calcPrice();
+  // }, [pickup, dropoff]);
 
   // useEffect(() => {
   //   const l = parseFloat(length) || 0;
@@ -153,6 +154,7 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append("payment", payment);
       const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
       fd.append("price", finalPrice.toString());
+      fd.append("agreedPrice", agreedPrice ? "true" : "false");
       if (photos && photos.length > 0) {
         photos.forEach((p) => {
           const filename = p.split("/").pop();
@@ -286,8 +288,12 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <KeyboardAwareScrollView
+      //contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      extraScrollHeight={80} // щоб підняло поле
+      enableOnAndroid={true}
+      showsVerticalScrollIndicator={false}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
@@ -570,30 +576,51 @@ export default function CreateOrderScreen({ navigation }) {
 
           <PhotoPicker photos={photos} onChange={setPhotos} />
 
-          {systemPrice !== null && (
-            <View style={{ marginTop: 16 }}>
-              <AppText style={styles.labelStandalone}>
-                Ціна: {Math.round(systemPrice * (1 + adjust / 100))} грн
-              </AppText>
-              <Slider
-                minimumValue={-5}
-                maximumValue={15}
-                step={1}
-                value={adjust}
-                onValueChange={setAdjust}
-                thumbTintColor={colors.green}
-              />
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
+          {/* {systemPrice !== null && ( */}
+          <View style={{ marginTop: 16 }}>
+            <AppText style={styles.labelStandalone}>
+              Ціна
+              {/* : {Math.round(systemPrice * (1 + adjust / 100))} грн */}
+            </AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
+            >
+              <AppInput
+                style={{ marginRight: 8, flex: 1 }}
+                value={systemPrice ? systemPrice.toString() : ""}
+                onChangeText={(t) => {
+                  setSystemPrice(t);
                 }}
-              >
-                <AppText>-5%</AppText>
-                <AppText>+15%</AppText>
-              </View>
+              />
+              <CheckBox
+                value={agreedPrice}
+                onChange={setAgreedPrice}
+                label="Договірна"
+              />
             </View>
-          )}
+
+            {/* <Slider
+              minimumValue={-5}
+              maximumValue={15}
+              step={1}
+              value={adjust}
+              onValueChange={setAdjust}
+              thumbTintColor={colors.green}
+            />
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
+            >
+              <AppText>-5%</AppText>
+              <AppText>+15%</AppText>
+            </View>*/}
+          </View>
+          {/* )} */}
           <View style={styles.actions}>
             <AppButton
               title="Створити"
@@ -604,24 +631,22 @@ export default function CreateOrderScreen({ navigation }) {
           </View>
         </ScrollView>
       </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 24 },
   // dim: { width: 88, textAlign: 'center', height: 88 },
- suggestionsBox: {
-  backgroundColor: "#fff",
-  borderRadius: 8,
-  maxHeight: 200,
-  // overflow: "hidden", // ❌ прибрати (ламає скрол на Android)
-  // додатково можна тінь:
-  shadowColor: "#000",
-  shadowOpacity: 0.1,
-  shadowOffset: { width: 0, height: 2 },
-  shadowRadius: 6,
-},
+  suggestionsBox: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    maxHeight: 200,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+  },
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,
@@ -631,15 +656,15 @@ const styles = StyleSheet.create({
   section: { flexDirection: "row", alignItems: "center", marginTop: 24 },
   label: { marginLeft: 8, color: colors.text, fontWeight: "600" },
   labelStandalone: { marginTop: 24, color: colors.text, fontWeight: "600" },
- suggestionsDropdown: {
-  //position: "absolute",
-  top: -15,        // як було
-  left: 0,
-  right: 0,
-  zIndex: 100,
-  elevation: 5,
-  // backgroundColor не тут, а на "ящику" нижче
-},
+  suggestionsDropdown: {
+    //position: "absolute",
+    top: -15, // як було
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    elevation: 5,
+    // backgroundColor не тут, а на "ящику" нижче
+  },
   mapBtn: { marginLeft: 8 },
   actions: { flexDirection: "row", marginTop: 32 },
 });

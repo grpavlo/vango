@@ -409,7 +409,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
     }
 
-    return buttons; 
+    return buttons;
   }
 
   return (
@@ -425,7 +425,6 @@ export default function OrderDetailScreen({ route, navigation }) {
         )}
         <ScrollView
           contentContainerStyle={{ paddingBottom: actionHeight + 16 }}
-          
         >
           <View style={styles.appBar}>
             <TouchableOpacity
@@ -474,7 +473,7 @@ export default function OrderDetailScreen({ route, navigation }) {
             </View>
           </View>
 
-          {role === "DRIVER" && showContact && contactPhone && (
+          {/* {role === "DRIVER" && showContact && contactPhone && (
             <View style={styles.driverCard}>
               <View style={styles.driverRow}>
                 <Ionicons name="person-circle" size={36} color={colors.green} />
@@ -488,7 +487,7 @@ export default function OrderDetailScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
             </View>
-          )}
+          )} */}
 
           {role === "CUSTOMER" &&
             (order.driver || order.reservedDriver || order.candidateDriver) && (
@@ -666,7 +665,11 @@ export default function OrderDetailScreen({ route, navigation }) {
                 style={styles.rowIcon}
               />
               <Text style={styles.label}>Ціна:</Text>
-              <Text style={styles.value}>{Math.round(order.price)} грн</Text>
+              <Text style={styles.info}>
+                {`${Math.round(order.price)} грн${
+                  order.agreedPrice ? " (Договірна)" : ""
+                }`}
+              </Text>
             </View>
             <View style={styles.row}>
               <Ionicons
@@ -735,6 +738,21 @@ export default function OrderDetailScreen({ route, navigation }) {
           style={styles.actionArea}
           onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}
         >
+          {role === "DRIVER" && showContact && contactPhone && (
+            <View style={styles.driverCard}>
+              <View style={styles.driverRow}>
+                <Ionicons name="person-circle" size={36} color={colors.green} />
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <Text>{contactName || "Замовник"}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(`tel:${contactPhone}`)}
+                >
+                  <Ionicons name="call" size={28} color={colors.green} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           {renderActions()}
         </View>
       </SafeAreaView>
@@ -785,18 +803,23 @@ const styles = StyleSheet.create({
   full: { width: "100%", height: "100%" },
   close: { position: "absolute", top: 40, right: 20, zIndex: 1 },
   driverCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 20,
-    marginTop: 16,
-    marginBottom: 16,
-    marginLeft: 10,
-    marginRight: 10,
+    marginTop: 0,
+    marginBottom: 8,
+    //marginHorizontal: 16,
+
+    // М’яка тінь
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
+
+    // Додай рамку, щоб контур був чіткий на білому фоні
+    borderWidth: 1,
+    borderColor: "#cfcfcfff",
   },
   driverRow: { flexDirection: "row", alignItems: "center" },
   timer: { textAlign: "right", fontSize: 16, color: colors.orange },

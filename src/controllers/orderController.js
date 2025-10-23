@@ -1,9 +1,9 @@
-const Order = require('../models/order');
-const { OrderStatus } = require('../models/order');
-const Transaction = require('../models/transaction');
-const User = require('../models/user');
-const { SERVICE_FEE_PERCENT } = require('../config');
-const { broadcastOrder, broadcastDelete } = require('../ws');
+const Order = require("../models/order");
+const { OrderStatus } = require("../models/order");
+const Transaction = require("../models/transaction");
+const User = require("../models/user");
+const { SERVICE_FEE_PERCENT } = require("../config");
+const { broadcastOrder, broadcastDelete } = require("../ws");
 
 async function createOrder(req, res) {
   const {
@@ -29,6 +29,7 @@ async function createOrder(req, res) {
     loadHelp,
     unloadHelp,
     payment,
+    agreedPrice,
     insurance,
   } = req.body;
   let systemPrice = 0;
@@ -62,8 +63,8 @@ async function createOrder(req, res) {
       pickupLon,
       dropoffLat,
       dropoffLon,
-      loadHelp: loadHelp === 'true' || loadHelp === true,
-      unloadHelp: unloadHelp === 'true' || unloadHelp === true,
+      loadHelp: loadHelp === "true" || loadHelp === true,
+      unloadHelp: unloadHelp === "true" || unloadHelp === true,
       payment,
       loadFrom,
       loadTo,
@@ -72,33 +73,25 @@ async function createOrder(req, res) {
       insurance,
       systemPrice,
       price,
+      agreedPrice: agreedPrice === "true" || agreedPrice === true,
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
-      history: [{ status: 'CREATED', at: new Date() }],
+      history: [{ status: "CREATED", at: new Date() }],
     });
     broadcastOrder(order);
     res.json(order);
   } catch (err) {
-    res.status(400).send('Не вдалося створити замовлення');
-
+    res.status(400).send("Не вдалося створити замовлення");
   }
 }
 
 async function listAvailableOrders(req, res) {
-  const {
-    city,
-    pickupCity,
-    dropoffCity,
-    date,
-    lat,
-    lon,
-    radius,
-  } = req.query;
-  const { Op } = require('sequelize');
+  const { city, pickupCity, dropoffCity, date, lat, lon, radius } = req.query;
+  const { Op } = require("sequelize");
 
   const where = {
     [Op.or]: [
-      { status: 'CREATED' },
-      { status: 'PENDING', candidateDriverId: req.user.id },
+      { status: "CREATED" },
+      { status: "PENDING", candidateDriverId: req.user.id },
     ],
   };
   const cityFilter = pickupCity || city;
@@ -106,7 +99,7 @@ async function listAvailableOrders(req, res) {
   if (dropoffCity) where.dropoffCity = dropoffCity;
 
   if (date) {
-    const { parseDate } = require('../utils/date');
+    const { parseDate } = require("../utils/date");
     const parsed = parseDate(date);
     if (parsed) {
       const start = new Date(parsed);
@@ -133,7 +126,6 @@ async function listAvailableOrders(req, res) {
   const centerLon = parseFloat(lon);
   const searchRadius = radius ? parseFloat(radius) : null;
 
-
   function inRadius(order) {
     if (!searchRadius || isNaN(centerLat) || isNaN(centerLon)) return true;
     if (!order.pickupLat || !order.pickupLon) return false;
@@ -154,20 +146,20 @@ async function listAvailableOrders(req, res) {
   const filtered = orders.filter(inRadius);
 
   const takenOrders = await Order.findAll({
-    where: { status: 'ACCEPTED' },
+    where: { status: "ACCEPTED" },
     limit: Math.floor(filtered.length / 15),
   });
   res.json({ available: filtered, taken: takenOrders });
 }
 
 async function listMyOrders(req, res) {
-  const { Op } = require('sequelize');
+  const { Op } = require("sequelize");
   const role = req.query.role || req.user.role;
   const now = new Date();
   let where = {};
-  if (role === 'CUSTOMER') {
+  if (role === "CUSTOMER") {
     where.customerId = req.user.id;
-  } else if (role === 'DRIVER') {
+  } else if (role === "DRIVER") {
     where = {
       [Op.or]: [
         { driverId: req.user.id },
@@ -175,7 +167,7 @@ async function listMyOrders(req, res) {
         { candidateDriverId: req.user.id },
       ],
     };
-  } else if (role === 'BOTH' || !role) {
+  } else if (role === "BOTH" || !role) {
     where = {
       [Op.or]: [
         { customerId: req.user.id },
@@ -188,10 +180,10 @@ async function listMyOrders(req, res) {
   const orders = await Order.findAll({
     where,
     include: [
-      { model: require('../models/user'), as: 'driver' },
-      { model: require('../models/user'), as: 'candidateDriver' },
-      { model: require('../models/user'), as: 'reservedDriver' },
-      { model: require('../models/user'), as: 'customer' },
+      { model: require("../models/user"), as: "driver" },
+      { model: require("../models/user"), as: "candidateDriver" },
+      { model: require("../models/user"), as: "reservedDriver" },
+      { model: require("../models/user"), as: "customer" },
     ],
   });
   res.json(orders);
@@ -202,31 +194,38 @@ async function getOrder(req, res) {
   try {
     const order = await Order.findByPk(id, {
       include: [
-        { model: require('../models/user'), as: 'driver' },
-        { model: require('../models/user'), as: 'candidateDriver' },
-        { model: require('../models/user'), as: 'reservedDriver' },
-        { model: require('../models/user'), as: 'customer' },
+        { model: require("../models/user"), as: "driver" },
+        { model: require("../models/user"), as: "candidateDriver" },
+        { model: require("../models/user"), as: "reservedDriver" },
+        { model: require("../models/user"), as: "customer" },
       ],
     });
     if (!order) {
-      return res.status(404).send('Замовлення не знайдено');
+      return res.status(404).send("Замовлення не знайдено");
     }
     res.json(order);
   } catch (err) {
-    res.status(400).send('Не вдалося отримати замовлення');
+    res.status(400).send("Не вдалося отримати замовлення");
   }
 }
 
 async function reserveOrder(req, res) {
   const orderId = req.params.id;
   try {
-    const order = await Order.findByPk(orderId, { include: { model: require('../models/user'), as: 'customer' } });
-    if (!order || order.status !== 'CREATED') {
-      return res.status(400).send('Замовлення недоступне');
+    const order = await Order.findByPk(orderId, {
+      include: { model: require("../models/user"), as: "customer" },
+    });
+    if (!order || order.status !== "CREATED") {
+      return res.status(400).send("Замовлення недоступне");
     }
     const now = new Date();
-    if (order.reservedBy && order.reservedUntil && order.reservedUntil > now && order.reservedBy !== req.user.id) {
-      return res.status(400).send('Вже зарезервовано');
+    if (
+      order.reservedBy &&
+      order.reservedUntil &&
+      order.reservedUntil > now &&
+      order.reservedBy !== req.user.id
+    ) {
+      return res.status(400).send("Вже зарезервовано");
     }
     order.reservedBy = req.user.id;
     order.reservedUntil = new Date(now.getTime() + 10 * 60000);
@@ -237,11 +236,11 @@ async function reserveOrder(req, res) {
       order.customer.pushToken &&
       order.customer.pushConsent
     ) {
-      const { sendPush } = require('../utils/push');
+      const { sendPush } = require("../utils/push");
       sendPush(
         order.customer.pushToken,
-        'Замовлення у резерві',
-        'Водій взяв ваше замовлення в резерв',
+        "Замовлення у резерві",
+        "Водій взяв ваше замовлення в резерв",
         { orderId: order.id }
       );
     }
@@ -251,7 +250,7 @@ async function reserveOrder(req, res) {
       name: order.customer ? order.customer.name : null,
     });
   } catch (err) {
-    res.status(400).send('Не вдалося зарезервувати');
+    res.status(400).send("Не вдалося зарезервувати");
   }
 }
 
@@ -263,22 +262,25 @@ async function cancelReserve(req, res) {
       !order ||
       (order.reservedBy !== req.user.id && order.customerId !== req.user.id)
     ) {
-      return res.status(400).send('Немає резерву');
+      return res.status(400).send("Немає резерву");
     }
     order.reservedBy = null;
     order.reservedUntil = null;
     order.candidateDriverId = null;
     order.candidateUntil = null;
-    order.status = 'CREATED';
-    order.history = [...(order.history || []), { status: 'CREATED', at: new Date() }];
+    order.status = "CREATED";
+    order.history = [
+      ...(order.history || []),
+      { status: "CREATED", at: new Date() },
+    ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
-      include: { model: require('../models/user'), as: 'customer' },
+      include: { model: require("../models/user"), as: "customer" },
     });
     broadcastOrder(updated);
     res.json(updated);
   } catch (err) {
-    res.status(400).send('Не вдалося зняти резерв');
+    res.status(400).send("Не вдалося зняти резерв");
   }
 }
 
@@ -286,8 +288,8 @@ async function acceptOrder(req, res) {
   const orderId = req.params.id;
   try {
     const order = await Order.findByPk(orderId);
-    if (!order || order.status !== 'CREATED') {
-      res.status(400).send('Замовлення недоступне');
+    if (!order || order.status !== "CREATED") {
+      res.status(400).send("Замовлення недоступне");
 
       return;
     }
@@ -296,11 +298,14 @@ async function acceptOrder(req, res) {
     order.candidateUntil = new Date(now.getTime() + 15 * 60000);
     order.reservedBy = req.user.id;
     order.reservedUntil = order.candidateUntil;
-    order.status = 'PENDING';
-    order.history = [...(order.history || []), { status: 'PENDING', at: new Date() }];
+    order.status = "PENDING";
+    order.history = [
+      ...(order.history || []),
+      { status: "PENDING", at: new Date() },
+    ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
-      include: { model: require('../models/user'), as: 'customer' },
+      include: { model: require("../models/user"), as: "customer" },
     });
     broadcastOrder(updated);
     if (
@@ -308,18 +313,17 @@ async function acceptOrder(req, res) {
       updated.customer.pushToken &&
       updated.customer.pushConsent
     ) {
-      const { sendPush } = require('../utils/push');
+      const { sendPush } = require("../utils/push");
       sendPush(
         updated.customer.pushToken,
-        'Замовлення прийнято',
-        'Водій взяв ваш вантаж',
+        "Замовлення прийнято",
+        "Водій взяв ваш вантаж",
         { orderId: updated.id }
       );
     }
     res.json(updated);
   } catch (err) {
-    res.status(400).send('Не вдалося прийняти замовлення');
-
+    res.status(400).send("Не вдалося прийняти замовлення");
   }
 }
 
@@ -327,42 +331,54 @@ async function confirmDriver(req, res) {
   const orderId = req.params.id;
   try {
     const order = await Order.findByPk(orderId);
-    if (!order || order.customerId !== req.user.id || order.status !== 'PENDING') {
-      return res.status(400).send('Неможливо підтвердити');
+    if (
+      !order ||
+      order.customerId !== req.user.id ||
+      order.status !== "PENDING"
+    ) {
+      return res.status(400).send("Неможливо підтвердити");
     }
     order.driverId = order.candidateDriverId;
     order.candidateDriverId = null;
     order.candidateUntil = null;
     order.reservedBy = null;
     order.reservedUntil = null;
-    order.status = 'ACCEPTED';
-    order.history = [...(order.history || []), { status: 'ACCEPTED', at: new Date() }];
+    order.status = "ACCEPTED";
+    order.history = [
+      ...(order.history || []),
+      { status: "ACCEPTED", at: new Date() },
+    ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
       include: [
-        { model: require('../models/user'), as: 'customer' },
-        { model: require('../models/user'), as: 'driver' },
+        { model: require("../models/user"), as: "customer" },
+        { model: require("../models/user"), as: "driver" },
       ],
     });
     broadcastOrder(updated);
     const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
-    await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+    await Transaction.create({
+      orderId: order.id,
+      driverId: order.driverId,
+      amount: order.price,
+      serviceFee,
+    });
     if (
       updated.driver &&
       updated.driver.pushToken &&
       updated.driver.pushConsent
     ) {
-      const { sendPush } = require('../utils/push');
+      const { sendPush } = require("../utils/push");
       sendPush(
         updated.driver.pushToken,
-        'Замовлення підтверджено',
-        'Замовник прийняв ваше замовлення',
+        "Замовлення підтверджено",
+        "Замовник прийняв ваше замовлення",
         { orderId: updated.id }
       );
     }
     res.json(updated);
   } catch (err) {
-    res.status(400).send('Не вдалося підтвердити водія');
+    res.status(400).send("Не вдалося підтвердити водія");
   }
 }
 
@@ -370,8 +386,12 @@ async function rejectDriver(req, res) {
   const orderId = req.params.id;
   try {
     const order = await Order.findByPk(orderId);
-    if (!order || order.customerId !== req.user.id || order.status !== 'PENDING') {
-      return res.status(400).send('Неможливо відхилити');
+    if (
+      !order ||
+      order.customerId !== req.user.id ||
+      order.status !== "PENDING"
+    ) {
+      return res.status(400).send("Неможливо відхилити");
     }
     const driver = await User.findByPk(order.candidateDriverId);
     order.candidateDriverId = null;
@@ -386,21 +406,21 @@ async function rejectDriver(req, res) {
     ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
-      include: { model: require('../models/user'), as: 'customer' },
+      include: { model: require("../models/user"), as: "customer" },
     });
     broadcastOrder(updated);
     if (driver && driver.pushToken && driver.pushConsent) {
-      const { sendPush } = require('../utils/push');
+      const { sendPush } = require("../utils/push");
       sendPush(
         driver.pushToken,
-        'Замовлення відхилено',
-        'Замовник відхилив вашу кандидатуру',
+        "Замовлення відхилено",
+        "Замовник відхилив вашу кандидатуру",
         { orderId: updated.id }
       );
     }
     res.json(updated);
   } catch (err) {
-    res.status(400).send('Не вдалося відхилити водія');
+    res.status(400).send("Не вдалося відхилити водія");
   }
 }
 
@@ -410,7 +430,7 @@ async function updateStatus(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order) {
-      res.status(404).send('Замовлення не знайдено');
+      res.status(404).send("Замовлення не знайдено");
 
       return;
     }
@@ -421,11 +441,11 @@ async function updateStatus(req, res) {
     if (status === OrderStatus.IN_PROGRESS && order.customerId) {
       const customer = await User.findByPk(order.customerId);
       if (customer && customer.pushToken && customer.pushConsent) {
-        const { sendPush } = require('../utils/push');
+        const { sendPush } = require("../utils/push");
         sendPush(
           customer.pushToken,
-          'Водій отримав вантаж',
-          'Водій підтвердив отримання вантажу',
+          "Водій отримав вантаж",
+          "Водій підтвердив отримання вантажу",
           { orderId: order.id }
         );
       }
@@ -433,19 +453,19 @@ async function updateStatus(req, res) {
     if (status === OrderStatus.DELIVERED && order.customerId) {
       const customer = await User.findByPk(order.customerId);
       if (customer && customer.pushToken && customer.pushConsent) {
-        const { sendPush } = require('../utils/push');
+        const { sendPush } = require("../utils/push");
         sendPush(
           customer.pushToken,
-          'Доставку підтверджено',
-          'Водій повідомив про доставку',
+          "Доставку підтверджено",
+          "Водій повідомив про доставку",
           { orderId: order.id }
         );
       }
     }
     if (status === OrderStatus.COMPLETED) {
       const tx = await Transaction.findOne({ where: { orderId: order.id } });
-      if (tx && tx.status === 'PENDING') {
-        tx.status = 'RELEASED';
+      if (tx && tx.status === "PENDING") {
+        tx.status = "RELEASED";
         await tx.save();
         const amount = tx.amount - tx.serviceFee;
         if (order.driverId) {
@@ -459,11 +479,11 @@ async function updateStatus(req, res) {
       if (order.driverId) {
         const driver = await User.findByPk(order.driverId);
         if (driver && driver.pushToken && driver.pushConsent) {
-          const { sendPush } = require('../utils/push');
+          const { sendPush } = require("../utils/push");
           sendPush(
             driver.pushToken,
-            'Замовник підтвердив доставку',
-            'Замовник підтвердив отримання вантажу',
+            "Замовник підтвердив доставку",
+            "Замовник підтвердив отримання вантажу",
             { orderId: order.id }
           );
         }
@@ -471,52 +491,63 @@ async function updateStatus(req, res) {
     }
     res.json(order);
   } catch (err) {
-    res.status(400).send('Не вдалося оновити замовлення');
-
+    res.status(400).send("Не вдалося оновити замовлення");
   }
 }
 
 async function updateOrder(req, res) {
+  console.log('RAW agreedPrice:', req.body?.agreedPrice, typeof req.body?.agreedPrice);
+
   const id = req.params.id;
   try {
     const order = await Order.findByPk(id);
     if (!order) {
-      return res.status(404).send('Замовлення не знайдено');
+      return res.status(404).send("Замовлення не знайдено");
     }
-    if (order.customerId !== req.user.id || order.status !== 'CREATED') {
-      return res.status(400).send('Неможливо редагувати');
+    if (order.customerId !== req.user.id || order.status !== "CREATED") {
+      return res.status(400).send("Неможливо редагувати");
     }
     const fields = [
-      'pickupLocation',
-      'dropoffLocation',
-      'pickupCountry',
-      'pickupCity',
-      'pickupAddress',
-      'pickupPostcode',
-      'dropoffCountry',
-      'dropoffCity',
-      'dropoffAddress',
-      'dropoffPostcode',
-      'cargoType',
-      'pickupLat',
-      'pickupLon',
-      'dropoffLat',
-      'dropoffLon',
-      'loadHelp',
-      'unloadHelp',
-      'payment',
-      'loadFrom',
-      'loadTo',
-      'unloadFrom',
-      'unloadTo',
-      'insurance',
-      'price',
+      "pickupLocation",
+      "dropoffLocation",
+      "pickupCountry",
+      "pickupCity",
+      "pickupAddress",
+      "pickupPostcode",
+      "dropoffCountry",
+      "dropoffCity",
+      "dropoffAddress",
+      "dropoffPostcode",
+      "cargoType",
+      "pickupLat",
+      "pickupLon",
+      "dropoffLat",
+      "dropoffLon",
+      "loadHelp",
+      "unloadHelp",
+      "payment",
+      "loadFrom",
+      "loadTo",
+      "unloadFrom",
+      "unloadTo",
+      "insurance",
+      "price",
+      "agreedPrice",
     ];
+
     fields.forEach((f) => {
       if (req.body[f] !== undefined) {
-        order[f] = req.body[f];
+        if (f === "agreedPrice") {
+          const v = req.body.agreedPrice;
+          order.agreedPrice =
+            v === "true" || v === true || v === "on" || v === 1 || v === "1";
+        } else {
+          order[f] = req.body[f];
+        }
       }
     });
+    console.log(req.body.agreedPrice);
+
     if (
       req.body.pickupLat &&
       req.body.pickupLon &&
@@ -546,7 +577,7 @@ async function updateOrder(req, res) {
     await order.save();
     res.json(order);
   } catch (err) {
-    res.status(400).send('Не вдалося оновити замовлення');
+    res.status(400).send("Не вдалося оновити замовлення");
   }
 }
 
@@ -555,16 +586,16 @@ async function deleteOrder(req, res) {
   try {
     const order = await Order.findByPk(id);
     if (!order) {
-      return res.status(404).send('Замовлення не знайдено');
+      return res.status(404).send("Замовлення не знайдено");
     }
-    if (order.customerId !== req.user.id || order.status !== 'CREATED') {
-      return res.status(400).send('Неможливо видалити');
+    if (order.customerId !== req.user.id || order.status !== "CREATED") {
+      return res.status(400).send("Неможливо видалити");
     }
     await order.destroy();
     broadcastDelete(order.id);
-    res.json({ message: 'Deleted' });
+    res.json({ message: "Deleted" });
   } catch (err) {
-    res.status(400).send('Помилка видалення');
+    res.status(400).send("Помилка видалення");
   }
 }
 

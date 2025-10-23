@@ -46,6 +46,7 @@ Order.init(
     status: { type: DataTypes.ENUM(...Object.values(OrderStatus)), defaultValue: OrderStatus.CREATED },
     systemPrice: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
     price: { type: DataTypes.FLOAT, allowNull: false },
+    agreedPrice: { type: DataTypes.BOOLEAN, defaultValue: false },
     reservedBy: { type: DataTypes.INTEGER.UNSIGNED },
     reservedUntil: { type: DataTypes.DATE },
     candidateDriverId: { type: DataTypes.INTEGER.UNSIGNED },
