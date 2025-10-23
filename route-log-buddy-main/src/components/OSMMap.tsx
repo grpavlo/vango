@@ -25,6 +25,7 @@ interface OSMMapProps {
   className?: string;
   selectedCheckpointId?: string;
   onCheckpointSelect?: (checkpoint: Checkpoint) => void;
+  mapTheme?: 'light' | 'dark';
 }
 
 // Fix for default markers in Leaflet
@@ -35,21 +36,43 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-const OSMMap = ({ 
-  checkpoints = [], 
-  showControls = false, 
-  height = "h-64", 
+const OSMMap = ({
+  checkpoints = [],
+  showControls = false,
+  height = "h-64",
   center = [40.7128, -74.0060],
   zoom = 13,
   className = "",
   selectedCheckpointId,
-  onCheckpointSelect
+  onCheckpointSelect,
+  mapTheme = 'light'
 }: OSMMapProps) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [currentLayer, setCurrentLayer] = useState<'standard' | 'satellite'>('standard');
   const [showLayerSelector, setShowLayerSelector] = useState(false);
   const currentTileLayerRef = useRef<L.TileLayer | null>(null);
+
+  const getTileLayer = (layerType: 'standard' | 'satellite', theme: 'light' | 'dark') => {
+    if (layerType === 'satellite') {
+      return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri, Maxar, Earthstar Geographics',
+        maxZoom: 19
+      });
+    }
+
+    if (theme === 'dark') {
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        maxZoom: 19
+      });
+    }
+
+    return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    });
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -62,13 +85,10 @@ const OSMMap = ({
     });
 
     // Add initial tile layer
-    const standardLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
-    });
+    const initialLayer = getTileLayer(currentLayer, mapTheme);
 
-    currentTileLayerRef.current = standardLayer;
-    standardLayer.addTo(map);
+    currentTileLayerRef.current = initialLayer;
+    initialLayer.addTo(map);
 
     // Custom icon for completed checkpoints
     const completedIcon = L.divIcon({
@@ -159,34 +179,23 @@ const OSMMap = ({
         mapRef.current = null;
       }
     };
-  }, [checkpoints, center, zoom, selectedCheckpointId, onCheckpointSelect]);
+  }, [checkpoints, center, zoom, selectedCheckpointId, onCheckpointSelect, mapTheme]);
 
   // Handle layer switching
   useEffect(() => {
     if (!mapRef.current || !currentTileLayerRef.current) return;
 
     const map = mapRef.current;
-    
+
     // Remove current layer
     map.removeLayer(currentTileLayerRef.current);
 
-    // Add new layer based on selection
-    let newLayer: L.TileLayer;
-    if (currentLayer === 'satellite') {
-      newLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '© Esri, Maxar, Earthstar Geographics',
-        maxZoom: 19
-      });
-    } else {
-      newLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
-      });
-    }
+    // Add new layer based on selection and theme
+    const newLayer = getTileLayer(currentLayer, mapTheme);
 
     newLayer.addTo(map);
     currentTileLayerRef.current = newLayer;
-  }, [currentLayer]);
+  }, [currentLayer, mapTheme]);
 
   const handleRecenter = () => {
     if (mapRef.current && checkpoints.length > 0) {
