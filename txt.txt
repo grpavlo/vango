@@ -1,0 +1,87 @@
+// Ваш масив точок
+    const points = [
+        { latitude: 50.4501, longitude: 30.5234, timestamp: 1669980000000 },
+        { latitude: 50.4511, longitude: 30.5244, timestamp: 1669980060000 },
+        { latitude: 50.4521, longitude: 30.5254, timestamp: 1669980120000 },
+    ];
+
+// Функція для перетворення чисел у байти (32-бітні числа з плаваючою комою)
+    function floatToBytes(float) {
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        view.setFloat32(0, float, true); // true для little-endian
+        return new Uint8Array(buffer);
+    }
+
+// Функція для перетворення 64-бітного числа в байти
+    function int64ToBytes(num) {
+        const buffer = new ArrayBuffer(8);
+        const view = new DataView(buffer);
+        view.setBigInt64(0, BigInt(num), true);
+        return new Uint8Array(buffer);
+    }
+
+// Створення бінарного масиву
+    let binaryArray = [];
+
+    points.forEach(point => {
+        binaryArray = binaryArray.concat(Array.from(floatToBytes(point.latitude)));
+        binaryArray = binaryArray.concat(Array.from(floatToBytes(point.longitude)));
+        binaryArray = binaryArray.concat(Array.from(int64ToBytes(point.timestamp)));
+    });
+
+// Перетворення в ArrayBuffer
+    const arrayBuffer = new Uint8Array(binaryArray).buffer;
+
+// Функція для кодування ArrayBuffer у Base64
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        return btoa(binary);
+    }
+
+    const base64StringEncoded = arrayBufferToBase64(arrayBuffer);
+
+    console.log("Закодований Base64 рядок:", base64StringEncoded);
+
+// === Декодування ===
+
+// Функція для перетворення Base64 рядка в ArrayBuffer
+    function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+// Функція для декодування ArrayBuffer у масив точок
+    function decodeBase64ToPoints(base64String) {
+        const buffer = base64ToArrayBuffer(base64String);
+        const dataView = new DataView(buffer);
+        const points = [];
+        const pointSize = 4 + 4 + 8; // latitude (Float32) + longitude (Float32) + timestamp (Int64)
+        const totalPoints = buffer.byteLength / pointSize;
+
+        for (let i = 0; i < totalPoints; i++) {
+            const offset = i * pointSize;
+            const latitude = dataView.getFloat32(offset, true); // true для little-endian
+            const longitude = dataView.getFloat32(offset + 4, true);
+            const timestamp = dataView.getBigInt64(offset + 8, true);
+
+            points.push({
+                latitude: latitude,
+                longitude: longitude,
+                timestamp: Number(timestamp) // або залишити як BigInt
+            });
+        }
+
+        return points;
+    }
+
+    const decodedPoints = decodeBase64ToPoints(base64StringEncoded);
+
+    console.log("Відновлений масив точок:", decodedPoints);
