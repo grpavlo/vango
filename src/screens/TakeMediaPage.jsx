@@ -216,36 +216,37 @@ const TakeMediaPageContent = ({ navigation, route }) => {
                             {capturedMedia.map((item, index) => (
                                 <View key={`${item.uri}-${index}`} style={styles.mediaTile}>
                                     <TouchableOpacity
+                                        style={styles.mediaTileContent}
+                                        onPress={() => handleOpenPreview(index)}
+                                        activeOpacity={0.85}
+                                    >
+                                            {item.type === 'video' ? (
+                                                <View style={styles.videoThumbnail}>
+                                                    <Ionicons
+                                                        name="videocam"
+                                                        size={28}
+                                                        color={palette.onPrimary}
+                                                    />
+                                                </View>
+                                            ) : (
+                                                <Image source={{ uri: item.uri }} style={styles.photoThumbnail} />
+                                            )}
+                                            <Text style={styles.mediaLabel}>
+                                                {item.type === 'video' ? 'Video' : 'Photo'} {index + 1}
+                                            </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
                                         style={styles.removeMediaButton}
                                         onPress={() => handlePromptRemoveMedia(index)}
                                         activeOpacity={0.8}
+                                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                                     >
                                         <MaterialCommunityIcons
                                             name="trash-can-outline"
                                             size={18}
                                             color={palette.onAccent}
                                         />
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={styles.mediaTileContent}
-                                        onPress={() => handleOpenPreview(index)}
-                                        activeOpacity={0.85}
-                                    >
-                                        {item.type === 'video' ? (
-                                            <View style={styles.videoThumbnail}>
-                                                <Ionicons
-                                                    name="videocam"
-                                                    size={28}
-                                                    color={palette.onPrimary}
-                                                />
-                                            </View>
-                                        ) : (
-                                            <Image source={{ uri: item.uri }} style={styles.photoThumbnail} />
-                                        )}
-                                        <Text style={styles.mediaLabel}>
-                                            {item.type === 'video' ? 'Video' : 'Photo'} {index + 1}
-                                        </Text>
                                     </TouchableOpacity>
                                 </View>
                             ))}
@@ -487,6 +488,12 @@ const createStyles = (palette) =>
             backgroundColor: palette.primary,
             alignItems: 'center',
             justifyContent: 'center',
+            zIndex: 2,
+            elevation: 4,
+            shadowColor: '#000000',
+            shadowOpacity: 0.15,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 2 },
         },
         controlsRow: {
             flexDirection: 'row',
