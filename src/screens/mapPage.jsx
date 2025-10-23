@@ -1,5 +1,5 @@
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
@@ -14,6 +14,13 @@ import {useInfoCheckpoint} from "../store/infoCheckpoint";
 import {convertMetersToMiles} from "../function/convertMetersToMiles";
 
 const GOOGLE_API_KEY = 'AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs'; // замініть на ваш дійсний ключ
+
+const FLAG_COLOR_MAP = {
+    1: '#EF4444',
+    2: '#FACC15',
+    3: '#34D399',
+    4: Colors.mainBlue,
+};
 
 export default function MapPage({navigation}) {
     const [modalVisible, setModalVisible] = useState(false);
@@ -33,6 +40,7 @@ export default function MapPage({navigation}) {
     const [idRoute, setIdRoute] = useState(null);
     const [arrivalTime, setArrivalTime] = useState(null);
     const [isLoadingRoute, setIsLoadingRoute] = useState(true);
+    const [showStopsList, setShowStopsList] = useState(false);
 
     // ID of the checkpoint user selected for start visit
     const [idCheckpoint, setIdCheckpoint] = useState(null);
@@ -128,21 +136,28 @@ export default function MapPage({navigation}) {
             return "--";
         }
 
-        const idx = waypoints.findIndex((point) => point?.id === selectedCheckpoint.id);
-        if (idx === -1) {
+        const sequenceNumber = Number(selectedCheckpoint.sequence);
+        if (!Number.isFinite(sequenceNumber) || sequenceNumber <= 0) {
             return "--";
         }
 
-        return `${idx + 1}/${routeSummary.totalStops}`;
-    }, [selectedCheckpoint, routeSummary.totalStops, waypoints]);
+        return `${sequenceNumber}/${routeSummary.totalStops}`;
+    }, [selectedCheckpoint, routeSummary.totalStops]);
 
 
     // Функція форматування годин
     const formatHours = (startSeconds, endSeconds) => {
+        const startNumeric = Number(startSeconds);
+        const endNumeric = Number(endSeconds);
+
+        if (!Number.isFinite(startNumeric) || !Number.isFinite(endNumeric) || (startNumeric === 0 && endNumeric === 0)) {
+            return '---';
+        }
+
         const startTimeDate = new Date(0);
-        startTimeDate.setSeconds(startSeconds);
+        startTimeDate.setSeconds(startNumeric);
         const endTimeDate = new Date(0);
-        endTimeDate.setSeconds(endSeconds);
+        endTimeDate.setSeconds(endNumeric);
         const startHours = startTimeDate.toLocaleString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
@@ -154,6 +169,40 @@ export default function MapPage({navigation}) {
             hour12: true
         });
         return `${startHours} - ${endHours}`;
+    };
+
+    const getVisitOrder = (visit, fallbackIndex) => {
+        const candidateFields = [
+            'sequence',
+            'sequenceNumber',
+            'position',
+            'order',
+            'count',
+        ];
+
+        for (const field of candidateFields) {
+            const value = visit?.[field];
+            if (value === 0) {
+                continue;
+            }
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric > 0) {
+                return numeric;
+            }
+        }
+
+        return fallbackIndex + 1;
+    };
+
+    const buildVisitAddress = (visit) => {
+        const addressParts = [
+            visit?.address,
+            visit?.city,
+            visit?.state,
+            visit?.zipCode,
+        ].filter(Boolean);
+
+        return addressParts.join(', ');
     };
 
     useEffect(() => {
@@ -216,45 +265,77 @@ export default function MapPage({navigation}) {
                             setUnloadPoint(foundUnload);
                         }
 
-                        // Формуємо усі решта точок
-                        const handleMakePoint = (visit, color) => {
+                        const transformVisit = (visit, index, isCompleted) => {
+                            if (!visit?.locationPoint) {
+                                return null;
+                            }
+
                             const hours = formatHours(visit.startTime, visit.endTime);
+                            const flagColor = FLAG_COLOR_MAP[visit.flag] || null;
+                            const priorityLabel = typeof visit.priority === 'string'
+                                ? visit.priority
+                                : visit.priority
+                                    ? 'STAT'
+                                    : null;
+
                             return {
                                 ...visit,
                                 latitude: visit.locationPoint.latitude,
                                 longitude: visit.locationPoint.longitude,
-                                color: color,
                                 id: visit.id,
                                 checkpointName: visit.checkpointName,
-                                address: visit.address,
+                                address: buildVisitAddress(visit) || visit.address,
                                 dropOff: visit.dropOff,
                                 name: visit.checkpointName,
                                 type: visit.dropOff ? 'unloading' : 'loading',
-                                flagColor: color,
-                                stat: visit.priority ? 'STAT' : null,
+                                flagColor,
+                                stat: priorityLabel,
                                 hours,
+                                isCompleted,
+                                markerColor: isCompleted ? 'blue' : 'red',
+                                color: isCompleted ? 'blue' : 'red',
+                                order: getVisitOrder(visit, index),
                             };
                         };
 
-                        const completedPoints = completedVisits.map((visit) => handleMakePoint(visit, 'blue'));
-                        const upcomingPoints = visits.map((visit) => handleMakePoint(visit, 'red'));
+                        const completedPointsRaw = completedVisits
+                            .map((visit, index) => transformVisit(visit, index, true))
+                            .filter(Boolean);
+                        const upcomingPointsRaw = visits
+                            .map((visit, index) => transformVisit(visit, index, false))
+                            .filter(Boolean);
 
-                        const totalStops = completedPoints.length + upcomingPoints.length;
+                        const combinedPoints = [...completedPointsRaw, ...upcomingPointsRaw];
+
+                        const sortedWaypoints = combinedPoints
+                            .slice()
+                            .sort((a, b) => {
+                                const orderA = Number(a.order) || 0;
+                                const orderB = Number(b.order) || 0;
+                                return orderA - orderB;
+                            })
+                            .map((point, index) => ({
+                                ...point,
+                                sequence: index + 1,
+                            }));
+
+                        const completedCount = sortedWaypoints.filter((point) => point.isCompleted).length;
+                        const totalStops = sortedWaypoints.length;
                         const statusLabel = data.started ? (data.finished ? "Completed" : "In Progress") : "Scheduled";
 
                         setRouteSummary({
                             statusLabel,
                             scheduleLabel,
-                            stopsLabel: totalStops ? `${completedPoints.length}/${totalStops} stops` : "",
+                            stopsLabel: totalStops ? `${completedCount}/${totalStops} stops` : "",
                             distanceLabel,
-                            completedStops: completedPoints.length,
+                            completedStops: completedCount,
                             totalStops,
                         });
 
-                        const allWaypoints = [...completedPoints, ...upcomingPoints];
-                        setWaypoints(allWaypoints);
-                        const defaultCheckpoint = upcomingPoints[0] || completedPoints[completedPoints.length - 1] || null;
+                        setWaypoints(sortedWaypoints);
+                        const defaultCheckpoint = sortedWaypoints.find((point) => !point.isCompleted) || sortedWaypoints[sortedWaypoints.length - 1] || null;
                         setSelectedCheckpoint(defaultCheckpoint);
+                        setShowStopsList(false);
 
                         // Якщо немає взагалі точок після фільтрації
                         if (visits.length === 0) {
@@ -379,6 +460,14 @@ export default function MapPage({navigation}) {
         setModalVisible(false);
     };
 
+    const handleSelectCheckpoint = useCallback((checkpoint) => {
+        if (!checkpoint) {
+            return;
+        }
+        setSelectedCheckpoint(checkpoint);
+        setShowStopsList(false);
+    }, []);
+
     const handleGo = () => {
         setData(selectedCheckpoint);
 
@@ -392,12 +481,18 @@ export default function MapPage({navigation}) {
 
     const handleStopsPress = () => {
         if (!idRoute) return;
+        setShowStopsList((prev) => !prev);
+    };
+
+    const handleStopsManage = () => {
+        if (!idRoute) return;
+        setShowStopsList(false);
         navigation.navigate('RouteCheckpointsPageSelect', {idRoute: Number(idRoute)});
     };
 
     // Натискання на маркер (звичайні точки)
     const handleMarkerPress = (waypoint) => {
-        setSelectedCheckpoint(waypoint);
+        handleSelectCheckpoint(waypoint);
     };
 
     // Кнопка Default Point (доступна, якщо існує unloadPoint)
@@ -435,6 +530,7 @@ export default function MapPage({navigation}) {
                         onMarkerPress={handleMarkerPress}
                         navigator={navigator}
                         unloadPoint={unloadPoint}
+                        selectedCheckpointId={selectedCheckpoint?.id}
                     />
                 ) : null}
 
@@ -449,12 +545,21 @@ export default function MapPage({navigation}) {
                                 </View>
                             ) : null}
                             <TouchableOpacity
-                                style={[styles.stopsButton, !idRoute && styles.stopsButtonDisabled]}
+                                style={[
+                                    styles.stopsButton,
+                                    showStopsList && styles.stopsButtonActive,
+                                    !idRoute && styles.stopsButtonDisabled,
+                                ]}
                                 onPress={handleStopsPress}
                                 disabled={!idRoute}
                             >
-                                <Ionicons name="list" size={16} color={Colors.mainBlue} style={styles.stopsButtonIcon} />
-                                <Text style={styles.stopsButtonText}>Stops</Text>
+                                <Ionicons
+                                    name={showStopsList ? 'chevron-up' : 'chevron-down'}
+                                    size={16}
+                                    color={showStopsList ? Colors.white : Colors.mainBlue}
+                                    style={styles.stopsButtonIcon}
+                                />
+                                <Text style={[styles.stopsButtonText, showStopsList && styles.stopsButtonTextActive]}>Stops</Text>
                             </TouchableOpacity>
                         </View>
                         <Text style={styles.routeTitle} numberOfLines={1}>{routeName || 'Route overview'}</Text>
@@ -478,7 +583,79 @@ export default function MapPage({navigation}) {
                     </View>
                 </View>
 
-                {unloadPoint && (
+                {showStopsList && waypoints.length > 0 && (
+                    <View style={styles.stopsListWrapper}>
+                        <View style={styles.stopsListCard}>
+                            <ScrollView
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={styles.stopsListContent}
+                            >
+                                {waypoints.map((checkpoint) => {
+                                    const isSelected = selectedCheckpoint?.id === checkpoint.id;
+                                    const flagColor = checkpoint.flagColor;
+                                    const hasStat = Boolean(checkpoint.stat);
+                                    const displayName = checkpoint.stat && typeof checkpoint.checkpointName === 'string'
+                                        ? checkpoint.checkpointName.replace(/^STAT\s+/i, '')
+                                        : checkpoint.checkpointName;
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={checkpoint.id || checkpoint.sequence}
+                                            style={[styles.stopListItem, isSelected && styles.stopListItemActive]}
+                                            onPress={() => handleSelectCheckpoint(checkpoint)}
+                                        >
+                                            <View style={[styles.stopListIcon, checkpoint.isCompleted ? styles.stopListIconCompleted : styles.stopListIconUpcoming]}>
+                                                <Ionicons
+                                                    name={checkpoint.dropOff ? 'arrow-down' : 'arrow-up'}
+                                                    size={14}
+                                                    color={checkpoint.isCompleted ? Colors.white : Colors.mainBlue}
+                                                />
+                                            </View>
+                                            <View style={styles.stopListDetails}>
+                                                <View style={styles.stopListTitleRow}>
+                                                    <Text style={styles.stopListTitle} numberOfLines={1}>
+                                                        {checkpoint.sequence}. {displayName || 'Checkpoint'}
+                                                    </Text>
+                                                    {hasStat && (
+                                                        <View style={styles.stopListStatChip}>
+                                                            <Text style={styles.stopListStatText}>{checkpoint.stat}</Text>
+                                                        </View>
+                                                    )}
+                                                    {flagColor ? (
+                                                        <MaterialCommunityIcons
+                                                            name="flag-variant"
+                                                            size={14}
+                                                            color={flagColor}
+                                                            style={styles.stopListFlagIcon}
+                                                        />
+                                                    ) : null}
+                                                </View>
+                                                {checkpoint.address ? (
+                                                    <Text style={styles.stopListSubtitle} numberOfLines={1}>
+                                                        {checkpoint.address}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
+                                            <View style={styles.stopListStatusIcon}>
+                                                {checkpoint.isCompleted ? (
+                                                    <Ionicons name="checkmark-circle" size={18} color={Colors.mainBlue} />
+                                                ) : (
+                                                    <Ionicons name="ellipse-outline" size={18} color={Colors.blackText + '40'} />
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                            <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>
+                                <Text style={styles.manageStopsText}>Manage stops</Text>
+                                <MaterialCommunityIcons name="arrow-right" size={16} color={Colors.mainBlue} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {unloadPoint && !showStopsList && (
                     <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>
                         <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={Colors.mainRed} style={styles.unloadFloatingIcon} />
                         <Text style={styles.unloadFloatingText}>Default point</Text>
@@ -689,6 +866,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.mainBlue,
     },
+    stopsButtonActive: {
+        backgroundColor: Colors.mainBlue,
+    },
     stopsButtonDisabled: {
         borderColor: Colors.lightGray,
         opacity: 0.6,
@@ -700,6 +880,9 @@ const styles = StyleSheet.create({
         color: Colors.mainBlue,
         fontSize: Fonts.f12,
         fontWeight: '600',
+    },
+    stopsButtonTextActive: {
+        color: Colors.white,
     },
     routeTitle: {
         fontSize: Fonts.f18,
@@ -750,6 +933,103 @@ const styles = StyleSheet.create({
     unloadFloatingText: {
         color: Colors.mainRed,
         fontSize: Fonts.f12,
+        fontWeight: '600',
+    },
+    stopsListWrapper: {
+        position: 'absolute',
+        top: 140,
+        left: 16,
+        right: 16,
+    },
+    stopsListCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.lightGray,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 6},
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
+        maxHeight: 280,
+        overflow: 'hidden',
+    },
+    stopsListContent: {
+        paddingVertical: 8,
+    },
+    stopListItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    stopListItemActive: {
+        backgroundColor: Colors.mainBlue + '15',
+    },
+    stopListIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    stopListIconCompleted: {
+        backgroundColor: Colors.mainBlue,
+    },
+    stopListIconUpcoming: {
+        backgroundColor: Colors.mainBlue + '12',
+    },
+    stopListDetails: {
+        flex: 1,
+        minWidth: 0,
+    },
+    stopListTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        marginBottom: 2,
+    },
+    stopListTitle: {
+        fontSize: Fonts.f14,
+        fontWeight: '600',
+        color: Colors.blackText,
+        marginRight: 6,
+    },
+    stopListStatChip: {
+        backgroundColor: '#FEE2E2',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 10,
+        marginRight: 6,
+    },
+    stopListStatText: {
+        color: Colors.mainRed,
+        fontSize: Fonts.f10,
+        fontWeight: '700',
+    },
+    stopListFlagIcon: {
+        marginLeft: 4,
+    },
+    stopListSubtitle: {
+        fontSize: Fonts.f12,
+        color: Colors.blackText + '70',
+    },
+    stopListStatusIcon: {
+        marginLeft: 12,
+    },
+    manageStopsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: Colors.lightGray,
+    },
+    manageStopsText: {
+        color: Colors.mainBlue,
+        fontSize: Fonts.f14,
         fontWeight: '600',
     },
     bottomOverlay: {

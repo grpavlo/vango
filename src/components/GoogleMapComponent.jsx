@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useRef, useState} from 'react';
+import React, {useContext, useEffect, useMemo, useRef, useState} from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import polyline from '@mapbox/polyline';
@@ -52,6 +52,13 @@ const customMapStyle = [
     },
 ];
 
+const COMPLETED_MARKER_COLOR = '#1976D2';
+const UPCOMING_MARKER_COLOR = '#C91C1C';
+const SELECTED_INNER_FILL = '#EEF2FF';
+const DEFAULT_INNER_FILL = '#FFFFFF';
+const COMPLETED_TEXT_COLOR = '#0B1F3A';
+const UPCOMING_TEXT_COLOR = '#7A271A';
+
 function getClosestPointIndex(userLoc, points) {
     if (!userLoc || !points || points.length === 0) {
         return 0;
@@ -71,8 +78,6 @@ function getClosestPointIndex(userLoc, points) {
     return closestIndex;
 }
 
-let countBlue = 0
-let countRed = 0
 const GoogleMapComponent = ({
                                 keyMap,
                                 origin,
@@ -80,11 +85,19 @@ const GoogleMapComponent = ({
                                 waypoints = [],
                                 encodedRoute = null,
                                 navigator = false,
-                                onMarkerPress = () => {}
+                                onMarkerPress = () => {},
+                                selectedCheckpointId = null,
                             }) => {
     const mapRef = useRef(null);
     const { userLocation, locationLoading, locationError } = useContext(LocationContext);
     const isFocused = useIsFocused();
+
+    const selectedIdString = useMemo(() => {
+        if (selectedCheckpointId === null || selectedCheckpointId === undefined) {
+            return null;
+        }
+        return String(selectedCheckpointId);
+    }, [selectedCheckpointId]);
 
 
 
@@ -104,8 +117,6 @@ const GoogleMapComponent = ({
 
     // Відцентровуємо мапу при першому рендері чи зміні залежностей
     useEffect(() => {
-        countBlue = 0
-        countRed = 0
         if (mapRef.current && !navigator) {
             let coordinates = [];
 
@@ -134,8 +145,6 @@ const GoogleMapComponent = ({
 
     // Якщо увімкнено навігацію, слідкуємо за зміною location
     useEffect(() => {
-        countBlue = 0
-        countRed = 0
         if (navigator && userLocation && activeRoute.length > 1) {
             // Знаходимо найближчу точку до userLocation
             const closestIndex = getClosestPointIndex(userLocation, activeRoute);
@@ -179,8 +188,6 @@ const GoogleMapComponent = ({
 
     // Якщо змінилася encodedRoute, оновлюємо decodedPolyline
     useEffect(() => {
-        countBlue = 0
-        countRed = 0
         if (encodedRoute) {
             const decoded = polyline.decode(encodedRoute).map(([latitude, longitude]) => ({ latitude, longitude }));
             setDecodedPolyline(decoded);
@@ -207,64 +214,49 @@ const GoogleMapComponent = ({
     }
 
     // Рендеримо індивідуальний SVG Marker
-    const renderMarkerIcon = (color, index) => {
-        if(index===0){
-            countBlue = 0
-            countRed = 0
-        }
-        if (color === 'red') {
+    const renderMarkerIcon = ({ isCompleted, sequence, isSelected }) => {
+        const markerColor = isCompleted ? COMPLETED_MARKER_COLOR : UPCOMING_MARKER_COLOR;
+        const textColor = isCompleted ? COMPLETED_TEXT_COLOR : UPCOMING_TEXT_COLOR;
+        const innerFill = isSelected ? SELECTED_INNER_FILL : DEFAULT_INNER_FILL;
+        const labelNumber = Number(sequence);
+        const label = Number.isFinite(labelNumber) && labelNumber > 0 ? String(labelNumber) : '';
+        const width = isSelected ? 28 : 24;
+        const height = isSelected ? 44 : 38;
 
-            countRed+=1
-
-            return (
-                <Svg width="21" height="36" viewBox="0 0 21 36" fill="none">
-                    <Path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M11.1719 22.9599C16.2252 22.4057 20.1719 17.6965 20.1719 11.9691C20.1719 5.86898 15.6947 0.923828 10.1719 0.923828C4.64903 0.923828 0.171875 5.86898 0.171875 11.9691C0.171875 17.6965 4.11855 22.4057 9.17188 22.9599V34.1644C9.17188 34.7167 9.61959 35.1644 10.1719 35.1644C10.7242 35.1644 11.1719 34.7167 11.1719 34.1644V22.9599Z"
-                        fill="#C91C1C"
-                    />
-                    <Ellipse cx="10.1719" cy="11.968" rx="5" ry="5.52265" fill="white" />
+        return (
+            <Svg width={width} height={height} viewBox="0 0 24 36" fill="none">
+                <Path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M12.0001 0.5C6.20188 0.5 1.50012 5.20176 1.50012 11C1.50012 18.4795 8.34734 28.1278 11.0491 31.6086C11.5563 32.2518 12.4439 32.2518 12.9511 31.6086C15.6529 28.1278 22.5001 18.4795 22.5001 11C22.5001 5.20176 17.7983 0.5 12.0001 0.5Z"
+                    fill={markerColor}
+                    stroke={isSelected ? markerColor : markerColor}
+                    strokeWidth={isSelected ? 0.4 : 0}
+                />
+                <Ellipse
+                    cx="12"
+                    cy="11.8"
+                    rx="6"
+                    ry="6.2"
+                    fill={innerFill}
+                    stroke={isSelected ? markerColor : markerColor}
+                    strokeWidth={isSelected ? 0.6 : 0}
+                />
+                {label ? (
                     <SvgText
-                        fill="black"
-                        fontSize="12"
+                        fill={textColor}
+                        fontSize={isSelected ? 12 : 11}
                         fontWeight="bold"
-                        x="10.1719"
-                        y="12"
+                        x="12"
+                        y="12.3"
                         textAnchor="middle"
                         alignmentBaseline="middle"
                     >
-                        {index !==9999 && countRed}
+                        {label}
                     </SvgText>
-                </Svg>
-            );
-        } else {
-
-            countBlue+=1
-
-            return (
-                <Svg width="23" height="35" viewBox="0 0 23 35" fill="none">
-                    <Path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M12.3135 22.5426C17.8223 22.0613 22.1473 17.3179 22.1473 11.5375C22.1473 5.43734 17.3307 0.492188 11.3891 0.492188C5.44748 0.492188 0.630859 5.43734 0.630859 11.5375C0.630859 17.2649 4.87689 21.9742 10.3135 22.5283V33.7329C10.3135 34.2852 10.7612 34.7329 11.3135 34.7329C11.8658 34.7329 12.3135 34.2852 12.3135 33.7329V22.5426Z"
-                        fill="#1976D2"
-                    />
-                    <Ellipse cx="11.3889" cy="11.5363" rx="5.37912" ry="5.52265" fill="white" />
-                    <SvgText
-                        fill="black"
-                        fontSize="12"
-                        fontWeight="bold"
-                        x="11.3889"
-                        y="12"
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                    >
-                        {countBlue}
-                    </SvgText>
-                </Svg>
-            );
-        }
+                ) : null}
+            </Svg>
+        );
     };
 
     return (
@@ -288,30 +280,32 @@ const GoogleMapComponent = ({
                         coordinate={destination}
                         title="Destination"
                     >
-                        {renderMarkerIcon('red', 9999) }
+                        {renderMarkerIcon({ isCompleted: false, sequence: null, isSelected: false })}
                     </Marker>
                 )}
 
                 {waypoints.length > 0 &&
-                    waypoints.map((coordinate, index) => {
-                        if(coordinate){
-                            return (
-                                <Marker
-                                    key={index}
-                                    coordinate={coordinate}
-                                    onPress={() => {
-                                        if(coordinate.color === "red"){
-                                            onMarkerPress(coordinate)
-                                        }
-
-                                    }}
-                                >
-                                    {renderMarkerIcon(coordinate.color || 'red', index)}
-                                </Marker>
-                            )
-                        }else {
-                            return null
+                    waypoints.map((checkpoint, index) => {
+                        if (!checkpoint || typeof checkpoint.latitude !== 'number' || typeof checkpoint.longitude !== 'number') {
+                            return null;
                         }
+
+                        const checkpointIdString = checkpoint.id === null || checkpoint.id === undefined
+                            ? null
+                            : String(checkpoint.id);
+                        const isCompleted = Boolean(checkpoint.isCompleted || checkpoint.color === 'blue');
+                        const sequence = checkpoint.sequence ?? index + 1;
+                        const isSelected = Boolean(selectedIdString && checkpointIdString === selectedIdString);
+
+                        return (
+                            <Marker
+                                key={checkpoint.id ?? `waypoint-${index}`}
+                                coordinate={{ latitude: checkpoint.latitude, longitude: checkpoint.longitude }}
+                                onPress={() => onMarkerPress(checkpoint)}
+                            >
+                                {renderMarkerIcon({ isCompleted, sequence, isSelected })}
+                            </Marker>
+                        );
                     })}
 
                 {(destination && decodedPolyline) ? (
@@ -354,7 +348,11 @@ GoogleMapComponent.propTypes = {
     encodedRoute: PropTypes.string,
     onMapReady: PropTypes.func,
     navigator: PropTypes.bool,
-    onMarkerPress: PropTypes.func
+    onMarkerPress: PropTypes.func,
+    selectedCheckpointId: PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+    ]),
 };
 
 const styles = StyleSheet.create({
