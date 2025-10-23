@@ -38,7 +38,6 @@ export default function MapPage({navigation}) {
     const [errorMessage, setErrorMessage] = useState("");
     const [navigator, setNavigator] = useState(false);
     const [idRoute, setIdRoute] = useState(null);
-    const [arrivalTime, setArrivalTime] = useState(null);
     const [isLoadingRoute, setIsLoadingRoute] = useState(true);
     const [showStopsList, setShowStopsList] = useState(false);
 
@@ -370,18 +369,6 @@ export default function MapPage({navigation}) {
                             const polyline = route.overview_polyline.points;
                             setEncodedRoute(polyline);
 
-                            const totalDurationSec = route.legs.reduce((acc, leg) => acc + leg.duration.value, 0);
-                            const now = new Date();
-                            const arrivalTimestamp = now.getTime() + totalDurationSec * 1000;
-                            const arrivalTime = new Date(arrivalTimestamp);
-
-                            const arrivalTimeFormatted = arrivalTime.toLocaleString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
-                            });
-                            setArrivalTime(arrivalTimeFormatted);
-
                         } else {
                             console.log('Directions API error:', result.status);
                             setEncodedRoute(null);
@@ -647,15 +634,26 @@ export default function MapPage({navigation}) {
                                     );
                                 })}
                             </ScrollView>
-                            <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>
-                                <Text style={styles.manageStopsText}>Manage stops</Text>
-                                <MaterialCommunityIcons name="arrow-right" size={16} color={Colors.mainBlue} />
-                            </TouchableOpacity>
+                            {/*
+                             * The previous implementation exposed a "Manage stops" shortcut here.
+                             * The refreshed Route Log Buddy design no longer surfaces this control,
+                             * so we keep the logic in place but hide it from the UI per product request.
+                             */}
+                            {false && (
+                                <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>
+                                    <Text style={styles.manageStopsText}>Manage stops</Text>
+                                    <MaterialCommunityIcons name="arrow-right" size={16} color={Colors.mainBlue} />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
                 )}
 
-                {unloadPoint && !showStopsList && (
+                {/*
+                 * The "Default point" floating control is not part of the new design.
+                 * We keep the wiring for potential reuse but do not display the button now.
+                 */}
+                {false && unloadPoint && !showStopsList && (
                     <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>
                         <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={Colors.mainRed} style={styles.unloadFloatingIcon} />
                         <Text style={styles.unloadFloatingText}>Default point</Text>
@@ -697,58 +695,28 @@ export default function MapPage({navigation}) {
                                     ) : null}
                                 </View>
 
-                                <View style={styles.infoRowGroup}>
-                                    <View style={[styles.infoItemWide, styles.infoItemWideSpacer]}>
-                                        <MaterialCommunityIcons
-                                            name="clock-time-five-outline"
-                                            size={20}
-                                            color={Colors.mainBlue}
-                                            style={styles.infoIcon}
-                                        />
-                                        <View>
-                                            <Text style={styles.infoLabel}>Arrival time</Text>
-                                            <Text style={styles.infoValue}>{arrivalTime || '---'}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.infoItemWide, styles.infoItemWideLast]}>
-                                        <MaterialCommunityIcons
-                                            name="calendar-clock"
-                                            size={20}
-                                            color={Colors.mainBlue}
-                                            style={styles.infoIcon}
-                                        />
-                                        <View>
-                                            <Text style={styles.infoLabel}>Hours</Text>
-                                            <Text style={styles.infoValue}>{selectedCheckpoint.hours || '---'}</Text>
-                                        </View>
-                                    </View>
+                                <View style={styles.detailMetaRow}>
+                                    <MaterialCommunityIcons
+                                        name="map-marker-outline"
+                                        size={20}
+                                        color={Colors.mainBlue}
+                                        style={styles.infoIcon}
+                                    />
+                                    <Text style={styles.detailMetaText} numberOfLines={2}>
+                                        {selectedCheckpoint.address || '---'}
+                                    </Text>
                                 </View>
 
-                                <View style={styles.infoRowGroup}>
-                                    <View style={[styles.infoItemWide, styles.infoItemWideSpacer]}>
-                                        <MaterialCommunityIcons
-                                            name="map-marker-outline"
-                                            size={20}
-                                            color={Colors.mainBlue}
-                                            style={styles.infoIcon}
-                                        />
-                                        <View>
-                                            <Text style={styles.infoLabel}>Stop number</Text>
-                                            <Text style={styles.infoValue}>{checkpointProgressLabel}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.infoItemWide, styles.infoItemWideLast]}>
-                                        <MaterialCommunityIcons
-                                            name="phone-outline"
-                                            size={20}
-                                            color={Colors.mainBlue}
-                                            style={styles.infoIcon}
-                                        />
-                                        <View>
-                                            <Text style={styles.infoLabel}>Contact</Text>
-                                            <Text style={styles.infoValue}>{selectedCheckpoint.phone || '---'}</Text>
-                                        </View>
-                                    </View>
+                                <View style={styles.detailMetaRow}>
+                                    <MaterialCommunityIcons
+                                        name="clock-time-five-outline"
+                                        size={20}
+                                        color={Colors.mainBlue}
+                                        style={styles.infoIcon}
+                                    />
+                                    <Text style={styles.detailMetaText} numberOfLines={1}>
+                                        {selectedCheckpoint.hours || '---'}
+                                    </Text>
                                 </View>
 
                                 <View style={styles.primaryActionsRow}>
@@ -761,36 +729,43 @@ export default function MapPage({navigation}) {
                                     </TouchableOpacity>
                                 </View>
 
-                                <View style={styles.quickActionsRow}>
-                                    <TouchableOpacity
-                                        style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
-                                        onPress={() => {
-                                            navigation.navigate('EntryInstructionsPage', {
-                                                menu: true,
-                                                data: selectedCheckpoint,
-                                                routeName,
-                                            });
-                                        }}
-                                    >
-                                        <Ionicons name="information-circle-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
-                                        <Text style={styles.quickActionText}>Visit info</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
-                                        onPress={() => navigation.navigate('ChatComponent', {menu: true})}
-                                    >
-                                        <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
-                                        <Text style={styles.quickActionText}>Write to disp</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.quickActionButton, !hasPhone && styles.quickActionButtonDisabled]}
-                                        onPress={() => hasPhone && handleCallPress(selectedCheckpoint.phone)}
-                                        disabled={!hasPhone}
-                                    >
-                                        <Ionicons name="call" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
-                                        <Text style={styles.quickActionText}>Call customer</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                {/*
+                                 * Quick actions (Visit info, dispatcher chat, call) are not part of the
+                                 * latest Route Log Buddy map design. They remain accessible elsewhere,
+                                 * so we hide this legacy row from the refreshed layout.
+                                 */}
+                                {false && (
+                                    <View style={styles.quickActionsRow}>
+                                        <TouchableOpacity
+                                            style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
+                                            onPress={() => {
+                                                navigation.navigate('EntryInstructionsPage', {
+                                                    menu: true,
+                                                    data: selectedCheckpoint,
+                                                    routeName,
+                                                });
+                                            }}
+                                        >
+                                            <Ionicons name="information-circle-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Text style={styles.quickActionText}>Visit info</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
+                                            onPress={() => navigation.navigate('ChatComponent', {menu: true})}
+                                        >
+                                            <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Text style={styles.quickActionText}>Write to disp</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.quickActionButton, !hasPhone && styles.quickActionButtonDisabled]}
+                                            onPress={() => hasPhone && handleCallPress(selectedCheckpoint.phone)}
+                                            disabled={!hasPhone}
+                                        >
+                                            <Ionicons name="call" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Text style={styles.quickActionText}>Call customer</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                             </ScrollView>
                         )}
                     </View>
@@ -1110,35 +1085,20 @@ const styles = StyleSheet.create({
         fontSize: Fonts.f14,
         color: Colors.blackText + '80',
     },
-    infoRowGroup: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 14,
-    },
-    infoItemWide: {
-        flex: 1,
+    detailMetaRow: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Colors.mainBlue + '08',
         paddingHorizontal: 14,
         paddingVertical: 12,
         borderRadius: 14,
-    },
-    infoItemWideSpacer: {
-        marginRight: 12,
-    },
-    infoItemWideLast: {
-        marginRight: 0,
+        marginBottom: 12,
     },
     infoIcon: {
         marginRight: 10,
     },
-    infoLabel: {
-        fontSize: Fonts.f12,
-        color: Colors.blackText + '60',
-        marginBottom: 2,
-    },
-    infoValue: {
+    detailMetaText: {
+        flex: 1,
         fontSize: Fonts.f14,
         color: Colors.blackText,
         fontWeight: '600',
