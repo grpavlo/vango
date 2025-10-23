@@ -143,6 +143,22 @@ export default function MapPage({navigation}) {
         return `${sequenceNumber}/${routeSummary.totalStops}`;
     }, [selectedCheckpoint, routeSummary.totalStops]);
 
+    const checkpointStatusPalette = useMemo(() => {
+        if (selectedCheckpoint?.isCompleted) {
+            return {
+                backgroundColor: '#E5F7ED',
+                textColor: '#1EAD64',
+                borderColor: '#A5E4C0',
+            };
+        }
+
+        return {
+            backgroundColor: Colors.mainBlue + '14',
+            textColor: Colors.mainBlue,
+            borderColor: Colors.mainBlue + '30',
+        };
+    }, [selectedCheckpoint?.isCompleted]);
+
 
     // Функція форматування годин
     const formatHours = (startSeconds, endSeconds) => {
@@ -276,6 +292,14 @@ export default function MapPage({navigation}) {
                                 : visit.priority
                                     ? 'STAT'
                                     : null;
+                            const phoneNumber = visit.phone
+                                || visit.phoneNumber
+                                || visit.contactPhone
+                                || visit.contact?.phone
+                                || visit.contact?.phoneNumber
+                                || visit.facility?.phone
+                                || visit.facility?.primaryPhone
+                                || null;
 
                             return {
                                 ...visit,
@@ -290,6 +314,7 @@ export default function MapPage({navigation}) {
                                 flagColor,
                                 stat: priorityLabel,
                                 hours,
+                                phone: phoneNumber,
                                 isCompleted,
                                 markerColor: isCompleted ? 'blue' : 'red',
                                 color: isCompleted ? 'blue' : 'red',
@@ -502,6 +527,8 @@ export default function MapPage({navigation}) {
     }, []);
 
     const hasPhone = Boolean(selectedCheckpoint?.phone);
+    const hasPriorityFlag = Boolean(selectedCheckpoint?.flagColor);
+    const showProgressBadge = Boolean(checkpointProgressLabel && checkpointProgressLabel !== "--");
 
     return (
         <View style={styles.screen}>
@@ -677,22 +704,67 @@ export default function MapPage({navigation}) {
                         ) : (
                             <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
-                                    <View style={styles.sheetHeaderBadges}>
-                                        <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
-                                        {selectedCheckpoint.stat ? (
-                                            <View style={styles.statChip}>
-                                                <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
-                                            </View>
+                                    <View style={styles.sheetHeaderMain}>
+                                        <View style={styles.sheetHeaderBadges}>
+                                            <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
+                                            {selectedCheckpoint.stat ? (
+                                                <View style={styles.statChip}>
+                                                    <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
+                                                </View>
+                                            ) : null}
+                                            {hasPriorityFlag ? (
+                                                <View
+                                                    style={[
+                                                        styles.priorityChip,
+                                                        {
+                                                            backgroundColor: `${selectedCheckpoint.flagColor}20`,
+                                                            borderColor: `${selectedCheckpoint.flagColor}40`,
+                                                        },
+                                                    ]}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name="flag-variant"
+                                                        size={12}
+                                                        color={selectedCheckpoint.flagColor}
+                                                    />
+                                                    <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                        <Text style={styles.checkpointTitle} numberOfLines={2}>
+                                            {selectedCheckpoint.checkpointName || 'Checkpoint'}
+                                        </Text>
+                                        {selectedCheckpoint.address ? (
+                                            <Text style={styles.checkpointAddress} numberOfLines={2}>
+                                                {selectedCheckpoint.address}
+                                            </Text>
                                         ) : null}
                                     </View>
-                                    <Text style={styles.checkpointTitle} numberOfLines={2}>
-                                        {selectedCheckpoint.checkpointName || 'Checkpoint'}
-                                    </Text>
-                                    {selectedCheckpoint.address ? (
-                                        <Text style={styles.checkpointAddress} numberOfLines={2}>
-                                            {selectedCheckpoint.address}
-                                        </Text>
-                                    ) : null}
+                                    <View style={styles.sheetHeaderAside}>
+                                        {showProgressBadge ? (
+                                            <View style={styles.progressBadge}>
+                                                <Text style={styles.progressBadgeText}>Stop {checkpointProgressLabel}</Text>
+                                            </View>
+                                        ) : null}
+                                        <View
+                                            style={[
+                                                styles.statusBadge,
+                                                {
+                                                    backgroundColor: checkpointStatusPalette.backgroundColor,
+                                                    borderColor: checkpointStatusPalette.borderColor,
+                                                },
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.statusBadgeText,
+                                                    {color: checkpointStatusPalette.textColor},
+                                                ]}
+                                            >
+                                                {selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
+                                            </Text>
+                                        </View>
+                                    </View>
                                 </View>
 
                                 <View style={styles.detailMetaRow}>
@@ -707,16 +779,27 @@ export default function MapPage({navigation}) {
                                     </Text>
                                 </View>
 
-                                <View style={styles.detailMetaRow}>
-                                    <MaterialCommunityIcons
-                                        name="clock-time-five-outline"
-                                        size={20}
-                                        color={Colors.mainBlue}
-                                        style={styles.infoIcon}
-                                    />
-                                    <Text style={styles.detailMetaText} numberOfLines={1}>
-                                        {selectedCheckpoint.hours || '---'}
-                                    </Text>
+                                <View style={[styles.detailMetaRow, styles.detailMetaRowWrap]}>
+                                    <View style={styles.detailMetaContent}>
+                                        <MaterialCommunityIcons
+                                            name="clock-time-five-outline"
+                                            size={20}
+                                            color={Colors.mainBlue}
+                                            style={styles.infoIcon}
+                                        />
+                                        <Text style={styles.detailMetaText} numberOfLines={1}>
+                                            {selectedCheckpoint.hours || '---'}
+                                        </Text>
+                                    </View>
+                                    {hasPhone ? (
+                                        <TouchableOpacity
+                                            style={styles.inlineCallButton}
+                                            onPress={() => handleCallPress(selectedCheckpoint.phone)}
+                                        >
+                                            <Ionicons name="call" size={16} color={Colors.mainBlue} style={styles.inlineCallIcon} />
+                                            <Text style={styles.inlineCallText}>Call site</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
                                 </View>
 
                                 <View style={styles.primaryActionsRow}>
@@ -1046,12 +1129,21 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     sheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
         marginBottom: 16,
+    },
+    sheetHeaderMain: {
+        flex: 1,
+        marginRight: 12,
     },
     sheetHeaderBadges: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         marginBottom: 10,
+        gap: 6,
     },
     checkpointTypeLabel: {
         backgroundColor: Colors.mainBlue + '15',
@@ -1075,6 +1167,20 @@ const styles = StyleSheet.create({
         fontSize: Fonts.f12,
         fontWeight: '700',
     },
+    priorityChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+        backgroundColor: Colors.mainBlue + '10',
+    },
+    priorityChipText: {
+        fontSize: Fonts.f12,
+        fontWeight: '700',
+        marginLeft: 6,
+    },
     checkpointTitle: {
         fontSize: Fonts.f18,
         fontWeight: '700',
@@ -1085,6 +1191,31 @@ const styles = StyleSheet.create({
         fontSize: Fonts.f14,
         color: Colors.blackText + '80',
     },
+    sheetHeaderAside: {
+        alignItems: 'flex-end',
+        gap: 8,
+    },
+    progressBadge: {
+        backgroundColor: Colors.mainBlue + '10',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    progressBadgeText: {
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+        color: Colors.mainBlue,
+    },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 999,
+        borderWidth: 1,
+    },
+    statusBadgeText: {
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+    },
     detailMetaRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1094,6 +1225,15 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         marginBottom: 12,
     },
+    detailMetaRowWrap: {
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    detailMetaContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
     infoIcon: {
         marginRight: 10,
     },
@@ -1102,6 +1242,25 @@ const styles = StyleSheet.create({
         fontSize: Fonts.f14,
         color: Colors.blackText,
         fontWeight: '600',
+    },
+    inlineCallButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        backgroundColor: Colors.white,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: Colors.mainBlue + '33',
+    },
+    inlineCallIcon: {
+        marginRight: 6,
+    },
+    inlineCallText: {
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+        color: Colors.mainBlue,
     },
     primaryActionsRow: {
         flexDirection: 'row',
