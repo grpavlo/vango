@@ -903,7 +903,7 @@ const MapPageContent = ({navigation}) => {
                                  * Quick actions (Visit info, dispatcher chat, call) are not part of the
                                  * latest Route Log Buddy map design. They remain accessible elsewhere,
                                  * so we hide this legacy row from the refreshed layout.
-                                 */}
+                                 */
                                 {false && (
                                     <View style={styles.quickActionsRow}>
                                         <TouchableOpacity
