@@ -1,13 +1,14 @@
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
+import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
 
 import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import GoogleMapComponent from "../components/GoogleMapComponent";
 import UniversalModal from "../components/UniversalModal";
-import {Colors, Fonts} from "../utils/tokens";
+import {Fonts} from "../utils/tokens";
 import {handleCallPress} from "../function/handleCallPress";
 import {serverUrlApi} from "../const/api";
 import {useInfoCheckpoint} from "../store/infoCheckpoint";
@@ -15,14 +16,48 @@ import {convertMetersToMiles} from "../function/convertMetersToMiles";
 
 const GOOGLE_API_KEY = 'AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs'; // замініть на ваш дійсний ключ
 
-const FLAG_COLOR_MAP = {
-    1: '#EF4444',
-    2: '#FACC15',
-    3: '#34D399',
-    4: Colors.mainBlue,
+const withAlpha = (hex, alpha) => {
+    if (!hex || typeof hex !== "string") {
+        return hex;
+    }
+
+    const normalized = hex.replace("#", "");
+    if (normalized.length !== 6) {
+        return hex;
+    }
+
+    return `#${normalized}${alpha}`;
 };
 
-export default function MapPage({navigation}) {
+const createPalette = (tokens, theme) => ({
+    background: tokens.background,
+    cardSurface: tokens.cardBackground,
+    textPrimary: tokens.textPrimary,
+    textSecondary: tokens.textSecondary,
+    textMuted: tokens.textMuted,
+    border: tokens.border,
+    mutedBackground: tokens.mutedBackground,
+    primary: tokens.primary,
+    primaryForeground: tokens.primaryForeground,
+    destructive: tokens.destructive,
+    overlay: theme === "dark" ? "rgba(17,17,17,0.9)" : "rgba(250,250,250,0.92)",
+    cardShadow: theme === "dark" ? "rgba(0,0,0,0.35)" : tokens.navShadow,
+    pickupAccent: "#2563EB",
+    dropoffAccent: tokens.primary,
+    statBackground: withAlpha(tokens.destructive, "1F"),
+    statText: tokens.destructive,
+    progressBackground: withAlpha(tokens.primary, "18"),
+    progressText: tokens.primary,
+});
+
+const createFlagColorMap = (primaryColor) => ({
+    1: "#EF4444",
+    2: "#FACC15",
+    3: "#34D399",
+    4: primaryColor,
+});
+
+const MapPageContent = ({navigation}) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [key, setKey] = useState(null);
     const [origin, setOrigin] = useState(null);
@@ -54,6 +89,20 @@ export default function MapPage({navigation}) {
     });
 
     const {setData} = useInfoCheckpoint();
+
+    const {tokens, theme, spacing, radii} = useDesignSystem();
+    const palette = useMemo(
+        () => createPalette(tokens, theme),
+        [tokens, theme],
+    );
+    const flagColorMap = useMemo(
+        () => createFlagColorMap(palette.primary),
+        [palette.primary],
+    );
+    const styles = useMemo(
+        () => createStyles({palette, spacing, radii, theme}),
+        [palette, spacing, radii, theme],
+    );
 
 
     const formatDurationLabel = (durationInSeconds) => {
@@ -110,25 +159,18 @@ export default function MapPage({navigation}) {
     };
 
     const statusPalette = useMemo(() => {
-        if (routeSummary.statusLabel === "In Progress") {
+        if (routeSummary.statusLabel === "In Progress" || routeSummary.statusLabel === "Completed") {
             return {
-                backgroundColor: "#E5F7ED",
-                textColor: "#1EAD64",
-            };
-        }
-
-        if (routeSummary.statusLabel === "Completed") {
-            return {
-                backgroundColor: "#E8EAF6",
-                textColor: Colors.mainBlue,
+                backgroundColor: withAlpha(palette.primary, "1F"),
+                textColor: palette.primary,
             };
         }
 
         return {
-            backgroundColor: Colors.mainBlue + '20',
-            textColor: Colors.mainBlue,
+            backgroundColor: withAlpha(palette.textPrimary, "14"),
+            textColor: palette.textPrimary,
         };
-    }, [routeSummary.statusLabel]);
+    }, [palette, routeSummary.statusLabel]);
 
     const checkpointProgressLabel = useMemo(() => {
         if (!selectedCheckpoint || !routeSummary.totalStops) {
@@ -146,18 +188,29 @@ export default function MapPage({navigation}) {
     const checkpointStatusPalette = useMemo(() => {
         if (selectedCheckpoint?.isCompleted) {
             return {
-                backgroundColor: '#E5F7ED',
-                textColor: '#1EAD64',
-                borderColor: '#A5E4C0',
+                backgroundColor: withAlpha(palette.primary, "18"),
+                textColor: palette.primary,
+                borderColor: withAlpha(palette.primary, "40"),
             };
         }
 
         return {
-            backgroundColor: Colors.mainBlue + '14',
-            textColor: Colors.mainBlue,
-            borderColor: Colors.mainBlue + '30',
+            backgroundColor: withAlpha(palette.textPrimary, "10"),
+            textColor: palette.textPrimary,
+            borderColor: withAlpha(palette.textPrimary, "25"),
         };
-    }, [selectedCheckpoint?.isCompleted]);
+    }, [palette.primary, palette.textPrimary, selectedCheckpoint?.isCompleted]);
+
+    const checkpointTypeStyles = useMemo(() => {
+        const isDropOff = Boolean(selectedCheckpoint?.dropOff);
+        const baseColor = isDropOff ? palette.dropoffAccent : palette.pickupAccent;
+
+        return {
+            iconBackground: withAlpha(baseColor, "18"),
+            iconBorder: withAlpha(baseColor, "33"),
+            iconColor: baseColor,
+        };
+    }, [palette.dropoffAccent, palette.pickupAccent, selectedCheckpoint?.dropOff]);
 
 
     // Функція форматування годин
@@ -286,7 +339,7 @@ export default function MapPage({navigation}) {
                             }
 
                             const hours = formatHours(visit.startTime, visit.endTime);
-                            const flagColor = FLAG_COLOR_MAP[visit.flag] || null;
+                            const flagColor = flagColorMap[visit.flag] || null;
                             const priorityLabel = typeof visit.priority === 'string'
                                 ? visit.priority
                                 : visit.priority
@@ -570,7 +623,7 @@ export default function MapPage({navigation}) {
                                 <Ionicons
                                     name={showStopsList ? 'chevron-up' : 'chevron-down'}
                                     size={16}
-                                    color={showStopsList ? Colors.white : Colors.mainBlue}
+                                    color={showStopsList ? palette.primaryForeground : palette.primary}
                                     style={styles.stopsButtonIcon}
                                 />
                                 <Text style={[styles.stopsButtonText, showStopsList && styles.stopsButtonTextActive]}>Stops</Text>
@@ -611,6 +664,11 @@ export default function MapPage({navigation}) {
                                     const displayName = checkpoint.stat && typeof checkpoint.checkpointName === 'string'
                                         ? checkpoint.checkpointName.replace(/^STAT\s+/i, '')
                                         : checkpoint.checkpointName;
+                                    const isDropOff = Boolean(checkpoint.dropOff);
+                                    const baseIconColor = isDropOff ? palette.dropoffAccent : palette.pickupAccent;
+                                    const iconBackgroundColor = withAlpha(baseIconColor, checkpoint.isCompleted ? '26' : '18');
+                                    const iconBorderColor = withAlpha(baseIconColor, '40');
+                                    const iconTint = checkpoint.isCompleted ? palette.primaryForeground : baseIconColor;
 
                                     return (
                                         <TouchableOpacity
@@ -618,11 +676,19 @@ export default function MapPage({navigation}) {
                                             style={[styles.stopListItem, isSelected && styles.stopListItemActive]}
                                             onPress={() => handleSelectCheckpoint(checkpoint)}
                                         >
-                                            <View style={[styles.stopListIcon, checkpoint.isCompleted ? styles.stopListIconCompleted : styles.stopListIconUpcoming]}>
+                                            <View
+                                                style={[
+                                                    styles.stopListIcon,
+                                                    {
+                                                        backgroundColor: iconBackgroundColor,
+                                                        borderColor: iconBorderColor,
+                                                    },
+                                                ]}
+                                            >
                                                 <Ionicons
                                                     name={checkpoint.dropOff ? 'arrow-down' : 'arrow-up'}
                                                     size={14}
-                                                    color={checkpoint.isCompleted ? Colors.white : Colors.mainBlue}
+                                                    color={iconTint}
                                                 />
                                             </View>
                                             <View style={styles.stopListDetails}>
@@ -652,9 +718,9 @@ export default function MapPage({navigation}) {
                                             </View>
                                             <View style={styles.stopListStatusIcon}>
                                                 {checkpoint.isCompleted ? (
-                                                    <Ionicons name="checkmark-circle" size={18} color={Colors.mainBlue} />
+                                                    <Ionicons name="checkmark-circle" size={18} color={palette.primary} />
                                                 ) : (
-                                                    <Ionicons name="ellipse-outline" size={18} color={Colors.blackText + '40'} />
+                                                    <Ionicons name="ellipse-outline" size={18} color={withAlpha(palette.textPrimary, '40')} />
                                                 )}
                                             </View>
                                         </TouchableOpacity>
@@ -669,7 +735,7 @@ export default function MapPage({navigation}) {
                             {false && (
                                 <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>
                                     <Text style={styles.manageStopsText}>Manage stops</Text>
-                                    <MaterialCommunityIcons name="arrow-right" size={16} color={Colors.mainBlue} />
+                                    <MaterialCommunityIcons name="arrow-right" size={16} color={palette.primary} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -682,7 +748,7 @@ export default function MapPage({navigation}) {
                  */}
                 {false && unloadPoint && !showStopsList && (
                     <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>
-                        <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={Colors.mainRed} style={styles.unloadFloatingIcon} />
+                        <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={palette.destructive} style={styles.unloadFloatingIcon} />
                         <Text style={styles.unloadFloatingText}>Default point</Text>
                     </TouchableOpacity>
                 )}
@@ -705,40 +771,59 @@ export default function MapPage({navigation}) {
                             <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
                                     <View style={styles.sheetHeaderMain}>
-                                        <View style={styles.sheetHeaderBadges}>
-                                            <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
-                                            {selectedCheckpoint.stat ? (
-                                                <View style={styles.statChip}>
-                                                    <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
+                                        <View style={styles.sheetHeaderContent}>
+                                            <View
+                                                style={[
+                                                    styles.typeIconWrapper,
+                                                    {
+                                                        backgroundColor: checkpointTypeStyles.iconBackground,
+                                                        borderColor: checkpointTypeStyles.iconBorder,
+                                                    },
+                                                ]}
+                                            >
+                                                <MaterialCommunityIcons
+                                                    name={selectedCheckpoint.dropOff ? 'arrow-down' : 'arrow-up'}
+                                                    size={20}
+                                                    color={checkpointTypeStyles.iconColor}
+                                                />
+                                            </View>
+                                            <View style={styles.sheetHeaderTextBlock}>
+                                                <View style={styles.sheetHeaderBadges}>
+                                                    <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
+                                                    {selectedCheckpoint.stat ? (
+                                                        <View style={styles.statChip}>
+                                                            <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
+                                                        </View>
+                                                    ) : null}
+                                                    {hasPriorityFlag ? (
+                                                        <View
+                                                            style={[
+                                                                styles.priorityChip,
+                                                                {
+                                                                    backgroundColor: `${selectedCheckpoint.flagColor}20`,
+                                                                    borderColor: `${selectedCheckpoint.flagColor}40`,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            <MaterialCommunityIcons
+                                                                name="flag-variant"
+                                                                size={12}
+                                                                color={selectedCheckpoint.flagColor}
+                                                            />
+                                                            <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
+                                                        </View>
+                                                    ) : null}
                                                 </View>
-                                            ) : null}
-                                            {hasPriorityFlag ? (
-                                                <View
-                                                    style={[
-                                                        styles.priorityChip,
-                                                        {
-                                                            backgroundColor: `${selectedCheckpoint.flagColor}20`,
-                                                            borderColor: `${selectedCheckpoint.flagColor}40`,
-                                                        },
-                                                    ]}
-                                                >
-                                                    <MaterialCommunityIcons
-                                                        name="flag-variant"
-                                                        size={12}
-                                                        color={selectedCheckpoint.flagColor}
-                                                    />
-                                                    <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
-                                                </View>
-                                            ) : null}
+                                                <Text style={styles.checkpointTitle} numberOfLines={2}>
+                                                    {selectedCheckpoint.checkpointName || 'Checkpoint'}
+                                                </Text>
+                                                {selectedCheckpoint.address ? (
+                                                    <Text style={styles.checkpointAddress} numberOfLines={2}>
+                                                        {selectedCheckpoint.address}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
                                         </View>
-                                        <Text style={styles.checkpointTitle} numberOfLines={2}>
-                                            {selectedCheckpoint.checkpointName || 'Checkpoint'}
-                                        </Text>
-                                        {selectedCheckpoint.address ? (
-                                            <Text style={styles.checkpointAddress} numberOfLines={2}>
-                                                {selectedCheckpoint.address}
-                                            </Text>
-                                        ) : null}
                                     </View>
                                     <View style={styles.sheetHeaderAside}>
                                         {showProgressBadge ? (
@@ -771,7 +856,7 @@ export default function MapPage({navigation}) {
                                     <MaterialCommunityIcons
                                         name="map-marker-outline"
                                         size={20}
-                                        color={Colors.mainBlue}
+                                        color={palette.primary}
                                         style={styles.infoIcon}
                                     />
                                     <Text style={styles.detailMetaText} numberOfLines={2}>
@@ -784,7 +869,7 @@ export default function MapPage({navigation}) {
                                         <MaterialCommunityIcons
                                             name="clock-time-five-outline"
                                             size={20}
-                                            color={Colors.mainBlue}
+                                            color={palette.primary}
                                             style={styles.infoIcon}
                                         />
                                         <Text style={styles.detailMetaText} numberOfLines={1}>
@@ -796,7 +881,7 @@ export default function MapPage({navigation}) {
                                             style={styles.inlineCallButton}
                                             onPress={() => handleCallPress(selectedCheckpoint.phone)}
                                         >
-                                            <Ionicons name="call" size={16} color={Colors.mainBlue} style={styles.inlineCallIcon} />
+                                            <Ionicons name="call" size={16} color={palette.primary} style={styles.inlineCallIcon} />
                                             <Text style={styles.inlineCallText}>Call site</Text>
                                         </TouchableOpacity>
                                     ) : null}
@@ -804,7 +889,7 @@ export default function MapPage({navigation}) {
 
                                 <View style={styles.primaryActionsRow}>
                                     <TouchableOpacity style={styles.primaryActionButton} onPress={handleGo}>
-                                        <Ionicons name="navigate" size={20} color={Colors.white} style={styles.primaryActionIcon} />
+                                        <Ionicons name="navigate" size={20} color={palette.primaryForeground} style={styles.primaryActionIcon} />
                                         <Text style={styles.primaryActionText}>Navigate</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
@@ -829,14 +914,14 @@ export default function MapPage({navigation}) {
                                                 });
                                             }}
                                         >
-                                            <Ionicons name="information-circle-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Ionicons name="information-circle-outline" size={18} color={palette.primary} style={styles.quickActionIcon} />
                                             <Text style={styles.quickActionText}>Visit info</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
                                             onPress={() => navigation.navigate('ChatComponent', {menu: true})}
                                         >
-                                            <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Ionicons name="chatbubble-ellipses-outline" size={18} color={palette.primary} style={styles.quickActionIcon} />
                                             <Text style={styles.quickActionText}>Write to disp</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
@@ -844,7 +929,7 @@ export default function MapPage({navigation}) {
                                             onPress={() => hasPhone && handleCallPress(selectedCheckpoint.phone)}
                                             disabled={!hasPhone}
                                         >
-                                            <Ionicons name="call" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                            <Ionicons name="call" size={18} color={palette.primary} style={styles.quickActionIcon} />
                                             <Text style={styles.quickActionText}>Call customer</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -868,47 +953,48 @@ export default function MapPage({navigation}) {
             <BottomNavigationMenu navigation={navigation} activeTab="Map"/>
         </View>
     );
-}
+};
 
-const styles = StyleSheet.create({
+
+const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: palette.background,
     },
     mapWrapper: {
         flex: 1,
         position: 'relative',
-        backgroundColor: Colors.white,
+        backgroundColor: palette.background,
     },
     topOverlay: {
         position: 'absolute',
-        top: 16,
-        left: 16,
-        right: 16,
+        top: spacing.lg,
+        left: spacing.lg,
+        right: spacing.lg,
     },
     headerCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 16,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 4},
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 4,
+        backgroundColor: palette.cardSurface,
+        borderRadius: radii.xl,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        shadowColor: palette.cardShadow,
+        shadowOffset: {width: 0, height: 6},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.12,
+        shadowRadius: 14,
+        elevation: theme === 'dark' ? 14 : 6,
         borderWidth: 1,
-        borderColor: Colors.lightGray,
+        borderColor: palette.border,
     },
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        marginBottom: spacing.xs,
     },
     statusChip: {
-        paddingHorizontal: 12,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 20,
+        borderRadius: radii.pill,
     },
     statusChipText: {
         fontSize: Fonts.f12,
@@ -917,36 +1003,36 @@ const styles = StyleSheet.create({
     stopsButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.white,
-        paddingHorizontal: 12,
+        backgroundColor: palette.cardSurface,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 6,
-        borderRadius: 20,
+        borderRadius: radii.pill,
         borderWidth: 1,
-        borderColor: Colors.mainBlue,
+        borderColor: palette.primary,
     },
     stopsButtonActive: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: palette.primary,
     },
     stopsButtonDisabled: {
-        borderColor: Colors.lightGray,
+        borderColor: palette.border,
         opacity: 0.6,
     },
     stopsButtonIcon: {
         marginRight: 6,
     },
     stopsButtonText: {
-        color: Colors.mainBlue,
+        color: palette.primary,
         fontSize: Fonts.f12,
         fontWeight: '600',
     },
     stopsButtonTextActive: {
-        color: Colors.white,
+        color: palette.primaryForeground,
     },
     routeTitle: {
         fontSize: Fonts.f18,
         fontWeight: '700',
-        color: Colors.blackText,
-        marginBottom: 6,
+        color: palette.textPrimary,
+        marginBottom: spacing.xs,
     },
     routeMetaRow: {
         flexDirection: 'row',
@@ -955,140 +1041,43 @@ const styles = StyleSheet.create({
     },
     routeMetaText: {
         fontSize: Fonts.f12,
-        color: Colors.blackText + '99',
-        marginRight: 8,
+        color: withAlpha(palette.textSecondary, 'E0'),
+        marginRight: spacing.xs,
         marginBottom: 4,
     },
     routeMetaDivider: {
         width: 4,
         height: 4,
         borderRadius: 2,
-        backgroundColor: Colors.lightGray,
-        marginRight: 8,
+        backgroundColor: palette.border,
+        marginRight: spacing.xs,
         marginBottom: 4,
     },
     unloadFloatingButton: {
         position: 'absolute',
         top: 120,
-        right: 16,
+        right: spacing.lg,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.white,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 3,
+        backgroundColor: palette.cardSurface,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: radii.pill,
         borderWidth: 1,
-        borderColor: Colors.lightGray,
+        borderColor: withAlpha(palette.primary, '33'),
+        shadowColor: palette.cardShadow,
+        shadowOffset: {width: 0, height: 2},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.12,
+        shadowRadius: 6,
+        elevation: theme === 'dark' ? 10 : 4,
     },
     unloadFloatingIcon: {
-        marginRight: 6,
+        marginRight: 8,
     },
     unloadFloatingText: {
-        color: Colors.mainRed,
         fontSize: Fonts.f12,
         fontWeight: '600',
-    },
-    stopsListWrapper: {
-        position: 'absolute',
-        top: 140,
-        left: 16,
-        right: 16,
-    },
-    stopsListCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: Colors.lightGray,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 6},
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
-        maxHeight: 280,
-        overflow: 'hidden',
-    },
-    stopsListContent: {
-        paddingVertical: 8,
-    },
-    stopListItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    stopListItemActive: {
-        backgroundColor: Colors.mainBlue + '15',
-    },
-    stopListIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    stopListIconCompleted: {
-        backgroundColor: Colors.mainBlue,
-    },
-    stopListIconUpcoming: {
-        backgroundColor: Colors.mainBlue + '12',
-    },
-    stopListDetails: {
-        flex: 1,
-        minWidth: 0,
-    },
-    stopListTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        marginBottom: 2,
-    },
-    stopListTitle: {
-        fontSize: Fonts.f14,
-        fontWeight: '600',
-        color: Colors.blackText,
-        marginRight: 6,
-    },
-    stopListStatChip: {
-        backgroundColor: '#FEE2E2',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 10,
-        marginRight: 6,
-    },
-    stopListStatText: {
-        color: Colors.mainRed,
-        fontSize: Fonts.f10,
-        fontWeight: '700',
-    },
-    stopListFlagIcon: {
-        marginLeft: 4,
-    },
-    stopListSubtitle: {
-        fontSize: Fonts.f12,
-        color: Colors.blackText + '70',
-    },
-    stopListStatusIcon: {
-        marginLeft: 12,
-    },
-    manageStopsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: Colors.lightGray,
-    },
-    manageStopsText: {
-        color: Colors.mainBlue,
-        fontSize: Fonts.f14,
-        fontWeight: '600',
+        color: palette.primary,
     },
     bottomOverlay: {
         position: 'absolute',
@@ -1097,119 +1086,139 @@ const styles = StyleSheet.create({
         bottom: 0,
     },
     bottomSheet: {
-        backgroundColor: Colors.white,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingBottom: 20,
-        maxHeight: 360,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: -2},
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 12,
+        backgroundColor: palette.overlay,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        paddingBottom: spacing.xl,
+        maxHeight: 380,
+        borderWidth: 1,
+        borderColor: withAlpha(palette.border, 'C0'),
+        shadowColor: palette.cardShadow,
+        shadowOffset: {width: 0, height: -4},
+        shadowOpacity: theme === 'dark' ? 0.25 : 0.15,
+        shadowRadius: 16,
+        elevation: theme === 'dark' ? 20 : 12,
     },
     sheetScrollContent: {
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 12,
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.sm,
     },
     centerContent: {
-        paddingVertical: 32,
+        paddingVertical: spacing.xl,
         alignItems: 'center',
         justifyContent: 'center',
     },
     mutedText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '60',
+        color: withAlpha(palette.textSecondary, 'CC'),
         textAlign: 'center',
     },
     errorText: {
         fontSize: Fonts.f14,
-        color: Colors.mainRed,
+        color: palette.destructive,
         textAlign: 'center',
     },
     sheetHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        marginBottom: spacing.md,
     },
     sheetHeaderMain: {
         flex: 1,
-        marginRight: 12,
+        marginRight: spacing.sm,
+    },
+    sheetHeaderContent: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+    },
+    typeIconWrapper: {
+        height: 48,
+        width: 48,
+        borderRadius: radii.lg,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sheetHeaderTextBlock: {
+        flex: 1,
     },
     sheetHeaderBadges: {
         flexDirection: 'row',
         alignItems: 'center',
         flexWrap: 'wrap',
-        marginBottom: 10,
-        gap: 6,
+        marginBottom: spacing.sm,
+        gap: spacing.xs,
     },
     checkpointTypeLabel: {
-        backgroundColor: Colors.mainBlue + '15',
-        color: Colors.mainBlue,
-        paddingHorizontal: 10,
+        backgroundColor: withAlpha(palette.primary, '18'),
+        color: palette.primary,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderRadius: radii.pill,
         fontSize: Fonts.f12,
         fontWeight: '600',
         textTransform: 'uppercase',
-        marginRight: 8,
+        marginRight: spacing.xs,
     },
     statChip: {
-        backgroundColor: '#FEE2E2',
-        paddingHorizontal: 10,
+        backgroundColor: palette.statBackground,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderRadius: radii.pill,
     },
     statChipText: {
-        color: Colors.mainRed,
+        color: palette.statText,
         fontSize: Fonts.f12,
         fontWeight: '700',
     },
     priorityChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderRadius: radii.pill,
         borderWidth: 1,
-        backgroundColor: Colors.mainBlue + '10',
+        borderColor: withAlpha(palette.primary, '40'),
+        backgroundColor: withAlpha(palette.primary, '15'),
     },
     priorityChipText: {
         fontSize: Fonts.f12,
         fontWeight: '700',
         marginLeft: 6,
+        color: palette.primary,
     },
     checkpointTitle: {
         fontSize: Fonts.f18,
         fontWeight: '700',
-        color: Colors.blackText,
-        marginBottom: 6,
+        color: palette.textPrimary,
+        marginBottom: 4,
     },
     checkpointAddress: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '80',
+        color: palette.textSecondary,
     },
     sheetHeaderAside: {
         alignItems: 'flex-end',
-        gap: 8,
+        gap: spacing.xs,
     },
     progressBadge: {
-        backgroundColor: Colors.mainBlue + '10',
-        paddingHorizontal: 12,
+        backgroundColor: palette.progressBackground,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 999,
+        borderRadius: radii.pill,
     },
     progressBadgeText: {
         fontSize: Fonts.f12,
         fontWeight: '600',
-        color: Colors.mainBlue,
+        color: palette.progressText,
     },
     statusBadge: {
-        paddingHorizontal: 12,
+        paddingHorizontal: spacing.sm,
         paddingVertical: 4,
-        borderRadius: 999,
+        borderRadius: radii.pill,
         borderWidth: 1,
     },
     statusBadgeText: {
@@ -1219,15 +1228,15 @@ const styles = StyleSheet.create({
     detailMetaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.mainBlue + '08',
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        borderRadius: 14,
-        marginBottom: 12,
+        backgroundColor: withAlpha(palette.mutedBackground, 'E6'),
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: radii.lg,
+        marginBottom: spacing.sm,
     },
     detailMetaRowWrap: {
         justifyContent: 'space-between',
-        gap: 12,
+        gap: spacing.sm,
     },
     detailMetaContent: {
         flexDirection: 'row',
@@ -1235,68 +1244,77 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     infoIcon: {
-        marginRight: 10,
+        marginRight: spacing.sm,
+        color: palette.primary,
     },
     detailMetaText: {
         flex: 1,
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: palette.textPrimary,
         fontWeight: '600',
     },
     inlineCallButton: {
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
-        backgroundColor: Colors.white,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 999,
+        backgroundColor: palette.cardSurface,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: radii.pill,
         borderWidth: 1,
-        borderColor: Colors.mainBlue + '33',
+        borderColor: withAlpha(palette.primary, '45'),
     },
     inlineCallIcon: {
-        marginRight: 6,
+        marginRight: spacing.xs,
+        color: palette.primary,
     },
     inlineCallText: {
         fontSize: Fonts.f12,
         fontWeight: '600',
-        color: Colors.mainBlue,
+        color: palette.primary,
     },
     primaryActionsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 16,
+        marginBottom: spacing.md,
+        gap: spacing.sm,
     },
     primaryActionButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.mainBlue,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
+        backgroundColor: palette.dropoffAccent,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: radii.xl,
         flex: 1,
-        marginRight: 12,
+        shadowColor: palette.cardShadow,
+        shadowOffset: {width: 0, height: 6},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.2,
+        shadowRadius: 10,
+        elevation: theme === 'dark' ? 18 : 10,
     },
     primaryActionIcon: {
-        marginRight: 8,
+        marginRight: spacing.xs,
+        color: palette.primaryForeground,
     },
     primaryActionText: {
-        color: Colors.white,
+        color: palette.primaryForeground,
         fontSize: Fonts.f14,
         fontWeight: '700',
     },
     secondaryActionButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: radii.xl,
         borderWidth: 1,
-        borderColor: Colors.mainBlue,
+        borderColor: palette.dropoffAccent,
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'transparent',
     },
     secondaryActionText: {
-        color: Colors.mainBlue,
+        color: palette.dropoffAccent,
         fontSize: Fonts.f14,
         fontWeight: '700',
     },
@@ -1309,22 +1327,113 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.mainBlue + '0F',
-        paddingVertical: 12,
-        borderRadius: 16,
+        backgroundColor: withAlpha(palette.primary, '12'),
+        paddingVertical: spacing.sm,
+        borderRadius: radii.lg,
     },
     quickActionButtonSpacer: {
-        marginRight: 12,
+        marginRight: spacing.sm,
     },
     quickActionButtonDisabled: {
         opacity: 0.5,
     },
     quickActionIcon: {
-        marginRight: 6,
+        marginRight: spacing.xs,
+        color: palette.primary,
     },
     quickActionText: {
-        color: Colors.mainBlue,
+        color: palette.primary,
         fontSize: Fonts.f12,
         fontWeight: '600',
     },
+    stopsListWrapper: {
+        marginTop: spacing.sm,
+    },
+    stopsListCard: {
+        backgroundColor: palette.cardSurface,
+        borderRadius: radii.lg,
+        borderWidth: 1,
+        borderColor: palette.border,
+        overflow: 'hidden',
+    },
+    stopsListContent: {
+        paddingVertical: spacing.xs,
+    },
+    stopListItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+    },
+    stopListItemActive: {
+        backgroundColor: withAlpha(palette.primary, '12'),
+    },
+    stopListIcon: {
+        height: 32,
+        width: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.sm,
+        borderWidth: 1,
+    },
+    stopListDetails: {
+        flex: 1,
+    },
+    stopListTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: 2,
+    },
+    stopListTitle: {
+        flex: 1,
+        fontSize: Fonts.f14,
+        fontWeight: '600',
+        color: palette.textPrimary,
+    },
+    stopListStatChip: {
+        backgroundColor: palette.statBackground,
+        borderRadius: radii.pill,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+    },
+    stopListStatText: {
+        fontSize: Fonts.f10,
+        fontWeight: '700',
+        color: palette.statText,
+    },
+    stopListFlagIcon: {
+        marginLeft: spacing.xs,
+    },
+    stopListSubtitle: {
+        fontSize: Fonts.f12,
+        color: palette.textSecondary,
+    },
+    stopListStatusIcon: {
+        marginLeft: spacing.sm,
+    },
+    manageStopsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderTopWidth: 1,
+        borderTopColor: palette.border,
+    },
+    manageStopsText: {
+        color: palette.primary,
+        fontSize: Fonts.f14,
+        fontWeight: '600',
+    },
 });
+
+const MapPage = (props) => (
+    <ThemeProvider>
+        <MapPageContent {...props} />
+    </ThemeProvider>
+);
+
+export default MapPage;
+
