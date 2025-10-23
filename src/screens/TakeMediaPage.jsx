@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
+    Image,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -9,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { Video, ResizeMode } from 'expo-av';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import UniversalModal from '../components/UniversalModal';
 import { Fonts } from '../utils/tokens';
@@ -29,6 +32,30 @@ const TakeMediaPageContent = ({ navigation, route }) => {
 
     const [capturedMedia, setCapturedMedia] = useState([]);
     const [finishModalVisible, setFinishModalVisible] = useState(false);
+    const [removeModalVisible, setRemoveModalVisible] = useState(false);
+    const [pendingRemovalIndex, setPendingRemovalIndex] = useState(null);
+    const [previewIndex, setPreviewIndex] = useState(null);
+
+    const previewItem = useMemo(
+        () => (previewIndex === null ? null : capturedMedia[previewIndex] ?? null),
+        [capturedMedia, previewIndex],
+    );
+
+    const imageMediaType = useMemo(() => {
+        const mediaType = ImagePicker.MediaType;
+        if (mediaType) {
+            return mediaType.IMAGE ?? mediaType.IMAGES ?? mediaType.image ?? 'images';
+        }
+        return 'images';
+    }, []);
+
+    const videoMediaType = useMemo(() => {
+        const mediaType = ImagePicker.MediaType;
+        if (mediaType) {
+            return mediaType.VIDEO ?? mediaType.VIDEOS ?? mediaType.video ?? 'videos';
+        }
+        return 'videos';
+    }, []);
 
     const ensurePermissions = useCallback(async () => {
         const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
@@ -55,7 +82,7 @@ const TakeMediaPageContent = ({ navigation, route }) => {
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: imageMediaType,
             quality: 0.8,
         });
 
@@ -78,7 +105,7 @@ const TakeMediaPageContent = ({ navigation, route }) => {
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+            mediaTypes: videoMediaType,
             videoMaxDuration: 120,
             quality: 0.6,
         });
@@ -95,8 +122,43 @@ const TakeMediaPageContent = ({ navigation, route }) => {
         }
     }, [ensurePermissions]);
 
-    const handleRemoveMedia = useCallback((index) => {
-        setCapturedMedia((prev) => prev.filter((_, idx) => idx !== index));
+    const handlePromptRemoveMedia = useCallback((index) => {
+        setPendingRemovalIndex(index);
+        setRemoveModalVisible(true);
+    }, []);
+
+    const handleConfirmRemoveMedia = useCallback(() => {
+        if (pendingRemovalIndex === null) {
+            return;
+        }
+        setCapturedMedia((prev) => prev.filter((_, idx) => idx !== pendingRemovalIndex));
+        setPreviewIndex((current) => {
+            if (current === null) {
+                return current;
+            }
+            if (current === pendingRemovalIndex) {
+                return null;
+            }
+            if (current > pendingRemovalIndex) {
+                return current - 1;
+            }
+            return current;
+        });
+        setPendingRemovalIndex(null);
+        setRemoveModalVisible(false);
+    }, [pendingRemovalIndex]);
+
+    const handleCancelRemoveMedia = useCallback(() => {
+        setPendingRemovalIndex(null);
+        setRemoveModalVisible(false);
+    }, []);
+
+    const handleOpenPreview = useCallback((index) => {
+        setPreviewIndex(index);
+    }, []);
+
+    const handleClosePreview = useCallback(() => {
+        setPreviewIndex(null);
     }, []);
 
     const handleOpenFinishModal = useCallback(() => {
@@ -108,7 +170,7 @@ const TakeMediaPageContent = ({ navigation, route }) => {
 
     const handleConfirmFinish = useCallback(() => {
         setFinishModalVisible(false);
-        navigation.goBack();
+        navigation.navigate('RoutesPage');
     }, [navigation]);
 
     const handleCancelFinish = useCallback(() => {
@@ -155,7 +217,7 @@ const TakeMediaPageContent = ({ navigation, route }) => {
                                 <View key={`${item.uri}-${index}`} style={styles.mediaTile}>
                                     <TouchableOpacity
                                         style={styles.removeMediaButton}
-                                        onPress={() => handleRemoveMedia(index)}
+                                        onPress={() => handlePromptRemoveMedia(index)}
                                         activeOpacity={0.8}
                                     >
                                         <MaterialCommunityIcons
@@ -165,26 +227,26 @@ const TakeMediaPageContent = ({ navigation, route }) => {
                                         />
                                     </TouchableOpacity>
 
-                                    <View style={styles.mediaTileContent}>
+                                    <TouchableOpacity
+                                        style={styles.mediaTileContent}
+                                        onPress={() => handleOpenPreview(index)}
+                                        activeOpacity={0.85}
+                                    >
                                         {item.type === 'video' ? (
-                                            <Ionicons
-                                                name="videocam"
-                                                size={28}
-                                                color={palette.accent}
-                                                style={styles.mediaIcon}
-                                            />
+                                            <View style={styles.videoThumbnail}>
+                                                <Ionicons
+                                                    name="videocam"
+                                                    size={28}
+                                                    color={palette.onPrimary}
+                                                />
+                                            </View>
                                         ) : (
-                                            <Ionicons
-                                                name="camera"
-                                                size={28}
-                                                color={palette.accent}
-                                                style={styles.mediaIcon}
-                                            />
+                                            <Image source={{ uri: item.uri }} style={styles.photoThumbnail} />
                                         )}
                                         <Text style={styles.mediaLabel}>
                                             {item.type === 'video' ? 'Video' : 'Photo'} {index + 1}
                                         </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                 </View>
                             ))}
                         </View>
@@ -251,6 +313,44 @@ const TakeMediaPageContent = ({ navigation, route }) => {
                 onConfirm={handleConfirmFinish}
                 onCancel={handleCancelFinish}
             />
+            <UniversalModal
+                visible={removeModalVisible}
+                title="Remove file?"
+                description="This will delete the selected photo or video from this visit."
+                confirmText="Remove"
+                cancelText="Keep"
+                onConfirm={handleConfirmRemoveMedia}
+                onCancel={handleCancelRemoveMedia}
+            />
+
+            <Modal visible={previewItem !== null} transparent animationType="fade">
+                <View style={styles.previewBackdrop}>
+                    <View style={[styles.previewContent, { backgroundColor: palette.card }]}>
+                        {previewItem?.type === 'video' ? (
+                            <Video
+                                source={{ uri: previewItem.uri }}
+                                style={styles.previewVideo}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                            />
+                        ) : (
+                            <Image
+                                source={{ uri: previewItem?.uri }}
+                                style={styles.previewImage}
+                                resizeMode="contain"
+                            />
+                        )}
+
+                        <TouchableOpacity
+                            style={[styles.previewCloseButton, { backgroundColor: palette.primary }]}
+                            onPress={handleClosePreview}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={[styles.previewCloseText, { color: palette.onPrimary }]}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -351,7 +451,8 @@ const createStyles = (palette) =>
         mediaTileContent: {
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 6,
+            gap: 10,
+            width: '100%',
         },
         mediaIcon: {
             marginBottom: 6,
@@ -361,6 +462,20 @@ const createStyles = (palette) =>
             fontWeight: '600',
             color: palette.textSecondary,
             textTransform: 'uppercase',
+        },
+        photoThumbnail: {
+            width: '100%',
+            aspectRatio: 1,
+            borderRadius: 12,
+            backgroundColor: palette.background,
+        },
+        videoThumbnail: {
+            width: '100%',
+            aspectRatio: 1,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: palette.primary,
         },
         removeMediaButton: {
             position: 'absolute',
@@ -422,6 +537,41 @@ const createStyles = (palette) =>
             fontSize: Fonts.f16,
             fontWeight: '600',
             letterSpacing: 0.5,
+        },
+        previewBackdrop: {
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+        },
+        previewContent: {
+            width: '100%',
+            borderRadius: 16,
+            padding: 16,
+            alignItems: 'center',
+            gap: 16,
+        },
+        previewImage: {
+            width: '100%',
+            height: 280,
+            borderRadius: 12,
+        },
+        previewVideo: {
+            width: '100%',
+            height: 280,
+            borderRadius: 12,
+        },
+        previewCloseButton: {
+            minWidth: 120,
+            height: 48,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        previewCloseText: {
+            fontSize: Fonts.f16,
+            fontWeight: '600',
         },
     });
 
