@@ -36,6 +36,15 @@ export default function MyOrdersScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const wsRef = useRef(null);
   const [filter, setFilter] = useState("active");
+  // const { order: initialOrder, orderId } = route.params;
+  // const [order, setOrder] = useState(initialOrder);
+  const [previewIndex, setPreviewIndex] = useState(null);
+  const [phone, setPhone] = useState(null);
+  const [customerName, setCustomerName] = useState(null);
+  const [reserved, setReserved] = useState(false);
+  const [reservedUntil, setReservedUntil] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [actionHeight, setActionHeight] = useState(0);
 
   async function load() {
     try {
@@ -181,6 +190,31 @@ export default function MyOrdersScreen({ navigation }) {
     }
   }
 
+  //  async function cancelReserve() {
+  //   try {
+  //     await apiFetch(`/orders/${order.id}/cancel-reserve`, {
+  //       method: "POST",
+  //       headers: { Authorization: `Bearer ${token}` },
+  //     });
+  //     setReserved(false);
+  //     setPhone(null);
+  //     setCustomerName(null);
+  //     setReservedUntil(null);
+  //     setTimeLeft(null);
+  //     try {
+  //       const stored = await AsyncStorage.getItem("reservedPhones");
+  //       const map = stored ? JSON.parse(stored) : {};
+  //       if (map[order.id]) {
+  //         delete map[order.id];
+  //         await AsyncStorage.setItem("reservedPhones", JSON.stringify(map));
+  //       }
+  //     } catch {}
+  //     navigation.goBack();
+  //   } catch (err) {
+  //     console.log(err);
+  //   }
+  // }
+
   function renderItem({ item }) {
     const pickupCity =
       item.pickupCity ||
@@ -288,6 +322,19 @@ export default function MyOrdersScreen({ navigation }) {
               {statusLabels[item.status] || item.status}
             </Text>
           </Text>
+          {// як у OrderDetailScreen: для Клієнта показуємо, коли замовлення створене і є резерв
+          ((
+            item.status === "CREATED" &&
+            item.reservedBy) ||
+            // для Водія — коли резерв активний, немає driverId і це в роботі
+            (role === "DRIVER" && reserved && !item.driverId)) && (
+            <AppButton
+              key="cancel"
+              title="Відмінити резерв"
+              onPress={() => cancelReserve(item.id)}
+              variant="danger"
+            />
+          )}
 
           {role === "CUSTOMER" && item.status === "PENDING" && (
             <View style={styles.actionRow}>
