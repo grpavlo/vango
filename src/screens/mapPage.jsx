@@ -1,15 +1,17 @@
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
-import BottomNavigationMenu from "../components/BottomNavigationMenu";
-import {Colors, Fonts} from "../utils/tokens";
-import {useEffect, useState} from "react";
-import GoogleMapComponent from "../components/GoogleMapComponent";
+import {useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
-import UniversalModal from "../components/UniversalModal";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
+
+import BottomNavigationMenu from "../components/BottomNavigationMenu";
+import GoogleMapComponent from "../components/GoogleMapComponent";
+import UniversalModal from "../components/UniversalModal";
+import {Colors, Fonts} from "../utils/tokens";
 import {handleCallPress} from "../function/handleCallPress";
 import {serverUrlApi} from "../const/api";
 import {useInfoCheckpoint} from "../store/infoCheckpoint";
+import {convertMetersToMiles} from "../function/convertMetersToMiles";
 
 const GOOGLE_API_KEY = 'AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs'; // замініть на ваш дійсний ключ
 
@@ -30,12 +32,109 @@ export default function MapPage({navigation}) {
     const [navigator, setNavigator] = useState(false);
     const [idRoute, setIdRoute] = useState(null);
     const [arrivalTime, setArrivalTime] = useState(null);
+    const [isLoadingRoute, setIsLoadingRoute] = useState(true);
 
     // ID of the checkpoint user selected for start visit
     const [idCheckpoint, setIdCheckpoint] = useState(null);
     const [checkpointData, setCheckpointData] = useState(null);
+    const [routeSummary, setRouteSummary] = useState({
+        statusLabel: "",
+        scheduleLabel: "",
+        stopsLabel: "",
+        distanceLabel: "",
+        completedStops: 0,
+        totalStops: 0,
+    });
 
     const {setData} = useInfoCheckpoint();
+
+
+    const formatDurationLabel = (durationInSeconds) => {
+        if (durationInSeconds === null || durationInSeconds === undefined) {
+            return "";
+        }
+
+        const totalSeconds = Number(durationInSeconds);
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+            return "";
+        }
+
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+        const parts = [];
+        if (hours > 0) {
+            parts.push(`${hours}h`);
+        }
+        if (minutes > 0) {
+            parts.push(`${minutes}m`);
+        }
+
+        return parts.length > 0 ? parts.join(" ") : "";
+    };
+
+    const formatRouteStartTime = (startDateString) => {
+        if (!startDateString) {
+            return "";
+        }
+
+        const date = new Date(startDateString);
+        if (Number.isNaN(date.getTime())) {
+            return "";
+        }
+
+        return date.toLocaleString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        });
+    };
+
+    const buildScheduleLabel = (startLabel, durationLabel) => {
+        if (!startLabel && !durationLabel) {
+            return "";
+        }
+
+        if (startLabel && durationLabel) {
+            return `${startLabel} · ${durationLabel}`;
+        }
+
+        return startLabel || durationLabel || "";
+    };
+
+    const statusPalette = useMemo(() => {
+        if (routeSummary.statusLabel === "In Progress") {
+            return {
+                backgroundColor: "#E5F7ED",
+                textColor: "#1EAD64",
+            };
+        }
+
+        if (routeSummary.statusLabel === "Completed") {
+            return {
+                backgroundColor: "#E8EAF6",
+                textColor: Colors.mainBlue,
+            };
+        }
+
+        return {
+            backgroundColor: Colors.mainBlue + '20',
+            textColor: Colors.mainBlue,
+        };
+    }, [routeSummary.statusLabel]);
+
+    const checkpointProgressLabel = useMemo(() => {
+        if (!selectedCheckpoint || !routeSummary.totalStops) {
+            return "--";
+        }
+
+        const idx = waypoints.findIndex((point) => point?.id === selectedCheckpoint.id);
+        if (idx === -1) {
+            return "--";
+        }
+
+        return `${idx + 1}/${routeSummary.totalStops}`;
+    }, [selectedCheckpoint, routeSummary.totalStops, waypoints]);
 
 
     // Функція форматування годин
@@ -59,6 +158,7 @@ export default function MapPage({navigation}) {
 
     useEffect(() => {
         const fetchRoute = async () => {
+            setIsLoadingRoute(true);
             try {
                 const idRouteStorage = await SecureStore.getItemAsync('idRoute');
 
@@ -96,6 +196,13 @@ export default function MapPage({navigation}) {
                         let completedVisits = data.completedVisits || [];
                         let visits = data.visits || [];
 
+                        const estimatedDurationLabel = formatDurationLabel(data.estimatedDuration);
+                        const startTimeLabel = data.startDate ? formatRouteStartTime(data.startDate) : "";
+                        const scheduleLabel = buildScheduleLabel(startTimeLabel, estimatedDurationLabel);
+                        const distanceLabel = data.estimatedDistance
+                            ? `${convertMetersToMiles(data.estimatedDistance)} mi`
+                            : "";
+
                         // Шукаємо точку з isDefaultUnload
                         let foundUnload = visits.find((v) => v.isDefaultUnload);
                         if (!foundUnload) {
@@ -110,7 +217,6 @@ export default function MapPage({navigation}) {
                         }
 
                         // Формуємо усі решта точок
-                        const allWaypoints = [];
                         const handleMakePoint = (visit, color) => {
                             const hours = formatHours(visit.startTime, visit.endTime);
                             return {
@@ -125,18 +231,30 @@ export default function MapPage({navigation}) {
                                 name: visit.checkpointName,
                                 type: visit.dropOff ? 'unloading' : 'loading',
                                 flagColor: color,
-                                stat: visit.priority ? 'STAT' : null
+                                stat: visit.priority ? 'STAT' : null,
+                                hours,
                             };
                         };
 
-                        completedVisits.forEach((visit) => {
-                            allWaypoints.push(handleMakePoint(visit, 'blue'));
-                        });
-                        visits.forEach((visit) => {
-                            allWaypoints.push(handleMakePoint(visit, 'red'));
+                        const completedPoints = completedVisits.map((visit) => handleMakePoint(visit, 'blue'));
+                        const upcomingPoints = visits.map((visit) => handleMakePoint(visit, 'red'));
+
+                        const totalStops = completedPoints.length + upcomingPoints.length;
+                        const statusLabel = data.started ? (data.finished ? "Completed" : "In Progress") : "Scheduled";
+
+                        setRouteSummary({
+                            statusLabel,
+                            scheduleLabel,
+                            stopsLabel: totalStops ? `${completedPoints.length}/${totalStops} stops` : "",
+                            distanceLabel,
+                            completedStops: completedPoints.length,
+                            totalStops,
                         });
 
+                        const allWaypoints = [...completedPoints, ...upcomingPoints];
                         setWaypoints(allWaypoints);
+                        const defaultCheckpoint = upcomingPoints[0] || completedPoints[completedPoints.length - 1] || null;
+                        setSelectedCheckpoint(defaultCheckpoint);
 
                         // Якщо немає взагалі точок після фільтрації
                         if (visits.length === 0) {
@@ -199,6 +317,8 @@ export default function MapPage({navigation}) {
                 }
             } catch (error) {
                 console.error(error);
+            } finally {
+                setIsLoadingRoute(false);
             }
         };
         fetchRoute();
@@ -270,6 +390,11 @@ export default function MapPage({navigation}) {
         });
     };
 
+    const handleStopsPress = () => {
+        if (!idRoute) return;
+        navigation.navigate('RouteCheckpointsPageSelect', {idRoute: Number(idRoute)});
+    };
+
     // Натискання на маркер (звичайні точки)
     const handleMarkerPress = (waypoint) => {
         setSelectedCheckpoint(waypoint);
@@ -294,129 +419,204 @@ export default function MapPage({navigation}) {
         setKey(Math.random().toString());
     }, []);
 
+    const hasPhone = Boolean(selectedCheckpoint?.phone);
+
     return (
-        <View style={{flex: 1}}>
-            <View style={styles.container}>
-                <View style={styles.mapContainer}>
-                    {(key && origin) && (
-                        <GoogleMapComponent
-                            origin={origin}
-                            waypoints={waypoints}
-                            encodedRoute={encodedRoute}
-                            onMapReady={() => console.log('Map is ready')}
-                            onMarkerPress={handleMarkerPress}
-                            navigator={navigator}
-                            unloadPoint={unloadPoint}
-                            key={key}
-                        />
-                    )}
+        <View style={styles.screen}>
+            <View style={styles.mapWrapper}>
+                {(key && origin) ? (
+                    <GoogleMapComponent
+                        key={key}
+                        keyMap={key}
+                        origin={origin}
+                        waypoints={waypoints}
+                        encodedRoute={encodedRoute}
+                        onMapReady={() => console.log('Map is ready')}
+                        onMarkerPress={handleMarkerPress}
+                        navigator={navigator}
+                        unloadPoint={unloadPoint}
+                    />
+                ) : null}
+
+                <View style={styles.topOverlay}>
+                    <View style={styles.headerCard}>
+                        <View style={styles.headerRow}>
+                            {routeSummary.statusLabel ? (
+                                <View style={[styles.statusChip, {backgroundColor: statusPalette.backgroundColor}]}> 
+                                    <Text style={[styles.statusChipText, {color: statusPalette.textColor}]}> 
+                                        {routeSummary.statusLabel}
+                                    </Text>
+                                </View>
+                            ) : null}
+                            <TouchableOpacity
+                                style={[styles.stopsButton, !idRoute && styles.stopsButtonDisabled]}
+                                onPress={handleStopsPress}
+                                disabled={!idRoute}
+                            >
+                                <Ionicons name="list" size={16} color={Colors.mainBlue} style={styles.stopsButtonIcon} />
+                                <Text style={styles.stopsButtonText}>Stops</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.routeTitle} numberOfLines={1}>{routeName || 'Route overview'}</Text>
+                        <View style={styles.routeMetaRow}>
+                            {routeSummary.scheduleLabel ? (
+                                <Text style={styles.routeMetaText}>{routeSummary.scheduleLabel}</Text>
+                            ) : null}
+                            {routeSummary.scheduleLabel && (routeSummary.stopsLabel || routeSummary.distanceLabel) ? (
+                                <View style={styles.routeMetaDivider} />
+                            ) : null}
+                            {routeSummary.stopsLabel ? (
+                                <Text style={styles.routeMetaText}>{routeSummary.stopsLabel}</Text>
+                            ) : null}
+                            {routeSummary.stopsLabel && routeSummary.distanceLabel ? (
+                                <View style={styles.routeMetaDivider} />
+                            ) : null}
+                            {routeSummary.distanceLabel ? (
+                                <Text style={styles.routeMetaText}>{routeSummary.distanceLabel}</Text>
+                            ) : null}
+                        </View>
+                    </View>
                 </View>
 
-                {/* Якщо маємо unloadPoint, виводимо кнопку Default Point */}
                 {unloadPoint && (
-                    <TouchableOpacity
-                        style={styles.unloadButton}
-                        onPress={handleUnloadPointPress}
-                    >
-                        <Text style={styles.unloadButtonText}>Default Point</Text>
+                    <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>
+                        <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={Colors.mainRed} style={styles.unloadFloatingIcon} />
+                        <Text style={styles.unloadFloatingText}>Default point</Text>
                     </TouchableOpacity>
                 )}
 
-                <View style={styles.bottomContainer}>
-                    <ScrollView contentContainerStyle={styles.bottomContent} showsVerticalScrollIndicator={false}>
-                        {errorMessage ? (
-                            <Text style={styles.errorText}>{errorMessage}</Text>
-                        ) : (!selectedCheckpoint ? (
-                            <Text style={styles.clickPointText}>Click on the point</Text>
+                <View style={styles.bottomOverlay}>
+                    <View style={styles.bottomSheet}>
+                        {isLoadingRoute ? (
+                            <View style={styles.centerContent}>
+                                <Text style={styles.mutedText}>Loading route details...</Text>
+                            </View>
+                        ) : errorMessage ? (
+                            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                                <Text style={styles.errorText}>{errorMessage}</Text>
+                            </ScrollView>
+                        ) : !selectedCheckpoint ? (
+                            <View style={styles.centerContent}>
+                                <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
+                            </View>
                         ) : (
-                            <>
-                                <Text style={styles.locationTitle}>
-                                    {selectedCheckpoint.checkpointName || 'Checkpoint'}
-                                </Text>
-                                <View style={styles.topActionsRow}>
-                                    <View style={styles.recenterButton} />
-                                    <View style={styles.rightButtons}>
-                                        <TouchableOpacity style={styles.goButton} onPress={handleGo}>
-                                            <Ionicons name="navigate" size={20} color={Colors.white} style={{marginRight: 5}}/>
-                                            <Text style={styles.goButtonText}>{"Go"}</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.startVisitButton} onPress={handleStartVisit}>
-                                            <Text style={styles.startVisitButtonText}>Start Visit</Text>
-                                        </TouchableOpacity>
+                            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                                <View style={styles.sheetHeader}>
+                                    <View style={styles.sheetHeaderBadges}>
+                                        <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
+                                        {selectedCheckpoint.stat ? (
+                                            <View style={styles.statChip}>
+                                                <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    <Text style={styles.checkpointTitle} numberOfLines={2}>
+                                        {selectedCheckpoint.checkpointName || 'Checkpoint'}
+                                    </Text>
+                                    {selectedCheckpoint.address ? (
+                                        <Text style={styles.checkpointAddress} numberOfLines={2}>
+                                            {selectedCheckpoint.address}
+                                        </Text>
+                                    ) : null}
+                                </View>
+
+                                <View style={styles.infoRowGroup}>
+                                    <View style={[styles.infoItemWide, styles.infoItemWideSpacer]}>
+                                        <MaterialCommunityIcons
+                                            name="clock-time-five-outline"
+                                            size={20}
+                                            color={Colors.mainBlue}
+                                            style={styles.infoIcon}
+                                        />
+                                        <View>
+                                            <Text style={styles.infoLabel}>Arrival time</Text>
+                                            <Text style={styles.infoValue}>{arrivalTime || '---'}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.infoItemWide, styles.infoItemWideLast]}>
+                                        <MaterialCommunityIcons
+                                            name="calendar-clock"
+                                            size={20}
+                                            color={Colors.mainBlue}
+                                            style={styles.infoIcon}
+                                        />
+                                        <View>
+                                            <Text style={styles.infoLabel}>Hours</Text>
+                                            <Text style={styles.infoValue}>{selectedCheckpoint.hours || '---'}</Text>
+                                        </View>
                                     </View>
                                 </View>
 
-                                <View style={styles.actionButtonsRow}>
+                                <View style={styles.infoRowGroup}>
+                                    <View style={[styles.infoItemWide, styles.infoItemWideSpacer]}>
+                                        <MaterialCommunityIcons
+                                            name="map-marker-outline"
+                                            size={20}
+                                            color={Colors.mainBlue}
+                                            style={styles.infoIcon}
+                                        />
+                                        <View>
+                                            <Text style={styles.infoLabel}>Stop number</Text>
+                                            <Text style={styles.infoValue}>{checkpointProgressLabel}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.infoItemWide, styles.infoItemWideLast]}>
+                                        <MaterialCommunityIcons
+                                            name="phone-outline"
+                                            size={20}
+                                            color={Colors.mainBlue}
+                                            style={styles.infoIcon}
+                                        />
+                                        <View>
+                                            <Text style={styles.infoLabel}>Contact</Text>
+                                            <Text style={styles.infoValue}>{selectedCheckpoint.phone || '---'}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                <View style={styles.primaryActionsRow}>
+                                    <TouchableOpacity style={styles.primaryActionButton} onPress={handleGo}>
+                                        <Ionicons name="navigate" size={20} color={Colors.white} style={styles.primaryActionIcon} />
+                                        <Text style={styles.primaryActionText}>Navigate</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
+                                        <Text style={styles.secondaryActionText}>Start Visit</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.quickActionsRow}>
                                     <TouchableOpacity
-                                        style={styles.actionButton}
+                                        style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
                                         onPress={() => {
                                             navigation.navigate('EntryInstructionsPage', {
                                                 menu: true,
                                                 data: selectedCheckpoint,
-                                                routeName
+                                                routeName,
                                             });
                                         }}
                                     >
-                                        <Text style={styles.actionButtonText}>Visit info</Text>
+                                        <Ionicons name="information-circle-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                        <Text style={styles.quickActionText}>Visit info</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={styles.actionButton}
-                                        onPress={() => {
-                                            navigation.navigate('ChatComponent', {menu: true});
-                                        }}
+                                        style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
+                                        onPress={() => navigation.navigate('ChatComponent', {menu: true})}
                                     >
-                                        <Text style={styles.actionButtonText}>Write to disp</Text>
+                                        <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                        <Text style={styles.quickActionText}>Write to disp</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={styles.actionButton}
-                                        onPress={() => { handleCallPress(selectedCheckpoint.phone) }}
+                                        style={[styles.quickActionButton, !hasPhone && styles.quickActionButtonDisabled]}
+                                        onPress={() => hasPhone && handleCallPress(selectedCheckpoint.phone)}
+                                        disabled={!hasPhone}
                                     >
-                                        <Ionicons name="call" size={16} color={Colors.blackText} style={{marginRight: 5}}/>
-                                        <Text style={styles.actionButtonText}>Call to customer</Text>
+                                        <Ionicons name="call" size={18} color={Colors.mainBlue} style={styles.quickActionIcon} />
+                                        <Text style={styles.quickActionText}>Call customer</Text>
                                     </TouchableOpacity>
                                 </View>
-
-                                <View style={styles.infoCard}>
-                                    <View style={styles.infoRow}>
-                                        <MaterialCommunityIcons
-                                            name="map-marker-outline"
-                                            size={20}
-                                            color={Colors.mainRed}
-                                            style={{marginRight: 8}}
-                                        />
-                                        <View>
-                                            <View style={styles.iconLabel}>
-                                                <Text style={styles.infoLabel}>Checkpoint Address</Text>
-                                            </View>
-                                            <Text style={styles.infoValue}>
-                                                {selectedCheckpoint.address || '---'}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <MaterialCommunityIcons
-                                            name="clock-time-five-outline"
-                                            size={20}
-                                            color={Colors.mainRed}
-                                            style={{marginRight: 8}}
-                                        />
-                                        <View style={styles.infoRowNext}>
-                                            <View style={styles.infoColumnNext}>
-                                                <Text style={styles.infoLabel}>Arrival time</Text>
-                                                <Text style={styles.infoValue}>{arrivalTime || '---'}</Text>
-                                            </View>
-                                            <View style={styles.infoColumnNext}>
-                                                <Text style={styles.infoLabel}>Hours</Text>
-                                                <Text style={styles.infoValue}>
-                                                    {selectedCheckpoint.hours || '---'}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </View>
-                            </>
-                        ))}
-                    </ScrollView>
+                            </ScrollView>
+                        )}
+                    </View>
                 </View>
             </View>
 
@@ -436,154 +636,296 @@ export default function MapPage({navigation}) {
 }
 
 const styles = StyleSheet.create({
-    container: {
+    screen: {
         flex: 1,
         backgroundColor: Colors.white,
     },
-    mapContainer: {
+    mapWrapper: {
         flex: 1,
-    },
-    bottomContainer: {
+        position: 'relative',
         backgroundColor: Colors.white,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        overflow: 'hidden',
-        height: 250
     },
-    bottomContent: {
-        padding: 20,
+    topOverlay: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        right: 16,
     },
-    locationTitle: {
-        fontSize: Fonts.f16,
-        color: Colors.mainBlue,
-        fontWeight: 'bold',
-        marginBottom: 10,
+    headerCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 18,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 4},
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: Colors.lightGray,
     },
-    topActionsRow: {
+    headerRow: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 8,
     },
-    recenterButton: {
-        backgroundColor: Colors.white,
-        paddingVertical: 8,
-        paddingHorizontal: 15,
+    statusChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
         borderRadius: 20,
-        alignSelf: 'flex-start',
     },
-    rightButtons: {
+    statusChipText: {
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+    },
+    stopsButton: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    goButton: {
-        backgroundColor: Colors.mainBlue,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 25,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        marginRight: 10,
-    },
-    goButtonText: {
-        color: Colors.white,
-        fontSize: Fonts.f14,
-        fontWeight: 'bold',
-    },
-    startVisitButton: {
         backgroundColor: Colors.white,
-        borderRadius: 25,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: Colors.mainBlue,
     },
-    startVisitButtonText: {
+    stopsButtonDisabled: {
+        borderColor: Colors.lightGray,
+        opacity: 0.6,
+    },
+    stopsButtonIcon: {
+        marginRight: 6,
+    },
+    stopsButtonText: {
         color: Colors.mainBlue,
-        fontSize: Fonts.f14,
-        fontWeight: 'bold',
-    },
-    infoCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 8,
-        padding: 10,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    infoRow: {
-        marginBottom: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconLabel: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    infoLabel: {
         fontSize: Fonts.f12,
         fontWeight: '600',
-        color: Colors.blackText + '60',
     },
-    infoValue: {
-        fontSize: Fonts.f12,
+    routeTitle: {
+        fontSize: Fonts.f18,
+        fontWeight: '700',
         color: Colors.blackText,
+        marginBottom: 6,
+    },
+    routeMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+    },
+    routeMetaText: {
+        fontSize: Fonts.f12,
+        color: Colors.blackText + '99',
+        marginRight: 8,
+        marginBottom: 4,
+    },
+    routeMetaDivider: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: Colors.lightGray,
+        marginRight: 8,
+        marginBottom: 4,
+    },
+    unloadFloatingButton: {
+        position: 'absolute',
+        top: 120,
+        right: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.white,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 2},
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: Colors.lightGray,
+    },
+    unloadFloatingIcon: {
+        marginRight: 6,
+    },
+    unloadFloatingText: {
+        color: Colors.mainRed,
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+    },
+    bottomOverlay: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    bottomSheet: {
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingBottom: 20,
+        maxHeight: 360,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: -2},
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 12,
+    },
+    sheetScrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 12,
+    },
+    centerContent: {
+        paddingVertical: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    mutedText: {
+        fontSize: Fonts.f14,
+        color: Colors.blackText + '60',
+        textAlign: 'center',
     },
     errorText: {
         fontSize: Fonts.f14,
         color: Colors.mainRed,
         textAlign: 'center',
     },
-    clickPointText: {
-        fontSize: Fonts.f14,
-        color: Colors.blackText,
-        textAlign: 'center',
+    sheetHeader: {
+        marginBottom: 16,
     },
-    infoRowNext: {
-        marginBottom: 10,
+    sheetHeaderBadges: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '90%',
-    },
-    infoColumnNext: {
-        marginBottom: 10,
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        marginRight: 5,
-    },
-    actionButtonsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
         marginBottom: 10,
     },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.mainBlue + '20',
-        paddingVertical: 20,
+    checkpointTypeLabel: {
+        backgroundColor: Colors.mainBlue + '15',
+        color: Colors.mainBlue,
         paddingHorizontal: 10,
-        borderRadius: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginRight: 8,
     },
-    actionButtonText: {
-        color: Colors.blackText,
-        fontSize: Fonts.f14,
-        fontWeight: '500',
+    statChip: {
+        backgroundColor: '#FEE2E2',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
     },
-    unloadButton: {
-        backgroundColor: Colors.mainRed + '20',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 20,
-        alignSelf: 'center',
-        marginTop: 10,
-    },
-    unloadButtonText: {
+    statChipText: {
         color: Colors.mainRed,
+        fontSize: Fonts.f12,
+        fontWeight: '700',
+    },
+    checkpointTitle: {
+        fontSize: Fonts.f18,
+        fontWeight: '700',
+        color: Colors.blackText,
+        marginBottom: 6,
+    },
+    checkpointAddress: {
         fontSize: Fonts.f14,
-        fontWeight: 'bold',
+        color: Colors.blackText + '80',
+    },
+    infoRowGroup: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 14,
+    },
+    infoItemWide: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.mainBlue + '08',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderRadius: 14,
+    },
+    infoItemWideSpacer: {
+        marginRight: 12,
+    },
+    infoItemWideLast: {
+        marginRight: 0,
+    },
+    infoIcon: {
+        marginRight: 10,
+    },
+    infoLabel: {
+        fontSize: Fonts.f12,
+        color: Colors.blackText + '60',
+        marginBottom: 2,
+    },
+    infoValue: {
+        fontSize: Fonts.f14,
+        color: Colors.blackText,
+        fontWeight: '600',
+    },
+    primaryActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    primaryActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.mainBlue,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        flex: 1,
+        marginRight: 12,
+    },
+    primaryActionIcon: {
+        marginRight: 8,
+    },
+    primaryActionText: {
+        color: Colors.white,
+        fontSize: Fonts.f14,
+        fontWeight: '700',
+    },
+    secondaryActionButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: Colors.mainBlue,
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryActionText: {
+        color: Colors.mainBlue,
+        fontSize: Fonts.f14,
+        fontWeight: '700',
+    },
+    quickActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    quickActionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.mainBlue + '0F',
+        paddingVertical: 12,
+        borderRadius: 16,
+    },
+    quickActionButtonSpacer: {
+        marginRight: 12,
+    },
+    quickActionButtonDisabled: {
+        opacity: 0.5,
+    },
+    quickActionIcon: {
+        marginRight: 6,
+    },
+    quickActionText: {
+        color: Colors.mainBlue,
+        fontSize: Fonts.f12,
+        fontWeight: '600',
     },
 });

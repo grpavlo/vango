@@ -400,6 +400,22 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
     const { setData: setCheckpointData } = useInfoCheckpoint();
 
     useEffect(() => {
+        const persistRouteId = async () => {
+            try {
+                if (idRoute) {
+                    await SecureStore.setItemAsync('idRoute', String(idRoute));
+                } else {
+                    await SecureStore.deleteItemAsync('idRoute');
+                }
+            } catch (error) {
+                console.log('Failed to persist route id', error);
+            }
+        };
+
+        persistRouteId();
+    }, [idRoute]);
+
+    useEffect(() => {
         const fetchRoute = async () => {
             setLoading(true);
             setErrorMessage('');
