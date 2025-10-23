@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import { Fonts } from '../utils/tokens';
@@ -28,6 +28,8 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     const styles = useMemo(() => createArrivalStyles(palette), [palette]);
     const { data } = useInfoCheckpoint();
     const [isProcessing, setIsProcessing] = useState(false);
+    const [officeCheckVisible, setOfficeCheckVisible] = useState(false);
+    const [samplesModalVisible, setSamplesModalVisible] = useState(false);
 
     const derivedLastFlag = data?.last ?? last ?? false;
     const dispatchPhone =
@@ -160,6 +162,15 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         officePhone,
     ]);
 
+    const openOfficeCheck = useCallback(() => {
+        setOfficeCheckVisible(true);
+    }, []);
+
+    const closeModals = useCallback(() => {
+        setOfficeCheckVisible(false);
+        setSamplesModalVisible(false);
+    }, []);
+
     const handleEmptyBox = useCallback(() => {
         if (isProcessing) {
             return;
@@ -170,34 +181,96 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             return;
         }
 
-        navigation.navigate('WorkOnVisitPage', {
-            idCheckpoint,
-            idRoute,
-            routeName,
-            initialAction: 'emptyBox',
-        });
+        openOfficeCheck();
     }, [
-        idCheckpoint,
-        idRoute,
-        isDropOff,
         isProcessing,
-        navigateToConfirmUpload,
-        navigation,
-        routeName,
+        isDropOff,
         runAction,
-        dispatchPhone,
-        officePhone,
+        navigateToConfirmUpload,
+        openOfficeCheck,
     ]);
 
     const handleUnableToFind = useCallback(() => {
         if (isProcessing) {
             return;
         }
-        Alert.alert(
-            'Unable to find the box',
-            'Please contact your dispatcher or add a note to the visit.',
-        );
-    }, [isProcessing]);
+
+        if (isDropOff) {
+            runAction(navigateToConfirmUpload);
+            return;
+        }
+
+        openOfficeCheck();
+    }, [
+        isProcessing,
+        isDropOff,
+        runAction,
+        navigateToConfirmUpload,
+        openOfficeCheck,
+    ]);
+
+    const handleOfficeOpen = useCallback(() => {
+        setOfficeCheckVisible(false);
+        setSamplesModalVisible(true);
+    }, []);
+
+    const navigateToClosedOffice = useCallback(() => {
+        closeModals();
+        navigation.navigate('ClosedOfficeFormPage', {
+            idRoute,
+            idCheckpoint,
+            routeName,
+            dispatchPhone,
+            officePhone,
+        });
+    }, [
+        closeModals,
+        navigation,
+        idRoute,
+        idCheckpoint,
+        routeName,
+        dispatchPhone,
+        officePhone,
+    ]);
+
+    const handleSamplesYes = useCallback(() => {
+        closeModals();
+        navigation.navigate('CheckpointViewPage', {
+            idCheckpoint,
+            idRoute,
+            routeName,
+            showPickUp: true,
+            dispatchPhone,
+            officePhone,
+        });
+    }, [
+        closeModals,
+        navigation,
+        idCheckpoint,
+        idRoute,
+        routeName,
+        dispatchPhone,
+        officePhone,
+    ]);
+
+    const handleSamplesNo = useCallback(() => {
+        closeModals();
+        navigation.navigate('NoSamplesFormPage', {
+            idRoute,
+            idCheckpoint,
+            routeName,
+            dispatchPhone,
+            officePhone,
+        });
+    }, [
+        closeModals,
+        navigation,
+        idRoute,
+        idCheckpoint,
+        routeName,
+        dispatchPhone,
+        officePhone,
+    ]);
 
     const handleOtherIssues = useCallback(() => {
         if (isProcessing) {
@@ -303,6 +376,30 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             </ScrollView>
 
             <BottomNavigationMenu navigation={navigation} activeTab="Route" />
+
+            <DecisionModal
+                visible={officeCheckVisible}
+                title="CHECK IF THE OFFICE IS OPEN"
+                primaryLabel="OPEN"
+                secondaryLabel="CLOSED"
+                onPrimaryPress={handleOfficeOpen}
+                onSecondaryPress={navigateToClosedOffice}
+                onRequestClose={closeModals}
+                styles={styles}
+                palette={palette}
+            />
+
+            <DecisionModal
+                visible={samplesModalVisible}
+                title="DO THEY HAVE ANY SAMPLES?"
+                primaryLabel="YES"
+                secondaryLabel="NO"
+                onPrimaryPress={handleSamplesYes}
+                onSecondaryPress={handleSamplesNo}
+                onRequestClose={closeModals}
+                styles={styles}
+                palette={palette}
+            />
         </View>
     );
 };
@@ -336,6 +433,58 @@ const SecondaryActionButton = ({ label, icon, onPress, disabled, style, styles, 
     </TouchableOpacity>
 );
 
+const DecisionModal = ({
+    visible,
+    title,
+    primaryLabel,
+    secondaryLabel,
+    onPrimaryPress,
+    onSecondaryPress,
+    onRequestClose,
+    styles,
+    palette,
+}) => (
+    <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onRequestClose}
+    >
+        <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>{title}</Text>
+                <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                        style={[styles.modalButton, { backgroundColor: palette.primary }]}
+                        onPress={onPrimaryPress}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[styles.modalButtonText, { color: palette.onPrimary }]}>
+                            {primaryLabel}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.modalButton, { backgroundColor: palette.surfaceMuted }]}
+                        onPress={onSecondaryPress}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[styles.modalButtonText, { color: palette.textPrimary }]}>
+                            {secondaryLabel}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                    onPress={onRequestClose}
+                    style={styles.modalCancel}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.modalCancelLabel}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    </Modal>
+);
+
 const createArrivalColors = (tokens) => ({
     background: tokens.background,
     surface: tokens.cardBackground,
@@ -344,6 +493,8 @@ const createArrivalColors = (tokens) => ({
     textPrimary: tokens.textPrimary,
     textSecondary: tokens.textSecondary,
     onPrimary: tokens.primaryForeground || '#FFFFFF',
+    primary: tokens.primary || BUTTON_GREEN,
+    destructive: tokens.destructive || BUTTON_RED,
 });
 
 const createArrivalStyles = (palette) =>
@@ -416,6 +567,55 @@ const createArrivalStyles = (palette) =>
         },
         secondaryButtonSpacing: {
             marginBottom: 16,
+        },
+        modalBackdrop: {
+            flex: 1,
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+        },
+        modalCard: {
+            width: '100%',
+            borderRadius: 16,
+            backgroundColor: palette.surface,
+            paddingHorizontal: 24,
+            paddingVertical: 28,
+            shadowColor: palette.textPrimary + '26',
+            shadowOpacity: 0.2,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 12 },
+            elevation: 8,
+        },
+        modalTitle: {
+            fontSize: Fonts.f18,
+            fontWeight: '700',
+            textAlign: 'center',
+            color: palette.textPrimary,
+            marginBottom: 24,
+        },
+        modalButtons: {
+            gap: 12,
+        },
+        modalButton: {
+            height: 52,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        modalButtonText: {
+            fontSize: Fonts.f16,
+            fontWeight: '600',
+            letterSpacing: 0.5,
+        },
+        modalCancel: {
+            marginTop: 20,
+            alignSelf: 'center',
+        },
+        modalCancelLabel: {
+            fontSize: Fonts.f14,
+            fontWeight: '500',
+            color: palette.textSecondary,
         },
     });
 

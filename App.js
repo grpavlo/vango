@@ -28,6 +28,8 @@ import EntryInstructionsPage from './src/screens/EntryInstructionsPage';
 import ChatComponent from './src/screens/ChatComponent';
 import WorkOnVisitPage from './src/screens/WorkOnVisitPage';
 import ConfirmUploadPage from './src/screens/ConfirmUploadPage';
+import ClosedOfficeFormPage from './src/screens/ClosedOfficeFormPage';
+import NoSamplesFormPage from './src/screens/NoSamplesFormPage';
 import MapPage from './src/screens/mapPage';
 import SettingsPage from './src/screens/SettingsPage';
 import ChangePasswordPage from './src/screens/ChangePasswordPage';
@@ -156,6 +158,8 @@ export default function App() {
                             <Stack.Screen name="ChatComponent" component={ChatComponent} />
                             <Stack.Screen name="WorkOnVisitPage" component={WorkOnVisitPage} />
                             <Stack.Screen name="ConfirmUploadPage" component={ConfirmUploadPage} />
+                            <Stack.Screen name="ClosedOfficeFormPage" component={ClosedOfficeFormPage} />
+                            <Stack.Screen name="NoSamplesFormPage" component={NoSamplesFormPage} />
                             <Stack.Screen name="MapPage" component={MapPage} />
                             <Stack.Screen name="SettingsPage" component={SettingsPage} />
                             <Stack.Screen name="ChangePasswordPage" component={ChangePasswordPage} />
