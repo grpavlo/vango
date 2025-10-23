@@ -651,8 +651,8 @@ const MapPageContent = ({navigation}) => {
                 </View>
 
                 {showStopsList && waypoints.length > 0 && (
-                    <View style={styles.stopsListWrapper}>
-                        <View style={styles.stopsListCard}>
+                    <View style={styles.stopsListWrapper} pointerEvents="box-none">
+                        <View style={styles.stopsListCard} pointerEvents="auto">
                             <ScrollView
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={styles.stopsListContent}
@@ -753,22 +753,24 @@ const MapPageContent = ({navigation}) => {
                     </TouchableOpacity>
                 )}
 
-                <View style={styles.bottomOverlay}>
-                    <View style={styles.bottomSheet}>
-                        {isLoadingRoute ? (
-                            <View style={styles.centerContent}>
-                                <Text style={styles.mutedText}>Loading route details...</Text>
-                            </View>
-                        ) : errorMessage ? (
-                            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                                <Text style={styles.errorText}>{errorMessage}</Text>
-                            </ScrollView>
-                        ) : !selectedCheckpoint ? (
-                            <View style={styles.centerContent}>
-                                <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
-                            </View>
-                        ) : (
-                            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.bottomOverlay} pointerEvents="box-none">
+                    <View style={styles.bottomBackdrop} pointerEvents="none" />
+                    <View style={styles.bottomSheetContainer} pointerEvents="box-none">
+                        <View style={styles.bottomSheet} pointerEvents="auto">
+                            {isLoadingRoute ? (
+                                <View style={styles.centerContent}>
+                                    <Text style={styles.mutedText}>Loading route details...</Text>
+                                </View>
+                            ) : errorMessage ? (
+                                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                                    <Text style={styles.errorText}>{errorMessage}</Text>
+                                </ScrollView>
+                            ) : !selectedCheckpoint ? (
+                                <View style={styles.centerContent}>
+                                    <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
+                                </View>
+                            ) : (
+                                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
                                     <View style={styles.sheetHeaderMain}>
                                         <View style={styles.sheetHeaderContent}>
@@ -971,6 +973,7 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         top: spacing.lg,
         left: spacing.lg,
         right: spacing.lg,
+        zIndex: 20,
     },
     headerCard: {
         backgroundColor: palette.cardSurface,
@@ -1084,20 +1087,38 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
+        paddingHorizontal: spacing.lg,
+        paddingBottom: spacing.xxl + spacing.base,
+        paddingTop: spacing.lg,
+        zIndex: 10,
+    },
+    bottomBackdrop: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 220,
+        backgroundColor: withAlpha(palette.background, theme === 'dark' ? 'F2' : 'F0'),
+    },
+    bottomSheetContainer: {
+        position: 'relative',
+        width: '100%',
     },
     bottomSheet: {
-        backgroundColor: palette.overlay,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        paddingBottom: spacing.xl,
-        maxHeight: 380,
+        backgroundColor: palette.cardSurface,
+        borderRadius: radii.xl,
+        paddingTop: spacing.sm,
+        paddingBottom: spacing.md,
+        maxHeight: 400,
         borderWidth: 1,
         borderColor: withAlpha(palette.border, 'C0'),
         shadowColor: palette.cardShadow,
-        shadowOffset: {width: 0, height: -4},
-        shadowOpacity: theme === 'dark' ? 0.25 : 0.15,
-        shadowRadius: 16,
-        elevation: theme === 'dark' ? 20 : 12,
+        shadowOffset: {width: 0, height: 10},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.18,
+        shadowRadius: 24,
+        elevation: theme === 'dark' ? 24 : 14,
+        overflow: 'hidden',
+        width: '100%',
     },
     sheetScrollContent: {
         paddingHorizontal: spacing.lg,
@@ -1347,7 +1368,11 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         fontWeight: '600',
     },
     stopsListWrapper: {
-        marginTop: spacing.sm,
+        position: 'absolute',
+        left: spacing.lg,
+        right: spacing.lg,
+        top: spacing.lg + 120,
+        zIndex: 25,
     },
     stopsListCard: {
         backgroundColor: palette.cardSurface,
@@ -1355,6 +1380,12 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         borderWidth: 1,
         borderColor: palette.border,
         overflow: 'hidden',
+        shadowColor: palette.cardShadow,
+        shadowOffset: {width: 0, height: 8},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.18,
+        shadowRadius: 16,
+        elevation: theme === 'dark' ? 18 : 10,
+        maxHeight: 280,
     },
     stopsListContent: {
         paddingVertical: spacing.xs,
