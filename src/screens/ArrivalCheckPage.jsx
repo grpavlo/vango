@@ -30,6 +30,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [officeCheckVisible, setOfficeCheckVisible] = useState(false);
     const [samplesModalVisible, setSamplesModalVisible] = useState(false);
+    const [otherIssuesModalVisible, setOtherIssuesModalVisible] = useState(false);
 
     const derivedLastFlag = data?.last ?? last ?? false;
     const dispatchPhone =
@@ -272,15 +273,35 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         officePhone,
     ]);
 
+    const closeOtherIssuesModal = useCallback(() => {
+        setOtherIssuesModalVisible(false);
+    }, []);
+
     const handleOtherIssues = useCallback(() => {
         if (isProcessing) {
             return;
         }
-        Alert.alert(
-            'Other issues',
-            'Please reach out to support to report additional issues with this visit.',
-        );
+        setOtherIssuesModalVisible(true);
     }, [isProcessing]);
+
+    const handleOtherIssuesConfirm = useCallback(() => {
+        closeOtherIssuesModal();
+        navigation.navigate('TakeMediaPage', {
+            idCheckpoint,
+            idRoute,
+            routeName,
+            dispatchPhone,
+            officePhone,
+        });
+    }, [
+        closeOtherIssuesModal,
+        navigation,
+        idCheckpoint,
+        idRoute,
+        routeName,
+        dispatchPhone,
+        officePhone,
+    ]);
 
     const handleVisitNotes = useCallback(() => {
         if (isProcessing) {
@@ -400,6 +421,30 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
                 styles={styles}
                 palette={palette}
             />
+
+            <Modal
+                visible={otherIssuesModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeOtherIssuesModal}
+            >
+                <View style={styles.alertBackdrop}>
+                    <View style={styles.alertCard}>
+                        <Text style={styles.alertTitle}>ATTENTION!!!</Text>
+                        <Text style={styles.alertMessage}>
+                            Please describe the situation in detail and take photos of the area and the
+                            building to document the issue.
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.alertButton, { backgroundColor: palette.primary }]}
+                            onPress={handleOtherIssuesConfirm}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={[styles.alertButtonLabel, { color: palette.onPrimary }]}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -616,6 +661,48 @@ const createArrivalStyles = (palette) =>
             fontSize: Fonts.f14,
             fontWeight: '500',
             color: palette.textSecondary,
+        },
+        alertBackdrop: {
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+        },
+        alertCard: {
+            width: '100%',
+            borderRadius: 16,
+            backgroundColor: palette.surface,
+            paddingHorizontal: 24,
+            paddingVertical: 28,
+            alignItems: 'center',
+            gap: 20,
+        },
+        alertTitle: {
+            fontSize: Fonts.f22,
+            fontWeight: '800',
+            color: palette.textPrimary,
+            textTransform: 'uppercase',
+        },
+        alertMessage: {
+            fontSize: Fonts.f16,
+            fontWeight: '500',
+            color: palette.textPrimary,
+            textAlign: 'center',
+            lineHeight: 22,
+        },
+        alertButton: {
+            minWidth: 160,
+            height: 48,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 24,
+        },
+        alertButtonLabel: {
+            fontSize: Fonts.f16,
+            fontWeight: '700',
+            letterSpacing: 0.5,
         },
     });
 
