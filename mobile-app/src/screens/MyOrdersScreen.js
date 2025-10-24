@@ -36,15 +36,7 @@ export default function MyOrdersScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const wsRef = useRef(null);
   const [filter, setFilter] = useState("active");
-  // const { order: initialOrder, orderId } = route.params;
-  // const [order, setOrder] = useState(initialOrder);
-  const [previewIndex, setPreviewIndex] = useState(null);
-  const [phone, setPhone] = useState(null);
-  const [customerName, setCustomerName] = useState(null);
-  const [reserved, setReserved] = useState(false);
-  const [reservedUntil, setReservedUntil] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null);
-  const [actionHeight, setActionHeight] = useState(0);
+
 
   async function load() {
     try {
@@ -233,8 +225,8 @@ export default function MyOrdersScreen({ navigation }) {
     const pending = item.status === "PENDING";
     const candidate =
       item.driver || item.reservedDriver || item.candidateDriver;
-    const candidateTime = item.candidateUntil
-      ? Math.max(0, Math.ceil((new Date(item.candidateUntil) - now) / 60000))
+    const candidateTime = item.candidateUntil || item.reservedUntil
+      ? Math.max(0, Math.ceil((new Date(item.candidateUntil || item.reservedUntil) - now) / 60000))
       : 0;
     return (
       <TouchableOpacity

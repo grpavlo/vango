@@ -228,7 +228,7 @@ async function reserveOrder(req, res) {
       return res.status(400).send("Вже зарезервовано");
     }
     order.reservedBy = req.user.id;
-    order.reservedUntil = new Date(now.getTime() + 10 * 60000);
+    order.reservedUntil = new Date(now.getTime() + 10 * 60000); 
     await order.save();
     broadcastOrder(order);
     if (
@@ -256,33 +256,57 @@ async function reserveOrder(req, res) {
 
 async function cancelReserve(req, res) {
   const orderId = req.params.id;
+
   try {
     const order = await Order.findByPk(orderId);
+
+    // 1️⃣ Перевірка прав доступу
     if (
       !order ||
       (order.reservedBy !== req.user.id && order.customerId !== req.user.id)
     ) {
-      return res.status(400).send("Немає резерву");
+      return res.status(400).send("Немає резерву або немає прав");
     }
+
+    const prevStatus = order.status;
+
+    // 2️⃣ Очистка полів резерву
     order.reservedBy = null;
     order.reservedUntil = null;
     order.candidateDriverId = null;
     order.candidateUntil = null;
-    order.status = "CREATED";
-    order.history = [
-      ...(order.history || []),
-      { status: "CREATED", at: new Date() },
-    ];
+
+    // Якщо водій уже був прив’язаний, знімаємо і його
+    if (order.driverId && order.status === "RESERVED") {
+      order.driverId = null;
+    }
+
+    // 3️⃣ Оновлюємо статус лише якщо він був інший
+    if (prevStatus !== "CREATED") {
+      order.status = "CREATED";
+      order.history = [
+        ...(order.history || []),
+        { status: "CREATED", at: new Date(), note: "Резерв скасовано" },
+      ];
+    }
+
     await order.save();
+
+    // 4️⃣ Завантажуємо оновлений об’єкт з усіма зв’язками
     const updated = await Order.findByPk(orderId, {
-      include: { model: require("../models/user"), as: "customer" },
+      include: [{ model: require("../models/user"), as: "customer" }],
     });
+
+    // 5️⃣ Сповіщаємо фронт про оновлення
     broadcastOrder(updated);
+
     res.json(updated);
   } catch (err) {
+    console.error("❌ cancelReserve error:", err);
     res.status(400).send("Не вдалося зняти резерв");
   }
 }
+
 
 async function acceptOrder(req, res) {
   const orderId = req.params.id;

@@ -340,40 +340,45 @@ export default function CreateOrderScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             {pickupSuggestions.length > 0 && (
-              <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="always"
-                  showsVerticalScrollIndicator
-                  contentContainerStyle={{ flexGrow: 1 }}
-                >
-                  {pickupSuggestions.map((item) => (
-                    <TouchableOpacity
-                      key={item.place_id}
-                      style={styles.suggestionItem}
-                      onPress={async () => {
-                        const det = await fetchPlaceDetails(item.place_id);
-                        const { lat, lng } = det.geometry.location;
-                        const parts = extractParts(det.address_components);
-                        setPickup({
-                          text: det.formatted_address,
-                          lat: Number(lat),
-                          lon: Number(lng),
-                          city: parts.city,
-                          address: parts.address,
-                          country: parts.country,
-                          postcode: parts.postcode,
-                        });
-                        setPickupQuery(det.formatted_address);
-                        setPickupSuggestions([]);
-                      }}
-                    >
-                      <AppText style={styles.suggestionMain}>
-                        {item.description}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={styles.suggestionsDropdown}>
+                <View style={styles.suggestionsBox}>
+                  <ScrollView
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 200 }}
+                  >
+                    {pickupSuggestions.map((item) => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        style={styles.suggestionItem}
+                        onPress={async () => {
+                          const det = await fetchPlaceDetails(item.place_id);
+                          const { lat, lng } = det.geometry.location;
+                          const parts = extractParts(det.address_components);
+                          setPickup({
+                            text: det.formatted_address,
+                            lat: Number(lat),
+                            lon: Number(lng),
+                            city: parts.city,
+                            address: parts.address,
+                            country: parts.country,
+                            postcode: parts.postcode,
+                          });
+                          setPickupQuery(det.formatted_address);
+                          setPickupSuggestions([]);
+                        }}
+                      >
+                        <AppText style={styles.suggestionMain}>
+                          {item.structured_formatting?.main_text ||
+                            item.description}
+                        </AppText>
+                        <AppText style={styles.suggestionSub}>
+                          {item.structured_formatting?.secondary_text}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
             )}
           </View>
@@ -416,39 +421,45 @@ export default function CreateOrderScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             {dropoffSuggestions.length > 0 && (
-              <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
-                <ScrollView keyboardShouldPersistTaps="handled">
-                  {dropoffSuggestions.map((item) => (
-                    <TouchableOpacity
-                      key={item.place_id}
-                      style={styles.suggestionItem}
-                      onPress={async () => {
-                        const det = await fetchPlaceDetails(item.place_id);
-                        const { lat, lng } = det.geometry.location;
-                        const parts = extractParts(det.address_components);
-
-                        setDropoff({
-                          // ✅ правильний стейт
-                          text: det.formatted_address,
-                          lat: Number(lat),
-                          lon: Number(lng),
-                          city: parts.city,
-                          address: parts.address,
-                          country: parts.country,
-                          postcode: parts.postcode,
-                        });
-
-                        setDropoffQuery(det.formatted_address); // ✅ правильне поле
-                        setPickupSuggestions([]);
-                        setDropoffSuggestions([]);
-                      }}
-                    >
-                      <AppText style={styles.suggestionMain}>
-                        {item.description}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+             <View style={styles.suggestionsDropdown}>
+                <View style={styles.suggestionsBox}>
+                  <ScrollView
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    style={{ maxHeight: 200 }}
+                  >
+                    {dropoffSuggestions.map((item) => (
+                      <TouchableOpacity
+                        key={item.place_id}
+                        style={styles.suggestionItem}
+                        onPress={async () => {
+                          const det = await fetchPlaceDetails(item.place_id);
+                          const { lat, lng } = det.geometry.location;
+                          const parts = extractParts(det.address_components);
+                          setDropoff({
+                            text: det.formatted_address,
+                            lat: Number(lat),
+                            lon: Number(lng),
+                            city: parts.city,
+                            address: parts.address,
+                            country: parts.country,
+                            postcode: parts.postcode,
+                          });
+                          setDropoffQuery(det.formatted_address);
+                          setDropoffSuggestions([]);
+                        }}
+                      >
+                        <AppText style={styles.suggestionMain}>
+                          {item.structured_formatting?.main_text ||
+                            item.description}
+                        </AppText>
+                        <AppText style={styles.suggestionSub}>
+                          {item.structured_formatting?.secondary_text}
+                        </AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
             )}
           </View>
@@ -642,15 +653,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 8,
     maxHeight: 200,
+    // overflow видаляємо, щоб ScrollView міг працювати
     shadowColor: "#000",
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
+    shadowRadius: 4,
   },
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,
     borderColor: "#eee",
+  },
+  suggestionSub: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 2,
   },
   suggestionMain: { fontSize: 16 },
   section: { flexDirection: "row", alignItems: "center", marginTop: 24 },
@@ -664,6 +681,16 @@ const styles = StyleSheet.create({
     zIndex: 100,
     elevation: 5,
     // backgroundColor не тут, а на "ящику" нижче
+  },
+  suggestionsBoxWrapper: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    maxHeight: 200,
+    // overflow видаляємо, щоб ScrollView міг працювати
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
   mapBtn: { marginLeft: 8 },
   actions: { flexDirection: "row", marginTop: 32 },

@@ -207,7 +207,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
-  async function cancelReserve() {
+  async function  cancelReserve() {
     try {
       await apiFetch(`/orders/${order.id}/cancel-reserve`, {
         method: "POST",
@@ -489,64 +489,7 @@ export default function OrderDetailScreen({ route, navigation }) {
             </View>
           )} */}
 
-          {role === "CUSTOMER" &&
-            (order.driver || order.reservedDriver || order.candidateDriver) && (
-              <View style={styles.driverCard}>
-                <View style={styles.driverRow}>
-                  <Ionicons
-                    name="person-circle"
-                    size={36}
-                    color={colors.green}
-                  />
-                  <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text>
-                      {
-                        (
-                          order.driver ||
-                          order.reservedDriver ||
-                          order.candidateDriver
-                        ).name
-                      }
-                    </Text>
-                    {(
-                      order.driver ||
-                      order.reservedDriver ||
-                      order.candidateDriver
-                    ).rating && (
-                      <Text>
-                        Рейтинг:{" "}
-                        {(
-                          order.driver ||
-                          order.reservedDriver ||
-                          order.candidateDriver
-                        ).rating.toFixed(1)}
-                      </Text>
-                    )}
-                  </View>
-                  {(
-                    order.driver ||
-                    order.reservedDriver ||
-                    order.candidateDriver
-                  ).phone && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        Linking.openURL(
-                          `tel:${
-                            (
-                              order.driver ||
-                              order.reservedDriver ||
-                              order.candidateDriver
-                            ).phone
-                          }`
-                        )
-                      }
-                    >
-                      <Ionicons name="call" size={28} color={colors.green} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            )}
+          
 
           {role !== "DRIVER" && order.history && order.history.length > 0 && (
             <StatusTimeline
@@ -753,6 +696,64 @@ export default function OrderDetailScreen({ route, navigation }) {
               </View>
             </View>
           )}
+          {role === "CUSTOMER" &&
+            (order.driver || order.reservedDriver || order.candidateDriver) && (
+              <View style={styles.driverCard}>
+                <View style={styles.driverRow}>
+                  <Ionicons
+                    name="person-circle"
+                    size={36}
+                    color={colors.green}
+                  />
+                  <View style={{ marginLeft: 8, flex: 1 }}>
+                    <Text>
+                      {
+                        (
+                          order.driver ||
+                          order.reservedDriver ||
+                          order.candidateDriver
+                        ).name
+                      }
+                    </Text>
+                    {(
+                      order.driver ||
+                      order.reservedDriver ||
+                      order.candidateDriver
+                    ).rating && (
+                      <Text>
+                        Рейтинг:{" "}
+                        {(
+                          order.driver ||
+                          order.reservedDriver ||
+                          order.candidateDriver
+                        ).rating.toFixed(1)}
+                      </Text>
+                    )}
+                  </View>
+                  {(
+                    order.driver ||
+                    order.reservedDriver ||
+                    order.candidateDriver
+                  ).phone && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        Linking.openURL(
+                          `tel:${
+                            (
+                              order.driver ||
+                              order.reservedDriver ||
+                              order.candidateDriver
+                            ).phone
+                          }`
+                        )
+                      }
+                    >
+                      <Ionicons name="call" size={28} color={colors.green} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
           {renderActions()}
         </View>
       </SafeAreaView>
