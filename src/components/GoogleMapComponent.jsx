@@ -375,12 +375,12 @@ const GoogleMapComponent = ({
                     <Ionicons name="navigate-outline" size={18} color="#1F2937" style={styles.mapControlIcon} />
                     <Text style={styles.mapControlText}>Re-center</Text>
                 </TouchableOpacity>
-                {typeof onOptimizeRoute === 'function' && (
-                    <TouchableOpacity style={[styles.mapControlButton, styles.mapControlAccentButton]} onPress={onOptimizeRoute}>
-                        <MaterialCommunityIcons name="routes" size={18} color="#FFFFFF" style={styles.mapControlIcon} />
-                        <Text style={[styles.mapControlText, styles.mapControlAccentText]}>Smart Route</Text>
-                    </TouchableOpacity>
-                )}
+                {/*{typeof onOptimizeRoute === 'function' && (*/}
+                {/*    <TouchableOpacity style={[styles.mapControlButton, styles.mapControlAccentButton]} onPress={onOptimizeRoute}>*/}
+                {/*        <MaterialCommunityIcons name="routes" size={18} color="#FFFFFF" style={styles.mapControlIcon} />*/}
+                {/*        <Text style={[styles.mapControlText, styles.mapControlAccentText]}>Smart Route</Text>*/}
+                {/*    </TouchableOpacity>*/}
+                {/*)}*/}
             </View>
         </View>
     );

@@ -700,25 +700,22 @@ const MapPageContent = ({navigation}) => {
     const renderBottomSheetContent = () => {
         if (isLoadingRoute) {
             return (
-                <View style={styles.centerContent}>
-                    <Text style={styles.mutedText}>Loading route details...</Text>
-                </View>
+                <Text style={styles.mutedText}>Loading route details...</Text>
+
             );
         }
 
         if (errorMessage) {
             return (
-                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.errorText}>{errorMessage}</Text>
-                </ScrollView>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+
             );
         }
 
         if (!selectedCheckpoint) {
             return (
-                <View style={styles.centerContent}>
-                    <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
-                </View>
+                <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
+
             );
         }
 
@@ -728,25 +725,23 @@ const MapPageContent = ({navigation}) => {
         }
 
         return (
-            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                <StopCard
-                    title={selectedCheckpoint.checkpointName || 'Checkpoint'}
-                    subtitle={selectedCheckpoint.address || '---'}
-                    hoursLabel={selectedCheckpoint.hours && selectedCheckpoint.hours !== '---' ? selectedCheckpoint.hours : ''}
-                    infoItems={infoItems}
-                    statusLabel={selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
-                    statusPalette={checkpointStatusPalette}
-                    progressLabel={showProgressBadge ? `Stop ${checkpointProgressLabel}` : ''}
-                    typeLabel={selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}
-                    typeIconColors={checkpointTypeStyles}
-                    flagColor={selectedCheckpoint.flagColor}
-                    onNavigate={handleGo}
-                    onStartVisit={handleStartVisit}
-                    disableStartVisit={isCheckpointCompleted}
-                    onCallPress={hasPhone ? () => handleCallPress(selectedCheckpoint.phone) : undefined}
-                    showCallButton={hasPhone}
-                />
-            </ScrollView>
+            <StopCard
+                title={selectedCheckpoint.checkpointName || 'Checkpoint'}
+                subtitle={selectedCheckpoint.address || '---'}
+                hoursLabel={selectedCheckpoint.hours && selectedCheckpoint.hours !== '---' ? selectedCheckpoint.hours : ''}
+                infoItems={infoItems}
+                statusLabel={selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
+                statusPalette={checkpointStatusPalette}
+                progressLabel={showProgressBadge ? `Stop ${checkpointProgressLabel}` : ''}
+                typeLabel={selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}
+                typeIconColors={checkpointTypeStyles}
+                flagColor={selectedCheckpoint.flagColor}
+                onNavigate={handleGo}
+                onStartVisit={handleStartVisit}
+                disableStartVisit={isCheckpointCompleted}
+                onCallPress={hasPhone ? () => handleCallPress(selectedCheckpoint.phone) : undefined}
+                showCallButton={hasPhone}
+            />
         );
     };
 
@@ -890,12 +885,12 @@ const MapPageContent = ({navigation}) => {
                              * The refreshed Route Log Buddy design no longer surfaces this control,
                              * so we keep the logic in place but hide it from the UI per product request.
                              */}
-                            {false && (
-                                <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>
-                                    <Text style={styles.manageStopsText}>Manage stops</Text>
-                                    <MaterialCommunityIcons name="arrow-right" size={16} color={palette.primary} />
-                                </TouchableOpacity>
-                            )}
+                            {/*{false && (*/}
+                            {/*    <TouchableOpacity style={styles.manageStopsButton} onPress={handleStopsManage}>*/}
+                            {/*        <Text style={styles.manageStopsText}>Manage stops</Text>*/}
+                            {/*        <MaterialCommunityIcons name="arrow-right" size={16} color={palette.primary} />*/}
+                            {/*    </TouchableOpacity>*/}
+                            {/*)}*/}
                         </View>
                     </View>
                 )}
@@ -904,21 +899,14 @@ const MapPageContent = ({navigation}) => {
                  * The "Default point" floating control is not part of the new design.
                  * We keep the wiring for potential reuse but do not display the button now.
                  */}
-                {false && unloadPoint && !showStopsList && (
-                    <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>
-                        <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={palette.destructive} style={styles.unloadFloatingIcon} />
-                        <Text style={styles.unloadFloatingText}>Default point</Text>
-                    </TouchableOpacity>
-                )}
+                {/*{false && unloadPoint && !showStopsList && (*/}
+                {/*    <TouchableOpacity style={styles.unloadFloatingButton} onPress={handleUnloadPointPress}>*/}
+                {/*        <MaterialCommunityIcons name="arrow-bottom-left" size={18} color={palette.destructive} style={styles.unloadFloatingIcon} />*/}
+                {/*        <Text style={styles.unloadFloatingText}>Default point</Text>*/}
+                {/*    </TouchableOpacity>*/}
+                {/*)}*/}
 
-                <View style={styles.bottomOverlay} pointerEvents="box-none">
-                    <View style={styles.bottomBackdrop} pointerEvents="none" />
-                    <View style={styles.bottomSheetContainer} pointerEvents="box-none">
-                        <View style={styles.bottomSheet} pointerEvents="auto">
-                            {renderBottomSheetContent()}
-                        </View>
-                    </View>
-                </View>
+                {renderBottomSheetContent()}
             </View>
 
             <UniversalModal
@@ -934,7 +922,6 @@ const MapPageContent = ({navigation}) => {
             <View onLayout={handleNavigationLayout}>
                 <BottomNavigationMenu navigation={navigation} activeTab="Map"/>
             </View>
-        </View>
         </View>
     );
 };
@@ -952,7 +939,6 @@ const createStyles = ({palette, spacing, radii, theme}, navInset = spacing.xl + 
         flex: 1,
         position: 'relative',
         backgroundColor: palette.background,
-        paddingBottom: bottomInset,
     },
     topOverlay: {
         position: 'absolute',
@@ -1082,8 +1068,8 @@ const createStyles = ({palette, spacing, radii, theme}, navInset = spacing.xl + 
         borderTopRightRadius: radii.xl,
         borderBottomLeftRadius: 0,
         borderBottomRightRadius: 0,
-        paddingTop: spacing.xs,
-        paddingBottom: spacing.sm,
+        // paddingTop: spacing.xs,
+        // paddingBottom: spacing.sm,
         maxHeight: 300,
         borderWidth: 1,
         borderColor: withAlpha(palette.border, 'C0'),
