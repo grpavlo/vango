@@ -92,99 +92,100 @@ const StopCard = ({
 
     return (
         <View style={styles.container}>
-            <View style={styles.headerRow}>
-                <View style={styles.progressSlot}>
-                    {showProgress ? (
-                        <View style={styles.progressBadge}>
-                            <Text style={styles.progressBadgeText}>{progressLabel}</Text>
-                        </View>
-                    ) : null}
-                </View>
-                {showStatus ? (
-                    <View
-                        style={[
-                            styles.statusBadge,
-                            {
-                                backgroundColor: resolvedStatusBackground,
-                                borderColor: resolvedStatusBorder,
-                            },
-                        ]}
-                    >
-                        <Text style={[styles.statusBadgeText, {color: resolvedStatusText}]}>{statusLabel}</Text>
-                    </View>
-                ) : null}
+            <View
+                style={[
+                    styles.iconWrapper,
+                    {
+                        backgroundColor: typeIconBackground,
+                        borderColor: typeIconBorder,
+                    },
+                ]}
+            >
+                <MaterialCommunityIcons
+                    name={typeLabel?.toLowerCase().includes('drop') ? 'arrow-down' : 'arrow-up'}
+                    size={20}
+                    color={typeIconColor}
+                />
             </View>
 
-            <View style={styles.typeRow}>
-                <View
-                    style={[
-                        styles.typeIconWrapper,
-                        {
-                            backgroundColor: typeIconBackground,
-                            borderColor: typeIconBorder,
-                        },
-                    ]}
-                >
-                    <MaterialCommunityIcons
-                        name={typeLabel?.toLowerCase().includes('drop') ? 'arrow-down' : 'arrow-up'}
-                        size={20}
-                        color={typeIconColor}
-                    />
-                </View>
-                <View style={styles.typeMeta}>
-                    <View style={styles.typeMetaRow}>
+            <View style={styles.content}>
+                <View style={styles.titleRow}>
+                    <View style={styles.typeLabelRow}>
                         {typeLabel ? <Text style={styles.typeLabel}>{typeLabel}</Text> : null}
                         {flagColor ? (
                             <MaterialCommunityIcons
                                 name="flag-variant"
-                                size={16}
+                                size={14}
                                 color={flagColor}
                                 style={styles.flagIcon}
                             />
                         ) : null}
                     </View>
+
+                    {(showProgress || showStatus) && (
+                        <View style={styles.badgeRow}>
+                            {showProgress ? (
+                                <View style={styles.progressBadge}>
+                                    <Text style={styles.progressBadgeText}>{progressLabel}</Text>
+                                </View>
+                            ) : null}
+                            {showStatus ? (
+                                <View
+                                    style={[
+                                        styles.statusBadge,
+                                        {
+                                            backgroundColor: resolvedStatusBackground,
+                                            borderColor: resolvedStatusBorder,
+                                        },
+                                    ]}
+                                >
+                                    <Text style={[styles.statusBadgeText, {color: resolvedStatusText}]}>{statusLabel}</Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    )}
                 </View>
+
+                <Text style={styles.title} numberOfLines={1}>
+                    {title}
+                </Text>
+                {subtitle ? (
+                    <Text style={styles.subtitle} numberOfLines={1}>
+                        {subtitle}
+                    </Text>
+                ) : null}
+
+                {hasHours ? (
+                    <View style={styles.metaRow}>
+                        <MaterialCommunityIcons
+                            name="clock-time-five-outline"
+                            size={16}
+                            color={palette.primary}
+                            style={styles.metaIcon}
+                        />
+                        <Text style={styles.metaText} numberOfLines={1}>
+                            {hoursLabel}
+                        </Text>
+                    </View>
+                ) : null}
+
+                {hasInfoLine ? (
+                    <Text style={styles.infoText} numberOfLines={1}>
+                        {infoLine}
+                    </Text>
+                ) : null}
+
+                {showCallButton ? (
+                    <TouchableOpacity style={styles.callButton} onPress={callHandler}>
+                        <Ionicons name="call-outline" size={14} color={palette.primary} style={styles.callIcon} />
+                        <Text style={styles.callText}>Call site</Text>
+                    </TouchableOpacity>
+                ) : null}
             </View>
 
-            <Text style={styles.title} numberOfLines={2}>
-                {title}
-            </Text>
-            {subtitle ? (
-                <Text style={styles.subtitle} numberOfLines={2}>
-                    {subtitle}
-                </Text>
-            ) : null}
-
-            {hasHours ? (
-                <View style={styles.metaRow}>
-                    <MaterialCommunityIcons
-                        name="clock-time-five-outline"
-                        size={18}
-                        color={palette.primary}
-                        style={styles.metaIcon}
-                    />
-                    <Text style={styles.metaText} numberOfLines={1}>
-                        {hoursLabel}
-                    </Text>
-                </View>
-            ) : null}
-
-            {hasInfoLine ? (
-                <Text style={styles.infoText} numberOfLines={2}>
-                    {infoLine}
-                </Text>
-            ) : null}
-
-            {showCallButton ? (
-                <TouchableOpacity style={styles.callButton} onPress={callHandler}>
-                    <Ionicons name="call-outline" size={16} color={palette.primary} style={styles.callIcon} />
-                    <Text style={styles.callText}>Call site</Text>
-                </TouchableOpacity>
-            ) : null}
-
-            <View style={styles.buttonRow}>
+            <View style={styles.actions}>
                 <TouchableOpacity style={styles.navigateButton} onPress={navigateHandler}>
-                    <Ionicons name="navigate" size={20} color={palette.primaryForeground} style={styles.buttonIcon} />
+                    <Ionicons name="navigate" size={18} color={palette.primaryForeground} style={styles.buttonIcon} />
                     <Text style={styles.navigateText}>Navigate</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -194,7 +195,7 @@ const StopCard = ({
                 >
                     <MaterialCommunityIcons
                         name={disableStartVisit ? 'check-circle' : 'checkbox-blank-circle-outline'}
-                        size={20}
+                        size={18}
                         color={disableStartVisit ? palette.textSecondary : palette.primary}
                         style={styles.buttonIcon}
                     />
@@ -258,29 +259,56 @@ StopCard.defaultProps = {
 
 const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
     container: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: palette.card,
-        borderRadius: radii.xl,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
+        borderRadius: radii.lg,
+        paddingHorizontal: spacing.base,
+        paddingVertical: spacing.sm,
         borderWidth: 1,
         borderColor: withAlpha(palette.border, 'C8'),
         shadowColor: palette.shadow,
-        shadowOffset: {width: 0, height: theme === 'dark' ? 12 : 6},
-        shadowOpacity: theme === 'dark' ? 0.4 : 0.16,
-        shadowRadius: theme === 'dark' ? 24 : 12,
-        elevation: theme === 'dark' ? 18 : 8,
+        shadowOffset: {width: 0, height: theme === 'dark' ? 10 : 4},
+        shadowOpacity: theme === 'dark' ? 0.35 : 0.14,
+        shadowRadius: theme === 'dark' ? 20 : 10,
+        elevation: theme === 'dark' ? 14 : 6,
     },
-    headerRow: {
+    iconWrapper: {
+        width: 44,
+        height: 44,
+        borderRadius: radii.lg,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    content: {
+        flex: 1,
+        marginLeft: spacing.base,
+        paddingRight: spacing.sm,
+    },
+    titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: spacing.md,
+        marginBottom: spacing.xs,
     },
-    progressSlot: {
-        flex: 1,
-        minHeight: spacing.md,
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start',
+    typeLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    typeLabel: {
+        fontSize: Fonts.f12,
+        fontWeight: '600',
+        color: palette.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    flagIcon: {
+        marginLeft: spacing.xs,
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     progressBadge: {
         paddingHorizontal: spacing.sm,
@@ -298,54 +326,26 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         paddingVertical: spacing.xs,
         borderRadius: radii.pill,
         borderWidth: 1,
+        marginLeft: spacing.xs,
     },
     statusBadgeText: {
         fontSize: Fonts.f12,
         fontWeight: '600',
     },
-    typeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
-    },
-    typeIconWrapper: {
-        height: 44,
-        width: 44,
-        borderRadius: radii.lg,
-        borderWidth: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    typeMeta: {
-        flex: 1,
-        marginLeft: spacing.sm,
-    },
-    typeMetaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    typeLabel: {
-        fontSize: Fonts.f12,
-        fontWeight: '600',
-        color: palette.textSecondary,
-    },
-    flagIcon: {
-        marginLeft: spacing.xs,
-    },
     title: {
-        fontSize: Fonts.f20,
+        fontSize: Fonts.f18,
         fontWeight: '700',
         color: palette.textPrimary,
     },
     subtitle: {
         fontSize: Fonts.f14,
         color: palette.textSecondary,
-        marginTop: 4,
+        marginTop: 2,
     },
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: spacing.sm,
+        marginTop: spacing.xs,
     },
     metaIcon: {
         marginRight: spacing.xs,
@@ -363,11 +363,11 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
-        marginTop: spacing.sm,
+        marginTop: spacing.xs,
         paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
+        paddingVertical: 4,
         borderRadius: radii.lg,
-        backgroundColor: withAlpha(palette.primary, '18'),
+        backgroundColor: withAlpha(palette.primary, '16'),
     },
     callIcon: {
         marginRight: 6,
@@ -377,20 +377,20 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         fontWeight: '600',
         color: palette.primary,
     },
-    buttonRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: spacing.lg,
+    actions: {
+        marginLeft: spacing.base,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
     },
     navigateButton: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: palette.primary,
-        borderRadius: radii.lg,
-        paddingVertical: spacing.md,
-        marginRight: spacing.sm,
+        borderRadius: radii.md,
+        paddingHorizontal: spacing.base,
+        paddingVertical: spacing.sm,
+        minWidth: 112,
     },
     navigateText: {
         fontSize: Fonts.f14,
@@ -398,22 +398,24 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         color: palette.primaryForeground,
     },
     buttonIcon: {
-        marginRight: 8,
+        marginRight: spacing.xs,
     },
     startButton: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: radii.lg,
+        borderRadius: radii.md,
         borderWidth: 1,
         borderColor: palette.primary,
-        paddingVertical: spacing.md,
-        backgroundColor: withAlpha(palette.primary, '12'),
+        paddingHorizontal: spacing.base,
+        paddingVertical: spacing.sm,
+        minWidth: 112,
+        backgroundColor: withAlpha(palette.primary, '10'),
+        marginTop: spacing.xs,
     },
     startButtonDisabled: {
-        backgroundColor: withAlpha(palette.textSecondary, '14'),
-        borderColor: withAlpha(palette.textSecondary, '30'),
+        backgroundColor: withAlpha(palette.textSecondary, '12'),
+        borderColor: withAlpha(palette.textSecondary, '32'),
     },
     startText: {
         fontSize: Fonts.f14,
