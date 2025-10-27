@@ -1,4 +1,4 @@
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
@@ -562,6 +562,37 @@ const MapPageContent = ({navigation}) => {
         handleSelectCheckpoint(waypoint);
     };
 
+    const handleSmartRoute = useCallback(() => {
+        if (!Array.isArray(waypoints) || waypoints.length === 0) {
+            Alert.alert('Smart Route', 'Add stops to your route to enable smart ordering.');
+            return;
+        }
+
+        const pendingStops = waypoints.filter((point) => !point?.isCompleted);
+
+        if (pendingStops.length === 0) {
+            const lastStop = waypoints[waypoints.length - 1];
+            if (lastStop) {
+                handleSelectCheckpoint(lastStop);
+            }
+            Alert.alert('Smart Route', 'All stops are already completed. Showing the final stop.');
+            return;
+        }
+
+        const nextStop = pendingStops
+            .slice()
+            .sort((a, b) => {
+                const orderA = Number(a.sequence) || Number(a.order) || 0;
+                const orderB = Number(b.sequence) || Number(b.order) || 0;
+                return orderA - orderB;
+            })[0];
+
+        if (nextStop) {
+            handleSelectCheckpoint(nextStop);
+            Alert.alert('Smart Route', `Navigate to ${nextStop.checkpointName || 'the next stop'}.`);
+        }
+    }, [handleSelectCheckpoint, waypoints]);
+
     // Кнопка Default Point (доступна, якщо існує unloadPoint)
     const handleUnloadPointPress = () => {
         if (!unloadPoint) return;
@@ -586,6 +617,177 @@ const MapPageContent = ({navigation}) => {
     const showProgressBadge = Boolean(checkpointProgressLabel);
     const isCheckpointCompleted = Boolean(selectedCheckpoint?.isCompleted);
 
+    const renderBottomSheetContent = () => {
+        if (isLoadingRoute) {
+            return (
+                <View style={styles.centerContent}>
+                    <Text style={styles.mutedText}>Loading route details...</Text>
+                </View>
+            );
+        }
+
+        if (errorMessage) {
+            return (
+                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                </ScrollView>
+            );
+        }
+
+        if (!selectedCheckpoint) {
+            return (
+                <View style={styles.centerContent}>
+                    <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
+                </View>
+            );
+        }
+
+        return (
+            <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.sheetHeader}>
+                    <View style={styles.sheetHeaderMain}>
+                        <View style={styles.sheetHeaderContent}>
+                            <View
+                                style={[
+                                    styles.typeIconWrapper,
+                                    {
+                                        backgroundColor: checkpointTypeStyles.iconBackground,
+                                        borderColor: checkpointTypeStyles.iconBorder,
+                                    },
+                                ]}
+                            >
+                                <MaterialCommunityIcons
+                                    name={selectedCheckpoint.dropOff ? 'arrow-down' : 'arrow-up'}
+                                    size={20}
+                                    color={checkpointTypeStyles.iconColor}
+                                />
+                            </View>
+                            <View style={styles.sheetHeaderTextBlock}>
+                                <View style={styles.sheetHeaderBadges}>
+                                    <Text style={styles.checkpointTypeLabel}>
+                                        {selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}
+                                    </Text>
+                                    {selectedCheckpoint.stat ? (
+                                        <View style={styles.statChip}>
+                                            <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
+                                        </View>
+                                    ) : null}
+                                    {hasPriorityFlag ? (
+                                        <View
+                                            style={[
+                                                styles.priorityChip,
+                                                {
+                                                    backgroundColor: `${selectedCheckpoint.flagColor}20`,
+                                                    borderColor: `${selectedCheckpoint.flagColor}40`,
+                                                },
+                                            ]}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="flag-variant"
+                                                size={12}
+                                                color={selectedCheckpoint.flagColor}
+                                            />
+                                            <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                                <Text style={styles.checkpointTitle} numberOfLines={2}>
+                                    {selectedCheckpoint.checkpointName || 'Checkpoint'}
+                                </Text>
+                                {selectedCheckpoint.address ? (
+                                    <Text style={styles.checkpointAddress} numberOfLines={2}>
+                                        {selectedCheckpoint.address}
+                                    </Text>
+                                ) : null}
+                            </View>
+                        </View>
+                    </View>
+                    <View style={styles.sheetHeaderAside}>
+                        {showProgressBadge ? (
+                            <View style={styles.progressBadge}>
+                                <Text style={styles.progressBadgeText}>Stop {checkpointProgressLabel}</Text>
+                            </View>
+                        ) : null}
+                        <View
+                            style={[
+                                styles.statusBadge,
+                                {
+                                    backgroundColor: checkpointStatusPalette.backgroundColor,
+                                    borderColor: checkpointStatusPalette.borderColor,
+                                },
+                            ]}
+                        >
+                            <Text
+                                style={[
+                                    styles.statusBadgeText,
+                                    {color: checkpointStatusPalette.textColor},
+                                ]}
+                            >
+                                {selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.detailMetaRow}>
+                    <MaterialCommunityIcons
+                        name="map-marker-outline"
+                        size={20}
+                        color={palette.primary}
+                        style={styles.infoIcon}
+                    />
+                    <Text style={styles.detailMetaText} numberOfLines={2}>
+                        {selectedCheckpoint.address || '---'}
+                    </Text>
+                </View>
+
+                <View style={[styles.detailMetaRow, styles.detailMetaRowWrap]}>
+                    <View style={styles.detailMetaContent}>
+                        <MaterialCommunityIcons
+                            name="clock-time-five-outline"
+                            size={20}
+                            color={palette.primary}
+                            style={styles.infoIcon}
+                        />
+                        <Text style={styles.detailMetaText} numberOfLines={1}>
+                            {selectedCheckpoint.hours || '---'}
+                        </Text>
+                    </View>
+                    {hasPhone ? (
+                        <TouchableOpacity
+                            style={styles.inlineCallButton}
+                            onPress={() => handleCallPress(selectedCheckpoint.phone)}
+                        >
+                            <Ionicons name="call" size={16} color={palette.primary} style={styles.inlineCallIcon} />
+                            <Text style={styles.inlineCallText}>Call site</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+
+                <View style={styles.primaryActionsRow}>
+                    <TouchableOpacity style={styles.primaryActionButton} onPress={handleGo}>
+                        <Ionicons
+                            name="navigate"
+                            size={20}
+                            color={palette.primaryForeground}
+                            style={styles.primaryActionIcon}
+                        />
+                        <Text style={styles.primaryActionText}>Navigate</Text>
+                    </TouchableOpacity>
+                    {isCheckpointCompleted ? (
+                        <View style={[styles.secondaryActionButton, styles.secondaryActionButtonDisabled]}>
+                            <Text style={[styles.secondaryActionText, styles.secondaryActionTextDisabled]}>Visit Complete</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
+                            <Text style={styles.secondaryActionText}>Start Visit</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </ScrollView>
+        );
+    };
+
     return (
         <View style={styles.screen}>
             <View style={styles.mapWrapper}>
@@ -601,6 +803,7 @@ const MapPageContent = ({navigation}) => {
                         navigator={navigator}
                         unloadPoint={unloadPoint}
                         selectedCheckpointId={selectedCheckpoint?.id}
+                        onOptimizeRoute={handleSmartRoute}
                     />
                 ) : null}
 
@@ -760,193 +963,8 @@ const MapPageContent = ({navigation}) => {
                     <View style={styles.bottomBackdrop} pointerEvents="none" />
                     <View style={styles.bottomSheetContainer} pointerEvents="box-none">
                         <View style={styles.bottomSheet} pointerEvents="auto">
-                            {isLoadingRoute ? (
-                                <View style={styles.centerContent}>
-                                    <Text style={styles.mutedText}>Loading route details...</Text>
-                                </View>
-                            ) : errorMessage ? (
-                                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                                    <Text style={styles.errorText}>{errorMessage}</Text>
-                                </ScrollView>
-                            ) : !selectedCheckpoint ? (
-                                <View style={styles.centerContent}>
-                                    <Text style={styles.mutedText}>Tap a stop on the map to view details.</Text>
-                                </View>
-                            ) : (
-                                <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                                <View style={styles.sheetHeader}>
-                                    <View style={styles.sheetHeaderMain}>
-                                        <View style={styles.sheetHeaderContent}>
-                                            <View
-                                                style={[
-                                                    styles.typeIconWrapper,
-                                                    {
-                                                        backgroundColor: checkpointTypeStyles.iconBackground,
-                                                        borderColor: checkpointTypeStyles.iconBorder,
-                                                    },
-                                                ]}
-                                            >
-                                                <MaterialCommunityIcons
-                                                    name={selectedCheckpoint.dropOff ? 'arrow-down' : 'arrow-up'}
-                                                    size={20}
-                                                    color={checkpointTypeStyles.iconColor}
-                                                />
-                                            </View>
-                                            <View style={styles.sheetHeaderTextBlock}>
-                                                <View style={styles.sheetHeaderBadges}>
-                                                    <Text style={styles.checkpointTypeLabel}>{selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}</Text>
-                                                    {selectedCheckpoint.stat ? (
-                                                        <View style={styles.statChip}>
-                                                            <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
-                                                        </View>
-                                                    ) : null}
-                                                    {hasPriorityFlag ? (
-                                                        <View
-                                                            style={[
-                                                                styles.priorityChip,
-                                                                {
-                                                                    backgroundColor: `${selectedCheckpoint.flagColor}20`,
-                                                                    borderColor: `${selectedCheckpoint.flagColor}40`,
-                                                                },
-                                                            ]}
-                                                        >
-                                                            <MaterialCommunityIcons
-                                                                name="flag-variant"
-                                                                size={12}
-                                                                color={selectedCheckpoint.flagColor}
-                                                            />
-                                                            <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
-                                                        </View>
-                                                    ) : null}
-                                                </View>
-                                                <Text style={styles.checkpointTitle} numberOfLines={2}>
-                                                    {selectedCheckpoint.checkpointName || 'Checkpoint'}
-                                                </Text>
-                                                {selectedCheckpoint.address ? (
-                                                    <Text style={styles.checkpointAddress} numberOfLines={2}>
-                                                        {selectedCheckpoint.address}
-                                                    </Text>
-                                                ) : null}
-                                            </View>
-                                        </View>
-                                    </View>
-                                    <View style={styles.sheetHeaderAside}>
-                                        {showProgressBadge ? (
-                                            <View style={styles.progressBadge}>
-                                                <Text style={styles.progressBadgeText}>Stop {checkpointProgressLabel}</Text>
-                                            </View>
-                                        ) : null}
-                                        <View
-                                            style={[
-                                                styles.statusBadge,
-                                                {
-                                                    backgroundColor: checkpointStatusPalette.backgroundColor,
-                                                    borderColor: checkpointStatusPalette.borderColor,
-                                                },
-                                            ]}
-                                        >
-                                            <Text
-                                                style={[
-                                                    styles.statusBadgeText,
-                                                    {color: checkpointStatusPalette.textColor},
-                                                ]}
-                                            >
-                                                {selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-
-                                <View style={styles.detailMetaRow}>
-                                    <MaterialCommunityIcons
-                                        name="map-marker-outline"
-                                        size={20}
-                                        color={palette.primary}
-                                        style={styles.infoIcon}
-                                    />
-                                    <Text style={styles.detailMetaText} numberOfLines={2}>
-                                        {selectedCheckpoint.address || '---'}
-                                    </Text>
-                                </View>
-
-                                <View style={[styles.detailMetaRow, styles.detailMetaRowWrap]}>
-                                    <View style={styles.detailMetaContent}>
-                                        <MaterialCommunityIcons
-                                            name="clock-time-five-outline"
-                                            size={20}
-                                            color={palette.primary}
-                                            style={styles.infoIcon}
-                                        />
-                                        <Text style={styles.detailMetaText} numberOfLines={1}>
-                                            {selectedCheckpoint.hours || '---'}
-                                        </Text>
-                                    </View>
-                                    {hasPhone ? (
-                                        <TouchableOpacity
-                                            style={styles.inlineCallButton}
-                                            onPress={() => handleCallPress(selectedCheckpoint.phone)}
-                                        >
-                                            <Ionicons name="call" size={16} color={palette.primary} style={styles.inlineCallIcon} />
-                                            <Text style={styles.inlineCallText}>Call site</Text>
-                                        </TouchableOpacity>
-                                    ) : null}
-                                </View>
-
-                                <View style={styles.primaryActionsRow}>
-                                    <TouchableOpacity style={styles.primaryActionButton} onPress={handleGo}>
-                                        <Ionicons name="navigate" size={20} color={palette.primaryForeground} style={styles.primaryActionIcon} />
-                                        <Text style={styles.primaryActionText}>Navigate</Text>
-                                    </TouchableOpacity>
-                                    {isCheckpointCompleted ? (
-                                        <View style={[styles.secondaryActionButton, styles.secondaryActionButtonDisabled]}>
-                                            <Text style={[styles.secondaryActionText, styles.secondaryActionTextDisabled]}>Visit Complete</Text>
-                                        </View>
-                                    ) : (
-                                        <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
-                                            <Text style={styles.secondaryActionText}>Start Visit</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {/*
-                                 * Quick actions (Visit info, dispatcher chat, call) are not part of the
-                                 * latest Route Log Buddy map design. They remain accessible elsewhere,
-                                 * so we hide this legacy row from the refreshed layout.
-                                 */
-                                {false && (
-                                    <View style={styles.quickActionsRow}>
-                                        <TouchableOpacity
-                                            style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
-                                            onPress={() => {
-                                                navigation.navigate('EntryInstructionsPage', {
-                                                    menu: true,
-                                                    data: selectedCheckpoint,
-                                                    routeName,
-                                                });
-                                            }}
-                                        >
-                                            <Ionicons name="information-circle-outline" size={18} color={palette.primary} style={styles.quickActionIcon} />
-                                            <Text style={styles.quickActionText}>Visit info</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.quickActionButton, styles.quickActionButtonSpacer]}
-                                            onPress={() => navigation.navigate('ChatComponent', {menu: true})}
-                                        >
-                                            <Ionicons name="chatbubble-ellipses-outline" size={18} color={palette.primary} style={styles.quickActionIcon} />
-                                            <Text style={styles.quickActionText}>Write to disp</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.quickActionButton, !hasPhone && styles.quickActionButtonDisabled]}
-                                            onPress={() => hasPhone && handleCallPress(selectedCheckpoint.phone)}
-                                            disabled={!hasPhone}
-                                        >
-                                            <Ionicons name="call" size={18} color={palette.primary} style={styles.quickActionIcon} />
-                                            <Text style={styles.quickActionText}>Call customer</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </ScrollView>
-                        )}
+                            {renderBottomSheetContent()}
+                        </View>
                     </View>
                 </View>
             </View>
