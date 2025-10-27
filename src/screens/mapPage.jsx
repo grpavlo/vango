@@ -1,4 +1,4 @@
-import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
@@ -541,6 +541,55 @@ const MapPageContent = ({navigation}) => {
         fetchRoute();
     }, []);
 
+    const navigationTarget = useMemo(() => {
+        const latitude = Number(
+            selectedCheckpoint?.locationPoint?.latitude ?? selectedCheckpoint?.latitude,
+        );
+        const longitude = Number(
+            selectedCheckpoint?.locationPoint?.longitude ?? selectedCheckpoint?.longitude,
+        );
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            return null;
+        }
+
+        return {latitude, longitude};
+    }, [selectedCheckpoint]);
+
+    const canNavigateToCheckpoint = Boolean(navigationTarget);
+
+    const openNavigation = useCallback(async (lat, lon) => {
+        const schemeUrl = Platform.select({
+            ios: `maps:0,0?q=${lat},${lon}`,
+            android: `geo:${lat},${lon}?q=${lat},${lon}`,
+            default: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+        });
+
+        try {
+            const canOpen = await Linking.canOpenURL(schemeUrl);
+            if (canOpen) {
+                await Linking.openURL(schemeUrl);
+                return true;
+            }
+
+            const fallback = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+            await Linking.openURL(fallback);
+            return true;
+        } catch (error) {
+            Alert.alert('Navigation unavailable', 'Unable to open maps on this device.');
+            return false;
+        }
+    }, []);
+
+    const handleNavigatePress = useCallback(async () => {
+        if (!canNavigateToCheckpoint || !navigationTarget) {
+            Alert.alert('Navigation unavailable', 'Location details are missing for this checkpoint.');
+            return;
+        }
+
+        await openNavigation(navigationTarget.latitude, navigationTarget.longitude);
+    }, [canNavigateToCheckpoint, navigationTarget, openNavigation]);
+
     const handleStartVisit = () => {
         if (!selectedCheckpoint || selectedCheckpoint.isCompleted) {
             return;
@@ -574,17 +623,19 @@ const MapPageContent = ({navigation}) => {
 
             if (response.status === 200) {
                 setModalVisible(false);
-
-                if (checkpointData && checkpointData.dropOff) {
-                    navigation.navigate("ConfirmUploadPage");
-                } else {
-                    navigation.navigate("WorkOnVisitPage", {
-                        idCheckpoint,
-                        data: checkpointData,
-                        routeName,
-                        idRoute
-                    });
+                if (checkpointData) {
+                    setData(checkpointData);
                 }
+                navigation.navigate('CheckpointViewPage', {
+                    idCheckpoint,
+                    routeName,
+                    idRoute,
+                    showArrival: true,
+                    last: Boolean(checkpointData?.last),
+                    isDefaultUnload: Boolean(checkpointData?.isDefaultUnload),
+                    canStartVisit: true,
+                    canNavigate: true,
+                });
             } else {
                 const errorData = await response.json();
                 setErrorMessage(errorData.message || 'Failed to start visit.');
@@ -606,16 +657,9 @@ const MapPageContent = ({navigation}) => {
         setShowStopsList(false);
     }, []);
 
-    const handleGo = () => {
-        setData(selectedCheckpoint);
-
-        navigation.navigate('CheckpointViewPage', {
-            idCheckpoint: selectedCheckpoint.id,
-            data:selectedCheckpoint,
-            routeName,
-            idRoute
-        });
-    };
+    const handleGo = useCallback(() => {
+        handleNavigatePress();
+    }, [handleNavigatePress]);
 
     const handleStopsPress = () => {
         if (!idRoute) return;
