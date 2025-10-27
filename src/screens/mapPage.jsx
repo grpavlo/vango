@@ -174,15 +174,15 @@ const MapPageContent = ({navigation}) => {
 
     const checkpointProgressLabel = useMemo(() => {
         if (!selectedCheckpoint || !routeSummary.totalStops) {
-            return "--";
+            return "";
         }
 
         const sequenceNumber = Number(selectedCheckpoint.sequence);
         if (!Number.isFinite(sequenceNumber) || sequenceNumber <= 0) {
-            return "--";
+            return "";
         }
 
-        return `${sequenceNumber}/${routeSummary.totalStops}`;
+        return `${sequenceNumber} of ${routeSummary.totalStops}`;
     }, [selectedCheckpoint, routeSummary.totalStops]);
 
     const checkpointStatusPalette = useMemo(() => {
@@ -471,7 +471,9 @@ const MapPageContent = ({navigation}) => {
     }, []);
 
     const handleStartVisit = () => {
-        if (!selectedCheckpoint) return;
+        if (!selectedCheckpoint || selectedCheckpoint.isCompleted) {
+            return;
+        }
         setIdCheckpoint(selectedCheckpoint.id);
         setCheckpointData(selectedCheckpoint);
         setModalVisible(true);
@@ -581,7 +583,8 @@ const MapPageContent = ({navigation}) => {
 
     const hasPhone = Boolean(selectedCheckpoint?.phone);
     const hasPriorityFlag = Boolean(selectedCheckpoint?.flagColor);
-    const showProgressBadge = Boolean(checkpointProgressLabel && checkpointProgressLabel !== "--");
+    const showProgressBadge = Boolean(checkpointProgressLabel);
+    const isCheckpointCompleted = Boolean(selectedCheckpoint?.isCompleted);
 
     return (
         <View style={styles.screen}>
@@ -894,9 +897,15 @@ const MapPageContent = ({navigation}) => {
                                         <Ionicons name="navigate" size={20} color={palette.primaryForeground} style={styles.primaryActionIcon} />
                                         <Text style={styles.primaryActionText}>Navigate</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
-                                        <Text style={styles.secondaryActionText}>Start Visit</Text>
-                                    </TouchableOpacity>
+                                    {isCheckpointCompleted ? (
+                                        <View style={[styles.secondaryActionButton, styles.secondaryActionButtonDisabled]}>
+                                            <Text style={[styles.secondaryActionText, styles.secondaryActionTextDisabled]}>Visit Complete</Text>
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
+                                            <Text style={styles.secondaryActionText}>Start Visit</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
                                 {/*
@@ -1334,10 +1343,17 @@ const createStyles = ({palette, spacing, radii, theme}) => StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: 'transparent',
     },
+    secondaryActionButtonDisabled: {
+        borderColor: withAlpha(palette.textPrimary, '25'),
+        backgroundColor: withAlpha(palette.mutedBackground, 'F2'),
+    },
     secondaryActionText: {
         color: palette.dropoffAccent,
         fontSize: Fonts.f14,
         fontWeight: '700',
+    },
+    secondaryActionTextDisabled: {
+        color: withAlpha(palette.textSecondary, 'AA'),
     },
     quickActionsRow: {
         flexDirection: 'row',
