@@ -53,12 +53,14 @@ const customMapStyle = [
     },
 ];
 
-const COMPLETED_MARKER_COLOR = '#1976D2';
-const UPCOMING_MARKER_COLOR = '#C91C1C';
-const SELECTED_INNER_FILL = '#EEF2FF';
+const COMPLETED_MARKER_COLOR = '#22C55E';
+const UPCOMING_MARKER_COLOR = '#F97316';
+const SELECTED_INNER_FILL = '#ECFDF5';
 const DEFAULT_INNER_FILL = '#FFFFFF';
-const COMPLETED_TEXT_COLOR = '#0B1F3A';
-const UPCOMING_TEXT_COLOR = '#7A271A';
+const COMPLETED_TEXT_COLOR = '#166534';
+const UPCOMING_TEXT_COLOR = '#7C2D12';
+const ROUTE_STROKE_COLOR = '#2563EB';
+const ROUTE_STROKE_WIDTH = 4;
 
 function getClosestPointIndex(userLoc, points) {
     if (!userLoc || !points || points.length === 0) {
@@ -89,6 +91,8 @@ const GoogleMapComponent = ({
                                 onMarkerPress = () => {},
                                 selectedCheckpointId = null,
                                 onOptimizeRoute = null,
+                                routeRegion = null,
+                                routeCoordinates = [],
                             }) => {
     const mapRef = useRef(null);
     const { userLocation, locationLoading, locationError } = useContext(LocationContext);
@@ -119,31 +123,34 @@ const GoogleMapComponent = ({
 
     // Відцентровуємо мапу при першому рендері чи зміні залежностей
     useEffect(() => {
-        if (mapRef.current && !navigator) {
-            let coordinates = [];
-
-            if (encodedRoute && decodedPolyline.length > 0) {
-                coordinates = decodedPolyline;
-            } else {
-                if (destination) {
-                    coordinates = [origin, ...waypoints, destination];
-                } else {
-                    coordinates = [origin, ...waypoints];
-                }
-            }
-
-            if (userLocation) {
-                coordinates = [...coordinates, userLocation];
-            }
-
-            if (coordinates.length > 0) {
-                mapRef.current.fitToCoordinates(coordinates, {
-                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-                    animated: true,
-                });
-            }
+        if (!mapRef.current || navigator) {
+            return;
         }
-    }, [keyMap, mapRef, isFocused, origin, destination, waypoints, encodedRoute, decodedPolyline, navigator, userLocation]);
+
+        if (routeRegion) {
+            mapRef.current.animateToRegion(routeRegion, 450);
+            return;
+        }
+
+        let coordinates = [];
+
+        if (encodedRoute && decodedPolyline.length > 0) {
+            coordinates = decodedPolyline;
+        } else if (routeCoordinates && routeCoordinates.length > 0) {
+            coordinates = routeCoordinates;
+        } else if (destination) {
+            coordinates = [origin, ...waypoints, destination];
+        } else {
+            coordinates = [origin, ...waypoints];
+        }
+
+        if (coordinates.length > 0) {
+            mapRef.current.fitToCoordinates(coordinates, {
+                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                animated: true,
+            });
+        }
+    }, [keyMap, mapRef, isFocused, origin, destination, waypoints, encodedRoute, decodedPolyline, navigator, routeRegion, routeCoordinates]);
 
     // Якщо увімкнено навігацію, слідкуємо за зміною location
     useEffect(() => {
@@ -185,6 +192,11 @@ const GoogleMapComponent = ({
                 },
                 500
             );
+            return;
+        }
+
+        if (mapRef.current && routeRegion) {
+            mapRef.current.animateToRegion(routeRegion, 450);
         }
     };
 
@@ -290,17 +302,21 @@ const GoogleMapComponent = ({
         );
     };
 
+    const initialRegion = routeRegion
+        ? routeRegion
+        : {
+            latitude: origin.latitude,
+            longitude: origin.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+        };
+
     return (
         <View key={keyMap} style={styles.container}>
             <MapView
                 ref={mapRef}
                 style={styles.map}
-                initialRegion={{
-                    latitude: origin.latitude,
-                    longitude: origin.longitude,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                }}
+                initialRegion={initialRegion}
                 showsUserLocation={!!userLocation}
                 showsMyLocationButton={false}
                 customMapStyle={customMapStyle}
@@ -342,14 +358,14 @@ const GoogleMapComponent = ({
                 {(destination && decodedPolyline) ? (
                     <Polyline
                         coordinates={navigator ? activeRoute : (encodedRoute ? decodedPolyline : [origin, ...waypoints, destination])}
-                        strokeColor="#007AFF"
-                        strokeWidth={3}
+                        strokeColor={ROUTE_STROKE_COLOR}
+                        strokeWidth={ROUTE_STROKE_WIDTH}
                     />
                 ) : (
                     <Polyline
                         coordinates={navigator ? activeRoute : (encodedRoute ? decodedPolyline : [origin, ...waypoints])}
-                        strokeColor="#007AFF"
-                        strokeWidth={3}
+                        strokeColor={ROUTE_STROKE_COLOR}
+                        strokeWidth={ROUTE_STROKE_WIDTH}
                     />
                 )}
             </MapView>
@@ -394,6 +410,18 @@ GoogleMapComponent.propTypes = {
         PropTypes.number,
     ]),
     onOptimizeRoute: PropTypes.func,
+    routeRegion: PropTypes.shape({
+        latitude: PropTypes.number.isRequired,
+        longitude: PropTypes.number.isRequired,
+        latitudeDelta: PropTypes.number.isRequired,
+        longitudeDelta: PropTypes.number.isRequired,
+    }),
+    routeCoordinates: PropTypes.arrayOf(
+        PropTypes.shape({
+            latitude: PropTypes.number.isRequired,
+            longitude: PropTypes.number.isRequired,
+        })
+    ),
 };
 
 const styles = StyleSheet.create({
