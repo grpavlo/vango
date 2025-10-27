@@ -140,6 +140,7 @@ const MapPageContent = ({navigation}) => {
     const {setData} = useInfoCheckpoint();
 
     const {tokens, theme, spacing, radii} = useDesignSystem();
+    const [navOffset, setNavOffset] = useState(() => spacing.xl + spacing.base);
     const palette = useMemo(
         () => createPalette(tokens, theme),
         [tokens, theme],
@@ -149,10 +150,9 @@ const MapPageContent = ({navigation}) => {
         [palette.primary],
     );
     const styles = useMemo(
-        () => createStyles({palette, spacing, radii, theme}),
-        [palette, spacing, radii, theme],
+        () => createStyles({palette, spacing, radii, theme}, navOffset),
+        [palette, spacing, radii, theme, navOffset],
     );
-
 
     const formatDurationLabel = (durationInSeconds) => {
         if (durationInSeconds === null || durationInSeconds === undefined) {
@@ -678,6 +678,16 @@ const MapPageContent = ({navigation}) => {
         });
     };
 
+    const handleNavigationLayout = useCallback((event) => {
+        const height = event?.nativeEvent?.layout?.height;
+
+        if (!Number.isFinite(height) || height <= 0) {
+            return;
+        }
+
+        setNavOffset((current) => (Math.abs(current - height) > 1 ? height : current));
+    }, []);
+
     useEffect(() => {
         // При кожному оновленні робимо новий ключ для мапи (щоб примусити ререндер якщо треба)
         setKey(Math.random().toString());
@@ -921,15 +931,17 @@ const MapPageContent = ({navigation}) => {
                 onCancel={handleCancel}
             />
 
-            <BottomNavigationMenu navigation={navigation} activeTab="Map"/>
+            <View onLayout={handleNavigationLayout}>
+                <BottomNavigationMenu navigation={navigation} activeTab="Map"/>
+            </View>
         </View>
         </View>
     );
 };
 
 
-const createStyles = ({palette, spacing, radii, theme}) => {
-    const bottomInset = spacing.xl + spacing.base;
+const createStyles = ({palette, spacing, radii, theme}, navInset = spacing.xl + spacing.base) => {
+    const bottomInset = Math.max(navInset, spacing.sm);
 
     return StyleSheet.create({
     screen: {
@@ -1047,10 +1059,9 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         position: 'absolute',
         left: 0,
         right: 0,
-        bottom: bottomInset,
-        paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.md,
+        bottom: 0,
         paddingTop: spacing.sm,
+        paddingBottom: bottomInset,
         zIndex: 10,
     },
     bottomBackdrop: {
@@ -1058,7 +1069,7 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         left: 0,
         right: 0,
         bottom: 0,
-        height: 160,
+        height: bottomInset + 160,
         backgroundColor: withAlpha(palette.background, theme === 'dark' ? 'F2' : 'F0'),
     },
     bottomSheetContainer: {
@@ -1067,7 +1078,10 @@ const createStyles = ({palette, spacing, radii, theme}) => {
     },
     bottomSheet: {
         backgroundColor: palette.cardSurface,
-        borderRadius: radii.lg,
+        borderTopLeftRadius: radii.xl,
+        borderTopRightRadius: radii.xl,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         paddingTop: spacing.xs,
         paddingBottom: spacing.sm,
         maxHeight: 300,
@@ -1080,6 +1094,7 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         elevation: theme === 'dark' ? 24 : 14,
         overflow: 'hidden',
         width: '100%',
+        alignSelf: 'stretch',
     },
     sheetScrollContent: {
         paddingHorizontal: spacing.base,
