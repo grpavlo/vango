@@ -1,5 +1,6 @@
 import React, {useContext, useEffect, useMemo, useRef, useState} from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import {Ionicons, MaterialCommunityIcons} from '@expo/vector-icons';
 import MapView, {Marker, Polyline, PROVIDER_GOOGLE} from 'react-native-maps';
 import polyline from '@mapbox/polyline';
 import PropTypes from 'prop-types';
@@ -87,6 +88,7 @@ const GoogleMapComponent = ({
                                 navigator = false,
                                 onMarkerPress = () => {},
                                 selectedCheckpointId = null,
+                                onOptimizeRoute = null,
                             }) => {
     const mapRef = useRef(null);
     const { userLocation, locationLoading, locationError } = useContext(LocationContext);
@@ -185,6 +187,35 @@ const GoogleMapComponent = ({
             );
         }
     };
+
+    useEffect(() => {
+        if (!mapRef.current || !selectedIdString) {
+            return;
+        }
+
+        const selectedPoint = waypoints.find((checkpoint) => {
+            if (!checkpoint) {
+                return false;
+            }
+            const checkpointIdString = checkpoint.id === null || checkpoint.id === undefined
+                ? null
+                : String(checkpoint.id);
+
+            return checkpointIdString === selectedIdString;
+        });
+
+        if (selectedPoint) {
+            mapRef.current.animateToRegion(
+                {
+                    latitude: selectedPoint.latitude,
+                    longitude: selectedPoint.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                },
+                500
+            );
+        }
+    }, [selectedIdString, waypoints]);
 
     // Якщо змінилася encodedRoute, оновлюємо decodedPolyline
     useEffect(() => {
@@ -323,9 +354,18 @@ const GoogleMapComponent = ({
                 )}
             </MapView>
 
-            <TouchableOpacity style={styles.recenterButton} onPress={handleRecenter}>
-                <Text style={styles.recenterButtonText}>Re-centre</Text>
-            </TouchableOpacity>
+            <View style={styles.mapControlsContainer} pointerEvents="box-none">
+                <TouchableOpacity style={styles.mapControlButton} onPress={handleRecenter}>
+                    <Ionicons name="navigate-outline" size={18} color="#1F2937" style={styles.mapControlIcon} />
+                    <Text style={styles.mapControlText}>Re-center</Text>
+                </TouchableOpacity>
+                {typeof onOptimizeRoute === 'function' && (
+                    <TouchableOpacity style={[styles.mapControlButton, styles.mapControlAccentButton]} onPress={onOptimizeRoute}>
+                        <MaterialCommunityIcons name="routes" size={18} color="#FFFFFF" style={styles.mapControlIcon} />
+                        <Text style={[styles.mapControlText, styles.mapControlAccentText]}>Smart Route</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 };
@@ -353,6 +393,7 @@ GoogleMapComponent.propTypes = {
         PropTypes.string,
         PropTypes.number,
     ]),
+    onOptimizeRoute: PropTypes.func,
 };
 
 const styles = StyleSheet.create({
@@ -362,23 +403,40 @@ const styles = StyleSheet.create({
     map: {
         flex: 1,
     },
-    recenterButton: {
+    mapControlsContainer: {
         position: 'absolute',
+        right: 16,
         bottom: 20,
-        right: 20,
-        backgroundColor: 'white',
-        borderRadius: 25,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 3,
-        elevation: 5,
+        alignItems: 'flex-end',
+        gap: 12,
     },
-    recenterButtonText: {
-        color: '#007AFF',
+    mapControlButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        shadowColor: 'rgba(0,0,0,0.25)',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 6,
+    },
+    mapControlIcon: {
+        marginRight: 8,
+    },
+    mapControlText: {
+        fontSize: 14,
         fontWeight: '600',
+        color: '#1F2937',
+    },
+    mapControlAccentButton: {
+        backgroundColor: '#F97316',
+        shadowColor: 'rgba(249, 115, 22, 0.4)',
+    },
+    mapControlAccentText: {
+        color: '#FFFFFF',
     },
     loadingContainer: {
         flex: 1,
