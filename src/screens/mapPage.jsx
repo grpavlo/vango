@@ -929,7 +929,7 @@ const MapPageContent = ({navigation}) => {
 
 
 const createStyles = ({palette, spacing, radii, theme}) => {
-    const bottomInset = spacing.xxl + spacing.base;
+    const bottomInset = spacing.xl + spacing.base;
 
     return StyleSheet.create({
     screen: {
@@ -1049,8 +1049,8 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         right: 0,
         bottom: bottomInset,
         paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.lg,
-        paddingTop: spacing.lg,
+        paddingBottom: spacing.md,
+        paddingTop: spacing.sm,
         zIndex: 10,
     },
     bottomBackdrop: {
@@ -1058,7 +1058,7 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         left: 0,
         right: 0,
         bottom: 0,
-        height: 220,
+        height: 160,
         backgroundColor: withAlpha(palette.background, theme === 'dark' ? 'F2' : 'F0'),
     },
     bottomSheetContainer: {
@@ -1067,10 +1067,10 @@ const createStyles = ({palette, spacing, radii, theme}) => {
     },
     bottomSheet: {
         backgroundColor: palette.cardSurface,
-        borderRadius: radii.xl,
-        paddingTop: spacing.sm,
-        paddingBottom: spacing.md,
-        maxHeight: 400,
+        borderRadius: radii.lg,
+        paddingTop: spacing.xs,
+        paddingBottom: spacing.sm,
+        maxHeight: 300,
         borderWidth: 1,
         borderColor: withAlpha(palette.border, 'C0'),
         shadowColor: palette.cardShadow,
@@ -1082,8 +1082,8 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         width: '100%',
     },
     sheetScrollContent: {
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.md,
+        paddingHorizontal: spacing.base,
+        paddingTop: spacing.sm,
         paddingBottom: spacing.sm,
     },
     centerContent: {
