@@ -811,8 +811,8 @@ const MapPageContent = ({navigation}) => {
                     <View style={styles.headerCard}>
                         <View style={styles.headerRow}>
                             {routeSummary.statusLabel ? (
-                                <View style={[styles.statusChip, {backgroundColor: statusPalette.backgroundColor}]}> 
-                                    <Text style={[styles.statusChipText, {color: statusPalette.textColor}]}> 
+                                <View style={[styles.statusChip, {backgroundColor: statusPalette.backgroundColor}]}>
+                                    <Text style={[styles.statusChipText, {color: statusPalette.textColor}]}>
                                         {routeSummary.statusLabel}
                                     </Text>
                                 </View>
@@ -980,6 +980,7 @@ const MapPageContent = ({navigation}) => {
             />
 
             <BottomNavigationMenu navigation={navigation} activeTab="Map"/>
+        </View>
         </View>
     );
 };
