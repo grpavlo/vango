@@ -1,4 +1,4 @@
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
@@ -562,6 +562,37 @@ const MapPageContent = ({navigation}) => {
         handleSelectCheckpoint(waypoint);
     };
 
+    const handleSmartRoute = useCallback(() => {
+        if (!Array.isArray(waypoints) || waypoints.length === 0) {
+            Alert.alert('Smart Route', 'Add stops to your route to enable smart ordering.');
+            return;
+        }
+
+        const pendingStops = waypoints.filter((point) => !point?.isCompleted);
+
+        if (pendingStops.length === 0) {
+            const lastStop = waypoints[waypoints.length - 1];
+            if (lastStop) {
+                handleSelectCheckpoint(lastStop);
+            }
+            Alert.alert('Smart Route', 'All stops are already completed. Showing the final stop.');
+            return;
+        }
+
+        const nextStop = pendingStops
+            .slice()
+            .sort((a, b) => {
+                const orderA = Number(a.sequence) || Number(a.order) || 0;
+                const orderB = Number(b.sequence) || Number(b.order) || 0;
+                return orderA - orderB;
+            })[0];
+
+        if (nextStop) {
+            handleSelectCheckpoint(nextStop);
+            Alert.alert('Smart Route', `Navigate to ${nextStop.checkpointName || 'the next stop'}.`);
+        }
+    }, [handleSelectCheckpoint, waypoints]);
+
     // Кнопка Default Point (доступна, якщо існує unloadPoint)
     const handleUnloadPointPress = () => {
         if (!unloadPoint) return;
@@ -601,6 +632,7 @@ const MapPageContent = ({navigation}) => {
                         navigator={navigator}
                         unloadPoint={unloadPoint}
                         selectedCheckpointId={selectedCheckpoint?.id}
+                        onOptimizeRoute={handleSmartRoute}
                     />
                 ) : null}
 
