@@ -7,6 +7,7 @@ import * as Location from "expo-location";
 
 import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import GoogleMapComponent from "../components/GoogleMapComponent";
+import StopCard from "../components/StopCard";
 import UniversalModal from "../components/UniversalModal";
 import {Fonts} from "../utils/tokens";
 import {handleCallPress} from "../function/handleCallPress";
@@ -57,6 +58,51 @@ const createFlagColorMap = (primaryColor) => ({
     4: primaryColor,
 });
 
+const clamp = (value, min, max) => {
+    if (!Number.isFinite(value)) {
+        return min;
+    }
+    return Math.min(Math.max(value, min), max);
+};
+
+const createRouteRegionFromPoints = (points = []) => {
+    if (!Array.isArray(points) || points.length === 0) {
+        return null;
+    }
+
+    const validPoints = points.filter((point) => (
+        point && Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+    ));
+
+    if (validPoints.length === 0) {
+        return null;
+    }
+
+    const latitudes = validPoints.map((point) => point.latitude);
+    const longitudes = validPoints.map((point) => point.longitude);
+
+    const minLatitude = Math.min(...latitudes);
+    const maxLatitude = Math.max(...latitudes);
+    const minLongitude = Math.min(...longitudes);
+    const maxLongitude = Math.max(...longitudes);
+
+    const latitude = (minLatitude + maxLatitude) / 2;
+    const longitude = (minLongitude + maxLongitude) / 2;
+
+    const latitudeSpread = Math.max(maxLatitude - minLatitude, 0.02);
+    const longitudeSpread = Math.max(maxLongitude - minLongitude, 0.02);
+
+    const latitudeDelta = clamp(latitudeSpread * 1.6, 0.02, 0.35);
+    const longitudeDelta = clamp(longitudeSpread * 1.6, 0.02, 0.35);
+
+    return {
+        latitude,
+        longitude,
+        latitudeDelta,
+        longitudeDelta,
+    };
+};
+
 const MapPageContent = ({navigation}) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [key, setKey] = useState(null);
@@ -81,12 +127,15 @@ const MapPageContent = ({navigation}) => {
     const [checkpointData, setCheckpointData] = useState(null);
     const [routeSummary, setRouteSummary] = useState({
         statusLabel: "",
-        scheduleLabel: "",
+        startTimeLabel: "",
+        durationLabel: "",
         stopsLabel: "",
         distanceLabel: "",
         completedStops: 0,
         totalStops: 0,
     });
+    const [routeRegion, setRouteRegion] = useState(null);
+    const [routeCoordinates, setRouteCoordinates] = useState([]);
 
     const {setData} = useInfoCheckpoint();
 
@@ -139,23 +188,17 @@ const MapPageContent = ({navigation}) => {
             return "";
         }
 
-        return date.toLocaleString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        });
-    };
-
-    const buildScheduleLabel = (startLabel, durationLabel) => {
-        if (!startLabel && !durationLabel) {
-            return "";
+        try {
+            return new Intl.DateTimeFormat(undefined, {
+                hour: 'numeric',
+                minute: '2-digit',
+            }).format(date);
+        } catch (error) {
+            return date.toLocaleTimeString(undefined, {
+                hour: 'numeric',
+                minute: '2-digit',
+            });
         }
-
-        if (startLabel && durationLabel) {
-            return `${startLabel} · ${durationLabel}`;
-        }
-
-        return startLabel || durationLabel || "";
     };
 
     const statusPalette = useMemo(() => {
@@ -171,6 +214,22 @@ const MapPageContent = ({navigation}) => {
             textColor: palette.textPrimary,
         };
     }, [palette, routeSummary.statusLabel]);
+
+    const routeMetaText = useMemo(() => {
+        const segments = [
+            routeSummary.startTimeLabel,
+            routeSummary.durationLabel,
+            routeSummary.stopsLabel,
+            routeSummary.distanceLabel,
+        ].filter(Boolean);
+
+        return segments.join(" • ");
+    }, [
+        routeSummary.startTimeLabel,
+        routeSummary.durationLabel,
+        routeSummary.stopsLabel,
+        routeSummary.distanceLabel,
+    ]);
 
     const checkpointProgressLabel = useMemo(() => {
         if (!selectedCheckpoint || !routeSummary.totalStops) {
@@ -315,7 +374,6 @@ const MapPageContent = ({navigation}) => {
 
                         const estimatedDurationLabel = formatDurationLabel(data.estimatedDuration);
                         const startTimeLabel = data.startDate ? formatRouteStartTime(data.startDate) : "";
-                        const scheduleLabel = buildScheduleLabel(startTimeLabel, estimatedDurationLabel);
                         const distanceLabel = data.estimatedDistance
                             ? `${convertMetersToMiles(data.estimatedDistance)} mi`
                             : "";
@@ -402,12 +460,25 @@ const MapPageContent = ({navigation}) => {
 
                         setRouteSummary({
                             statusLabel,
-                            scheduleLabel,
+                            startTimeLabel,
+                            durationLabel: estimatedDurationLabel,
                             stopsLabel: totalStops ? `${completedCount}/${totalStops} stops` : "",
                             distanceLabel,
                             completedStops: completedCount,
                             totalStops,
                         });
+
+                        const coordinatePoints = sortedWaypoints
+                            .map((point) => ({
+                                latitude: Number(point.latitude),
+                                longitude: Number(point.longitude),
+                            }))
+                            .filter((point) => (
+                                Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+                            ));
+
+                        setRouteCoordinates(coordinatePoints);
+                        setRouteRegion(createRouteRegionFromPoints(coordinatePoints));
 
                         setWaypoints(sortedWaypoints);
                         const defaultCheckpoint = sortedWaypoints.find((point) => !point.isCompleted) || sortedWaypoints[sortedWaypoints.length - 1] || null;
@@ -613,7 +684,6 @@ const MapPageContent = ({navigation}) => {
     }, []);
 
     const hasPhone = Boolean(selectedCheckpoint?.phone);
-    const hasPriorityFlag = Boolean(selectedCheckpoint?.flagColor);
     const showProgressBadge = Boolean(checkpointProgressLabel);
     const isCheckpointCompleted = Boolean(selectedCheckpoint?.isCompleted);
 
@@ -642,148 +712,30 @@ const MapPageContent = ({navigation}) => {
             );
         }
 
+        const infoItems = [];
+        if (selectedCheckpoint?.stat) {
+            infoItems.push(selectedCheckpoint.stat);
+        }
+
         return (
             <ScrollView contentContainerStyle={styles.sheetScrollContent} showsVerticalScrollIndicator={false}>
-                <View style={styles.sheetHeader}>
-                    <View style={styles.sheetHeaderMain}>
-                        <View style={styles.sheetHeaderContent}>
-                            <View
-                                style={[
-                                    styles.typeIconWrapper,
-                                    {
-                                        backgroundColor: checkpointTypeStyles.iconBackground,
-                                        borderColor: checkpointTypeStyles.iconBorder,
-                                    },
-                                ]}
-                            >
-                                <MaterialCommunityIcons
-                                    name={selectedCheckpoint.dropOff ? 'arrow-down' : 'arrow-up'}
-                                    size={20}
-                                    color={checkpointTypeStyles.iconColor}
-                                />
-                            </View>
-                            <View style={styles.sheetHeaderTextBlock}>
-                                <View style={styles.sheetHeaderBadges}>
-                                    <Text style={styles.checkpointTypeLabel}>
-                                        {selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}
-                                    </Text>
-                                    {selectedCheckpoint.stat ? (
-                                        <View style={styles.statChip}>
-                                            <Text style={styles.statChipText}>{selectedCheckpoint.stat}</Text>
-                                        </View>
-                                    ) : null}
-                                    {hasPriorityFlag ? (
-                                        <View
-                                            style={[
-                                                styles.priorityChip,
-                                                {
-                                                    backgroundColor: `${selectedCheckpoint.flagColor}20`,
-                                                    borderColor: `${selectedCheckpoint.flagColor}40`,
-                                                },
-                                            ]}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="flag-variant"
-                                                size={12}
-                                                color={selectedCheckpoint.flagColor}
-                                            />
-                                            <Text style={[styles.priorityChipText, {color: selectedCheckpoint.flagColor}]}>Priority</Text>
-                                        </View>
-                                    ) : null}
-                                </View>
-                                <Text style={styles.checkpointTitle} numberOfLines={2}>
-                                    {selectedCheckpoint.checkpointName || 'Checkpoint'}
-                                </Text>
-                                {selectedCheckpoint.address ? (
-                                    <Text style={styles.checkpointAddress} numberOfLines={2}>
-                                        {selectedCheckpoint.address}
-                                    </Text>
-                                ) : null}
-                            </View>
-                        </View>
-                    </View>
-                    <View style={styles.sheetHeaderAside}>
-                        {showProgressBadge ? (
-                            <View style={styles.progressBadge}>
-                                <Text style={styles.progressBadgeText}>Stop {checkpointProgressLabel}</Text>
-                            </View>
-                        ) : null}
-                        <View
-                            style={[
-                                styles.statusBadge,
-                                {
-                                    backgroundColor: checkpointStatusPalette.backgroundColor,
-                                    borderColor: checkpointStatusPalette.borderColor,
-                                },
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.statusBadgeText,
-                                    {color: checkpointStatusPalette.textColor},
-                                ]}
-                            >
-                                {selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.detailMetaRow}>
-                    <MaterialCommunityIcons
-                        name="map-marker-outline"
-                        size={20}
-                        color={palette.primary}
-                        style={styles.infoIcon}
-                    />
-                    <Text style={styles.detailMetaText} numberOfLines={2}>
-                        {selectedCheckpoint.address || '---'}
-                    </Text>
-                </View>
-
-                <View style={[styles.detailMetaRow, styles.detailMetaRowWrap]}>
-                    <View style={styles.detailMetaContent}>
-                        <MaterialCommunityIcons
-                            name="clock-time-five-outline"
-                            size={20}
-                            color={palette.primary}
-                            style={styles.infoIcon}
-                        />
-                        <Text style={styles.detailMetaText} numberOfLines={1}>
-                            {selectedCheckpoint.hours || '---'}
-                        </Text>
-                    </View>
-                    {hasPhone ? (
-                        <TouchableOpacity
-                            style={styles.inlineCallButton}
-                            onPress={() => handleCallPress(selectedCheckpoint.phone)}
-                        >
-                            <Ionicons name="call" size={16} color={palette.primary} style={styles.inlineCallIcon} />
-                            <Text style={styles.inlineCallText}>Call site</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-
-                <View style={styles.primaryActionsRow}>
-                    <TouchableOpacity style={styles.primaryActionButton} onPress={handleGo}>
-                        <Ionicons
-                            name="navigate"
-                            size={20}
-                            color={palette.primaryForeground}
-                            style={styles.primaryActionIcon}
-                        />
-                        <Text style={styles.primaryActionText}>Navigate</Text>
-                    </TouchableOpacity>
-                    {isCheckpointCompleted ? (
-                        <View style={[styles.secondaryActionButton, styles.secondaryActionButtonDisabled]}>
-                            <Text style={[styles.secondaryActionText, styles.secondaryActionTextDisabled]}>Visit Complete</Text>
-                        </View>
-                    ) : (
-                        <TouchableOpacity style={styles.secondaryActionButton} onPress={handleStartVisit}>
-                            <Text style={styles.secondaryActionText}>Start Visit</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                <StopCard
+                    title={selectedCheckpoint.checkpointName || 'Checkpoint'}
+                    subtitle={selectedCheckpoint.address || '---'}
+                    hoursLabel={selectedCheckpoint.hours && selectedCheckpoint.hours !== '---' ? selectedCheckpoint.hours : ''}
+                    infoItems={infoItems}
+                    statusLabel={selectedCheckpoint.isCompleted ? 'Completed' : 'Pending'}
+                    statusPalette={checkpointStatusPalette}
+                    progressLabel={showProgressBadge ? `Stop ${checkpointProgressLabel}` : ''}
+                    typeLabel={selectedCheckpoint.dropOff ? 'Drop-off' : 'Pick-up'}
+                    typeIconColors={checkpointTypeStyles}
+                    flagColor={selectedCheckpoint.flagColor}
+                    onNavigate={handleGo}
+                    onStartVisit={handleStartVisit}
+                    disableStartVisit={isCheckpointCompleted}
+                    onCallPress={hasPhone ? () => handleCallPress(selectedCheckpoint.phone) : undefined}
+                    showCallButton={hasPhone}
+                />
             </ScrollView>
         );
     };
@@ -804,6 +756,8 @@ const MapPageContent = ({navigation}) => {
                         unloadPoint={unloadPoint}
                         selectedCheckpointId={selectedCheckpoint?.id}
                         onOptimizeRoute={handleSmartRoute}
+                        routeRegion={routeRegion}
+                        routeCoordinates={routeCoordinates}
                     />
                 ) : null}
 
@@ -836,23 +790,11 @@ const MapPageContent = ({navigation}) => {
                             </TouchableOpacity>
                         </View>
                         <Text style={styles.routeTitle} numberOfLines={1}>{routeName || 'Route overview'}</Text>
-                        <View style={styles.routeMetaRow}>
-                            {routeSummary.scheduleLabel ? (
-                                <Text style={styles.routeMetaText}>{routeSummary.scheduleLabel}</Text>
-                            ) : null}
-                            {routeSummary.scheduleLabel && (routeSummary.stopsLabel || routeSummary.distanceLabel) ? (
-                                <View style={styles.routeMetaDivider} />
-                            ) : null}
-                            {routeSummary.stopsLabel ? (
-                                <Text style={styles.routeMetaText}>{routeSummary.stopsLabel}</Text>
-                            ) : null}
-                            {routeSummary.stopsLabel && routeSummary.distanceLabel ? (
-                                <View style={styles.routeMetaDivider} />
-                            ) : null}
-                            {routeSummary.distanceLabel ? (
-                                <Text style={styles.routeMetaText}>{routeSummary.distanceLabel}</Text>
-                            ) : null}
-                        </View>
+                        {routeMetaText ? (
+                            <Text style={styles.routeMetaText} numberOfLines={2}>
+                                {routeMetaText}
+                            </Text>
+                        ) : null}
                     </View>
                 </View>
 
@@ -1069,24 +1011,11 @@ const createStyles = ({palette, spacing, radii, theme}) => {
         color: palette.textPrimary,
         marginBottom: spacing.xs,
     },
-    routeMetaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-    },
     routeMetaText: {
         fontSize: Fonts.f12,
         color: withAlpha(palette.textSecondary, 'E0'),
-        marginRight: spacing.xs,
-        marginBottom: 4,
-    },
-    routeMetaDivider: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: palette.border,
-        marginRight: spacing.xs,
-        marginBottom: 4,
+        marginBottom: spacing.xs,
+        lineHeight: 18,
     },
     unloadFloatingButton: {
         position: 'absolute',
