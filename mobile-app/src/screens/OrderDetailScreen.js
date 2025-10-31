@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppButton from "../components/AppButton";
+import AppInput from "../components/AppInput";
 import { Ionicons } from "@expo/vector-icons";
 import { apiFetch, HOST_URL } from "../api";
 import { colors } from "../components/Colors";
@@ -20,6 +21,8 @@ import { useAuth } from "../AuthContext";
 import StatusTimeline from "../components/StatusTimeline";
 import Screen from "../components/Screen";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AppText from "../components/AppText";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const statusLabels = {
   CREATED: "Створено",
@@ -71,6 +74,13 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [reservedUntil, setReservedUntil] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [actionHeight, setActionHeight] = useState(0);
+  const [finalPrice, setFinalPrice] = useState(
+    order?.price ? String(order.price) : ""
+  );
+
+  useEffect(() => {
+    setFinalPrice(order?.price ? String(order.price) : "");
+  }, [order?.price]);
   const wsRef = useRef(null);
   const contactPhone = phone || (order.customer ? order.customer.phone : null);
   const contactName =
@@ -80,6 +90,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const actions = renderActions();
   const hasFooter = actions.length > 0;
+  const priceInputRef = useRef(null);
 
   useEffect(() => {
     connectWs();
@@ -177,6 +188,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+      confirmSave();
       navigation.navigate("Main", { screen: "MyOrders" });
     } catch (err) {
       console.log(err);
@@ -202,12 +214,13 @@ export default function OrderDetailScreen({ route, navigation }) {
       } catch {}
       if (data.order && data.order.reservedUntil)
         setReservedUntil(new Date(data.order.reservedUntil));
+      confirmSave();
     } catch (err) {
       console.log(err);
     }
   }
 
-  async function  cancelReserve() {
+  async function cancelReserve() {
     try {
       await apiFetch(`/orders/${order.id}/cancel-reserve`, {
         method: "POST",
@@ -411,7 +424,33 @@ export default function OrderDetailScreen({ route, navigation }) {
 
     return buttons;
   }
+  async function save() {
+    try {
+      const fd = new FormData();
 
+      if (finalPrice !== "" && !Number.isNaN(Number(finalPrice))) {
+        fd.append("finalPrice", String(Math.round(Number(finalPrice))));
+      }
+      await apiFetch(`/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      //toast.show("Змінено");
+      navigation.pop(2);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  async function confirmSave() {
+    await save();
+
+    // Alert.alert("Підтвердження", "Зберегти зміни?", [
+    //   { text: "Скасувати" },
+    //   { text: "OK", onPress: save },
+    // ]);
+  }
   return (
     <Screen hasFooter={hasFooter}>
       <SafeAreaView style={styles.container}>
@@ -488,8 +527,6 @@ export default function OrderDetailScreen({ route, navigation }) {
               </View>
             </View>
           )} */}
-
-          
 
           {role !== "DRIVER" && order.history && order.history.length > 0 && (
             <StatusTimeline
@@ -755,6 +792,58 @@ export default function OrderDetailScreen({ route, navigation }) {
               </View>
             )}
           {renderActions()}
+          {/* {role === "DRIVER" && (
+            <KeyboardAwareScrollView
+              enableOnAndroid
+              keyboardShouldPersistTaps="handled"
+              extraScrollHeight={200}
+              showsVerticalScrollIndicator={false}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <AppText style={{ fontWeight: "bold", marginRight: 8 }}>
+                  Фінальна ціна:
+                </AppText>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flex: 1,
+                    // borderWidth: 1,
+                    // borderColor: "#ddd",
+                    // borderRadius: 8,
+                    paddingHorizontal: 8,
+                  }}
+                >
+                  {/* Сам інпут *
+                  <AppInput
+                    ref={priceInputRef}
+                    style={{ flex: 1, height: 40 }}
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    placeholder="Введіть ціну"
+                    value={finalPrice}
+                    onChangeText={(t) => setFinalPrice(t.replace(/[^\d]/g, ""))}
+                  />
+
+                  {/* Іконка олівця *
+                  <TouchableOpacity
+                    onPress={() => {
+                      // при натисканні активуємо інпут
+                      priceInputRef.current?.focus();
+                    }}
+                    style={{ marginLeft: 4, padding: 4 }}
+                  >
+                    <Ionicons name="create-outline" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAwareScrollView>
+          )} */}
         </View>
       </SafeAreaView>
     </Screen>

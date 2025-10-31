@@ -426,7 +426,7 @@ async function rejectDriver(req, res) {
     order.history = [
       ...(order.history || []),
       { status: OrderStatus.REJECTED, at: new Date() },
-      { status: OrderStatus.CREATED, at: new Date() },
+      // { status: OrderStatus.CREATED, at: new Date() },
     ];
     await order.save();
     const updated = await Order.findByPk(orderId, {
@@ -557,19 +557,30 @@ async function updateOrder(req, res) {
       "insurance",
       "price",
       "agreedPrice",
+      "finalPrice"
     ];
+
+    // Нормалізації для спеціальних типів
+    const normalizeBoolean = (v) =>
+      v === true || v === "true" || v === "1" || v === 1 || v === "on";
+    const normalizeNumber = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
 
     fields.forEach((f) => {
       if (req.body[f] !== undefined) {
         if (f === "agreedPrice") {
-          const v = req.body.agreedPrice;
-          order.agreedPrice =
-            v === "true" || v === true || v === "on" || v === 1 || v === "1";
+          order.agreedPrice = normalizeBoolean(req.body.agreedPrice);
+        } else if (f === "finalPrice") {
+          const n = normalizeNumber(req.body.finalPrice);
+          if (n !== null) order.finalPrice = Math.round(n);
         } else {
           order[f] = req.body[f];
         }
       }
     });
+
     console.log(req.body.agreedPrice);
 
     if (

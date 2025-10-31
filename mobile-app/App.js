@@ -12,6 +12,7 @@ import MainTabs from './src/screens/MainTabs';
 import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
 import EditOrderScreen from './src/screens/EditOrderScreen';
+import EditProfile from './src/screens/EditProfile';
 import { navigationRef, navigate } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -47,6 +48,7 @@ function RootNavigator() {
           <Stack.Screen name="MapSelect" component={MapSelectScreen} />
           <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
           <Stack.Screen name="EditOrder" component={EditOrderScreen} />
+          <Stack.Screen name="ProfileScreen" component={EditProfile} />
         </>
       )}
     </Stack.Navigator>

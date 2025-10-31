@@ -47,6 +47,7 @@ Order.init(
     systemPrice: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
     price: { type: DataTypes.FLOAT, allowNull: false },
     agreedPrice: { type: DataTypes.BOOLEAN, defaultValue: false },
+    finalPrice: { type: DataTypes.FLOAT },
     reservedBy: { type: DataTypes.INTEGER.UNSIGNED },
     reservedUntil: { type: DataTypes.DATE },
     candidateDriverId: { type: DataTypes.INTEGER.UNSIGNED },
