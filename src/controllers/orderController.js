@@ -218,6 +218,15 @@ async function reserveOrder(req, res) {
     if (!order || order.status !== "CREATED") {
       return res.status(400).send("Замовлення недоступне");
     }
+
+    // 👇 водій може запропонувати фінальну ціну під час резерву
+    if (req.body && req.body.finalPrice != null) {
+      const n = Number(req.body.finalPrice);
+      if (Number.isFinite(n)) {
+        order.finalPrice = Math.round(n);
+      }
+    }
+
     const now = new Date();
     if (
       order.reservedBy &&
@@ -228,7 +237,7 @@ async function reserveOrder(req, res) {
       return res.status(400).send("Вже зарезервовано");
     }
     order.reservedBy = req.user.id;
-    order.reservedUntil = new Date(now.getTime() + 10 * 60000); 
+    order.reservedUntil = new Date(now.getTime() + 10 * 60000);
     await order.save();
     broadcastOrder(order);
     if (
@@ -307,7 +316,6 @@ async function cancelReserve(req, res) {
   }
 }
 
-
 async function acceptOrder(req, res) {
   const orderId = req.params.id;
   try {
@@ -317,6 +325,15 @@ async function acceptOrder(req, res) {
 
       return;
     }
+
+    // 👇 водій може виставити/уточнити фінальну ціну при взятті
+    if (req.body && req.body.finalPrice != null) {
+      const n = Number(req.body.finalPrice);
+      if (Number.isFinite(n)) {
+        order.finalPrice = Math.round(n);
+      }
+    }
+
     const now = new Date();
     order.candidateDriverId = req.user.id;
     order.candidateUntil = new Date(now.getTime() + 15 * 60000);
@@ -368,6 +385,11 @@ async function confirmDriver(req, res) {
     order.reservedBy = null;
     order.reservedUntil = null;
     order.status = "ACCEPTED";
+    // Якщо водій узгодив фінальну ціну — фіксуємо її як основну
+    const fp = Number(order.finalPrice);
+    if (Number.isFinite(fp) && fp > 0) {
+      order.price = Math.round(fp);
+    }
     order.history = [
       ...(order.history || []),
       { status: "ACCEPTED", at: new Date() },
@@ -520,7 +542,11 @@ async function updateStatus(req, res) {
 }
 
 async function updateOrder(req, res) {
-  console.log('RAW agreedPrice:', req.body?.agreedPrice, typeof req.body?.agreedPrice);
+  console.log(
+    "RAW agreedPrice:",
+    req.body?.agreedPrice,
+    typeof req.body?.agreedPrice
+  );
 
   const id = req.params.id;
   try {
@@ -557,7 +583,7 @@ async function updateOrder(req, res) {
       "insurance",
       "price",
       "agreedPrice",
-      "finalPrice"
+      "finalPrice",
     ];
 
     // Нормалізації для спеціальних типів

@@ -37,7 +37,6 @@ export default function MyOrdersScreen({ navigation }) {
   const wsRef = useRef(null);
   const [filter, setFilter] = useState("active");
 
-
   async function load() {
     try {
       setLoading(true);
@@ -118,6 +117,31 @@ export default function MyOrdersScreen({ navigation }) {
       console.log(err);
     }
   }
+function confirmFinalPriceModal(order) {
+  const fp = Number(order.finalPrice);
+  const priceText = Number.isFinite(fp) ? `${Math.round(fp)} грн` : "—";
+  return new Promise((resolve) => {
+    Alert.alert(
+      "Підтвердити фінальну ціну?",
+      `Фінальна ціна: ${priceText}`,
+      [
+        { text: "Відхилити", style: "destructive", onPress: () => resolve(false) },
+        { text: "Скасувати", onPress: () => resolve(null) },
+        { text: "Прийняти", onPress: () => resolve(true) },
+      ]
+    );
+  });
+}
+
+async function handleConfirmOrReject(order) {
+  const choice = await confirmFinalPriceModal(order);
+  if (choice === true) {
+    await confirmDriver(order.id);
+  } else if (choice === false) {
+    await rejectDriver(order.id);
+  }
+  // choice === null → нічого не робимо
+}
 
   function confirmAction(message) {
     return new Promise((resolve) => {
@@ -225,9 +249,16 @@ export default function MyOrdersScreen({ navigation }) {
     const pending = item.status === "PENDING";
     const candidate =
       item.driver || item.reservedDriver || item.candidateDriver;
-    const candidateTime = item.candidateUntil || item.reservedUntil
-      ? Math.max(0, Math.ceil((new Date(item.candidateUntil || item.reservedUntil) - now) / 60000))
-      : 0;
+    const candidateTime =
+      item.candidateUntil || item.reservedUntil
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(item.candidateUntil || item.reservedUntil) - now) /
+                60000
+            )
+          )
+        : 0;
     return (
       <TouchableOpacity
         onPress={() =>
@@ -314,33 +345,46 @@ export default function MyOrdersScreen({ navigation }) {
               {statusLabels[item.status] || item.status}
             </Text>
           </Text>
-          {// як у OrderDetailScreen: для Клієнта показуємо, коли замовлення створене і є резерв
-          ((
-            item.status === "CREATED" &&
-            item.reservedBy) ||
-            // для Водія — коли резерв активний, немає driverId і це в роботі
-            (role === "DRIVER" && reserved && !item.driverId)) && (
-            <AppButton
-              key="cancel"
-              title="Відмінити резерв"
-              onPress={() => cancelReserve(item.id)}
-              variant="danger"
-            />
-          )}
+          {
+            // як у OrderDetailScreen: для Клієнта показуємо, коли замовлення створене і є резерв
+            ((item.status === "CREATED" && item.reservedBy) ||
+              // для Водія — коли резерв активний, немає driverId і це в роботі
+              (role === "DRIVER" && reserved && !item.driverId)) && (
+              <AppButton
+                key="cancel"
+                title="Відмінити резерв"
+                onPress={() => cancelReserve(item.id)}
+                variant="danger"
+              />
+            )
+          }
 
           {role === "CUSTOMER" && item.status === "PENDING" && (
-            <View style={styles.actionRow}>
-              <AppButton
-                title="Прийняти"
-                onPress={() => confirmDriver(item.id)}
-                style={styles.smallBtn}
-              />
-              <AppButton
-                title="Відхилити"
-                color="#EF4444"
-                onPress={() => rejectDriver(item.id)}
-                style={styles.smallBtn}
-              />
+            <View>
+              <View style={styles.actionRow}>
+                <AppButton
+                  title="Прийняти"
+                  onPress={() => handleConfirmOrReject(item)}
+                  style={styles.smallBtn}
+                />
+                <AppButton
+                  title="Відхилити"
+                  color="#EF4444"
+                  onPress={() => rejectDriver(item.id)}
+                  style={styles.smallBtn}
+                />
+              </View>
+              <View style={styles.finalPriceRow}>
+                <Text style={styles.finalPriceLabel}>Фінальна ціна:</Text>
+                <Text
+                  style={[
+                    styles.finalPriceValue,
+                    !item.finalPrice && { color: "#9CA3AF" },
+                  ]}
+                >
+                  {item.finalPrice ? `${Math.round(item.finalPrice)} грн` : "—"}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -540,6 +584,28 @@ const styles = StyleSheet.create({
   activeFilter: { backgroundColor: colors.green },
   activeFilterText: { color: "#fff" },
   filterText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  finalPriceRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  backgroundColor: "#F3FFF4",
+  borderColor: "#22C55E",
+  borderWidth: 1,
+  borderRadius: 10,
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  marginTop: 10,
+},
+finalPriceLabel: {
+  fontSize: 15,
+  fontWeight: "700",
+  color: "#166534", // темно-зелений
+},
+finalPriceValue: {
+  fontSize: 16,
+  fontWeight: "800",
+  color: "#16A34A", // зелений
+},
 });
 
 function formatDate(d) {

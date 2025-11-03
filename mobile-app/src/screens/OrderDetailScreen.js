@@ -184,11 +184,15 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   async function accept() {
     try {
+      const body =
+        finalPrice !== "" && !Number.isNaN(Number(finalPrice))
+          ? { finalPrice: String(Math.round(Number(finalPrice))) }
+          : {};
       await apiFetch(`/orders/${order.id}/accept`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
       });
-      confirmSave();
       navigation.navigate("Main", { screen: "MyOrders" });
     } catch (err) {
       console.log(err);
@@ -197,9 +201,14 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   async function reserve() {
     try {
+      const body =
+        finalPrice !== "" && !Number.isNaN(Number(finalPrice))
+          ? { finalPrice: String(Math.round(Number(finalPrice))) }
+          : {};
       const data = await apiFetch(`/orders/${order.id}/reserve`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
       });
       setReserved(true);
       setPhone(data.phone);
@@ -214,7 +223,6 @@ export default function OrderDetailScreen({ route, navigation }) {
       } catch {}
       if (data.order && data.order.reservedUntil)
         setReservedUntil(new Date(data.order.reservedUntil));
-      confirmSave();
     } catch (err) {
       console.log(err);
     }
@@ -792,7 +800,7 @@ export default function OrderDetailScreen({ route, navigation }) {
               </View>
             )}
           {renderActions()}
-          {/* {role === "DRIVER" && (
+           {role === "DRIVER" && (
             <KeyboardAwareScrollView
               enableOnAndroid
               keyboardShouldPersistTaps="handled"
@@ -819,7 +827,7 @@ export default function OrderDetailScreen({ route, navigation }) {
                     paddingHorizontal: 8,
                   }}
                 >
-                  {/* Сам інпут *
+                  {/* Сам інпут */}
                   <AppInput
                     ref={priceInputRef}
                     style={{ flex: 1, height: 40 }}
@@ -830,7 +838,7 @@ export default function OrderDetailScreen({ route, navigation }) {
                     onChangeText={(t) => setFinalPrice(t.replace(/[^\d]/g, ""))}
                   />
 
-                  {/* Іконка олівця *
+                  {/* Іконка олівця */}
                   <TouchableOpacity
                     onPress={() => {
                       // при натисканні активуємо інпут
@@ -843,7 +851,7 @@ export default function OrderDetailScreen({ route, navigation }) {
                 </View>
               </View>
             </KeyboardAwareScrollView>
-          )} */}
+          )} 
         </View>
       </SafeAreaView>
     </Screen>
