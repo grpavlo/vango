@@ -16,12 +16,20 @@ import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import UniversalModal from '../components/UniversalModal';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
 import { Fonts } from '../utils/tokens';
+import * as SecureStore from 'expo-secure-store';
 import { useInfoCheckpoint } from '../store/infoCheckpoint';
 import { handleCallPress } from '../function/handleCallPress';
 import CameraComponent from '../components/CameraComponent';
 import { Camera, CameraView } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppAlert } from '../hooks/useAppAlert';
+import { serverUrlApi } from '../const/api';
+import {
+    VISIT_ARRIVAL_CHECK_TYPE,
+    VISIT_RESULT_ITEM_TYPE,
+    combineArrivalFlags,
+    finishVisit,
+} from '../utils/visitApi';
 
 
 const withAlpha = (hex, alpha) => {
@@ -59,9 +67,11 @@ const DEFAULT_COPY = {
 const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => {
     const {
         idRoute,
+        idCheckpoint: idCheckpointParam = null,
         routeName: routeNameParam = '',
         dispatchPhone: dispatchPhoneParam = null,
         officePhone: officePhoneParam = null,
+        arrivalFlags = null,
     } = route.params || {};
 
     const { tokens, theme } = useDesignSystem();
@@ -74,10 +84,20 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
     const bottomOverlayColor = tokens.navBackground || palette.background;
 
     const data = useInfoCheckpoint((state) => state.data);
+    const isDropOff = useMemo(() => Boolean(data?.dropOff), [data?.dropOff]);
+    const arrivalCheckType = useMemo(
+        () => combineArrivalFlags(arrivalFlags, [VISIT_ARRIVAL_CHECK_TYPE.PickupSamples]),
+        [arrivalFlags],
+    );
+    const visitId = useMemo(() => idCheckpointParam || data?.id || null, [data, idCheckpointParam]);
+    const [dropoffCounts, setDropoffCounts] = useState({ samples: null, packages: null });
+    const [loadingDropoffCounts, setLoadingDropoffCounts] = useState(false);
+    const [dropoffCountsError, setDropoffCountsError] = useState(null);
     const [unassignedSamples, setUnassignedSamples] = useState([]);
     const [selectedSampleIds, setSelectedSampleIds] = useState([]);
     const [packages, setPackages] = useState([]);
     const [photos, setPhotos] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [scannerVisible, setScannerVisible] = useState(false);
     const [scannerMode, setScannerMode] = useState(null);
@@ -87,6 +107,7 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
     const [banner, setBanner] = useState(null);
     const [scannerNotice, setScannerNotice] = useState(null);
     const viewerListRef = useRef(null);
+    const routeStartAttemptedRef = useRef(false);
     const insets = useSafeAreaInsets();
 
     const dismissBanner = useCallback(() => setBanner(null), []);
@@ -120,6 +141,117 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
             setScannerNotice(null);
         }
     }, [scannerVisible]);
+
+    const resolveRouteId = useCallback(async () => {
+        if (idRoute) {
+            return idRoute;
+        }
+        const storedId = await SecureStore.getItemAsync('idRoute');
+        return storedId || null;
+    }, [idRoute]);
+
+    useEffect(() => {
+        routeStartAttemptedRef.current = false;
+    }, [idRoute]);
+
+    const startRouteForDropoff = useCallback(async () => {
+        if (!isDropOff || routeStartAttemptedRef.current) {
+            return;
+        }
+        const effectiveRouteId = await resolveRouteId();
+        if (!effectiveRouteId) {
+            return;
+        }
+        routeStartAttemptedRef.current = true;
+        try {
+            const accessToken = await SecureStore.getItemAsync('accessToken');
+            if (!accessToken) {
+                routeStartAttemptedRef.current = false;
+                return;
+            }
+            const response = await fetch(`${serverUrlApi}routes/${effectiveRouteId}/start`, {
+                method: 'PATCH',
+                headers: {
+                    accept: 'application/json',
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+            if (!response.ok) {
+                routeStartAttemptedRef.current = false;
+            }
+        } catch (error) {
+            routeStartAttemptedRef.current = false;
+        }
+    }, [isDropOff, resolveRouteId]);
+
+    const fetchDropoffCounts = useCallback(async () => {
+        if (!isDropOff) {
+            return;
+        }
+        setLoadingDropoffCounts(true);
+        setDropoffCountsError(null);
+        try {
+            const accessToken = await SecureStore.getItemAsync('accessToken');
+            if (!accessToken) {
+                throw new Error('AUTH_MISSING');
+            }
+            const effectiveRouteId = await resolveRouteId();
+            const query = effectiveRouteId ? `?routeId=${encodeURIComponent(effectiveRouteId)}` : '';
+            const response = await fetch(`${serverUrlApi}routes/me/samples/count${query}`, {
+                method: 'GET',
+                headers: {
+                    accept: 'application/json',
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+            if (!response.ok) {
+                throw new Error('COUNT_FETCH_FAILED');
+            }
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (typeof payload === 'number') {
+                setDropoffCounts({ samples: payload, packages: null });
+                return;
+            }
+
+            if (payload && typeof payload === 'object') {
+                const sampleValue = [payload.samples, payload.samplesCount, payload.sampleCount].find(
+                    (value) => typeof value === 'number',
+                );
+                const packageValue = [payload.packages, payload.packagesCount, payload.packageCount].find(
+                    (value) => typeof value === 'number',
+                );
+                setDropoffCounts({
+                    samples: typeof sampleValue === 'number' ? sampleValue : null,
+                    packages: typeof packageValue === 'number' ? packageValue : null,
+                });
+                return;
+            }
+
+            setDropoffCounts({ samples: null, packages: null });
+        } catch (error) {
+            let message = 'Unable to load drop-off counts.';
+            if (error?.message === 'AUTH_MISSING') {
+                message = 'Authentication token is missing.';
+            }
+            setDropoffCountsError(message);
+        } finally {
+            setLoadingDropoffCounts(false);
+        }
+    }, [isDropOff, resolveRouteId]);
+
+    useEffect(() => {
+        if (!isDropOff) {
+            return;
+        }
+        startRouteForDropoff();
+        fetchDropoffCounts();
+    }, [fetchDropoffCounts, isDropOff, startRouteForDropoff]);
 
     const checkpointName =
         routeNameParam || data?.name || data?.checkpointName || 'Checkpoint';
@@ -173,7 +305,7 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
     );
     const hasScannedSamples = totalSamplesCount > 0;
     const hasPhotos = photos.length > 0;
-    const canMarkDone = hasScannedSamples && hasPhotos;
+    const canMarkDone = hasScannedSamples && hasPhotos && !isSubmitting;
 
     useEffect(() => {
         if (!hasPackages) {
@@ -435,14 +567,139 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
         );
     };
 
-    const handleMarkDone = () => {
-        showAlert({
-            title: copy.successTitle,
-            message: copy.successMessage,
-            variant: 'success',
-            confirmText: copy.successConfirmText,
-            onConfirm: () => navigation.goBack(),
+    const buildVisitPayload = useCallback(() => {
+        const packageItems = [];
+        const sampleItems = [];
+        const itemLinks = [];
+        const seenSamples = new Set();
+
+        packages.forEach((pkg) => {
+            if (pkg?.barcode) {
+                packageItems.push({
+                    type: VISIT_RESULT_ITEM_TYPE.Package,
+                    code: pkg.barcode,
+                });
+            }
+            (pkg?.codes || []).forEach((sample) => {
+                if (pkg?.barcode && sample?.code) {
+                    itemLinks.push({
+                        parentCode: pkg.barcode,
+                        childCode: sample.code,
+                    });
+                }
+                if (sample?.code && !seenSamples.has(sample.code)) {
+                    sampleItems.push({
+                        type: VISIT_RESULT_ITEM_TYPE.Sample,
+                        code: sample.code,
+                    });
+                    seenSamples.add(sample.code);
+                }
+            });
         });
+
+        unassignedSamples.forEach((sample) => {
+            if (sample?.code && !seenSamples.has(sample.code)) {
+                sampleItems.push({
+                    type: VISIT_RESULT_ITEM_TYPE.Sample,
+                    code: sample.code,
+                });
+                seenSamples.add(sample.code);
+            }
+        });
+
+        return {
+            items: [...packageItems, ...sampleItems],
+            itemLinks,
+        };
+    }, [packages, unassignedSamples]);
+
+    const finishRouteForDropoff = useCallback(async () => {
+        const effectiveRouteId = await resolveRouteId();
+        if (!effectiveRouteId) {
+            throw new Error('ROUTE_ID_MISSING');
+        }
+        const accessToken = await SecureStore.getItemAsync('accessToken');
+        if (!accessToken) {
+            throw new Error('AUTH_MISSING');
+        }
+        const response = await fetch(`${serverUrlApi}routes/${effectiveRouteId}/finish`, {
+            method: 'PATCH',
+            headers: {
+                accept: 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+        if (!response.ok) {
+            const message = await response.text().catch(() => 'ROUTE_FINISH_FAILED');
+            throw new Error(message || 'ROUTE_FINISH_FAILED');
+        }
+        await SecureStore.deleteItemAsync('idRoute');
+        return true;
+    }, [resolveRouteId]);
+
+    const handleMarkDone = async () => {
+        if (!canMarkDone || isSubmitting) {
+            return;
+        }
+        if (!visitId) {
+            showAlert({
+                title: 'Visit missing',
+                message: 'Unable to determine the visit id. Please try again from the route list.',
+                variant: 'error',
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const { items, itemLinks } = buildVisitPayload();
+            await finishVisit({
+                visitId,
+                arrivalCheckType,
+                items,
+                itemLinks,
+                mediaAssets: photos,
+            });
+            if (isDropOff) {
+                await finishRouteForDropoff();
+            }
+            showAlert({
+                title: copy.successTitle,
+                message: copy.successMessage,
+                variant: 'success',
+                confirmText: copy.successConfirmText,
+                onConfirm: () => {
+                    if (isDropOff) {
+                        navigation.navigate('RoutesPage');
+                        return;
+                    }
+                    navigation.navigate('RouteCheckpointsPage', {
+                        idRoute,
+                        idCheckpoint: visitId,
+                    });
+                },
+            });
+        } catch (error) {
+            console.log(error);
+            
+            let message = 'Unable to finish the visit. Please try again.';
+            if (error?.message === 'AUTH_MISSING') {
+                message = 'Authentication token is missing. Please log in again.';
+            } else if (error?.message === 'VISIT_ID_MISSING') {
+                message = 'Visit identifier is missing.';
+            } else if (error?.message === 'ROUTE_ID_MISSING') {
+                message = 'Route identifier is missing.';
+            } else if (error?.message === 'ROUTE_FINISH_FAILED') {
+                message = 'Unable to finish the route. Please try again.';
+            }
+            showAlert({
+                title: 'Error',
+                message,
+                variant: 'error',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (isCameraOpen) {
@@ -541,6 +798,59 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
                         />
                     </View>
                 </View>
+                {isDropOff ? (
+                    <View style={styles.sectionCard}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Drop-off Load</Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.refreshButton,
+                                    loadingDropoffCounts && styles.refreshButtonDisabled,
+                                ]}
+                                onPress={fetchDropoffCounts}
+                                disabled={loadingDropoffCounts}
+                            >
+                                <Ionicons
+                                    name="refresh"
+                                    size={16}
+                                    color={
+                                        loadingDropoffCounts
+                                            ? palette.textSecondary
+                                            : palette.primary
+                                    }
+                                />
+                                <Text
+                                    style={[
+                                        styles.refreshButtonText,
+                                        loadingDropoffCounts && styles.refreshButtonTextDisabled,
+                                    ]}
+                                >
+                                    {loadingDropoffCounts ? 'Refreshing...' : 'Refresh'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        {dropoffCountsError ? (
+                            <Text style={[styles.countErrorText, { color: palette.destructive }]}>
+                                {dropoffCountsError}
+                            </Text>
+                        ) : (
+                            <View style={styles.dropoffStatsRow}>
+                                <View style={styles.statPill}>
+                                    <Text style={styles.statLabel}>Samples on board</Text>
+                                    <Text style={styles.statValue}>
+                                        {dropoffCounts.samples ?? '—'}
+                                    </Text>
+                                </View>
+                                <View style={styles.statPill}>
+                                    <Text style={styles.statLabel}>Packages</Text>
+                                    <Text style={styles.statValue}>
+                                        {dropoffCounts.packages ?? '—'}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                ) : null}
                 <View style={styles.sectionCard}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Scan Samples</Text>
@@ -757,7 +1067,7 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
                             !canMarkDone && styles.markButtonTextDisabled,
                         ]}
                     >
-                        {copy.actionLabel}
+                        {isSubmitting ? 'Submitting...' : copy.actionLabel}
                     </Text>
                 </TouchableOpacity>
                 <Text style={styles.footerHint}>{copy.actionDisabledHint}</Text>
@@ -1149,6 +1459,54 @@ const createStyles = (palette) =>
             fontSize: Fonts.f16,
             fontWeight: '700',
             color: palette.textPrimary,
+        },
+        refreshButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            borderRadius: 10,
+            backgroundColor: withAlpha(palette.primary, '12'),
+        },
+        refreshButtonDisabled: {
+            opacity: 0.7,
+        },
+        refreshButtonText: {
+            fontSize: Fonts.f12,
+            fontWeight: '600',
+            color: palette.primary,
+        },
+        refreshButtonTextDisabled: {
+            color: palette.textSecondary,
+        },
+        dropoffStatsRow: {
+            flexDirection: 'row',
+            gap: 12,
+            flexWrap: 'wrap',
+        },
+        statPill: {
+            flex: 1,
+            minWidth: 140,
+            borderRadius: 12,
+            padding: 12,
+            backgroundColor: withAlpha(palette.muted, '60'),
+            borderWidth: 1,
+            borderColor: palette.border,
+        },
+        statLabel: {
+            fontSize: Fonts.f12,
+            color: palette.textSecondary,
+            marginBottom: 6,
+        },
+        statValue: {
+            fontSize: Fonts.f20,
+            fontWeight: '700',
+            color: palette.textPrimary,
+        },
+        countErrorText: {
+            fontSize: Fonts.f12,
+            fontWeight: '600',
         },
         scanButton: {
             flexDirection: 'row',
