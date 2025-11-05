@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Linking,
     Platform,
     ScrollView,
@@ -25,6 +24,7 @@ import { handleCallPress } from '../function/handleCallPress';
 import { useInfoCheckpoint } from '../store/infoCheckpoint';
 import { serverUrlApi } from '../const/api';
 import { WebView } from 'react-native-webview';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const GOOGLE_API_KEY = 'AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs';
 
@@ -207,6 +207,7 @@ function QuickActionButton({ icon, label, onPress, disabled, styles, palette }) 
 
 const CheckpointViewPageContent = ({ navigation, route }) => {
     const { tokens } = useDesignSystem();
+    const { showAlert } = useAppAlert();
     const palette = useMemo(() => createCheckpointViewColors(tokens), [tokens]);
     const styles = useMemo(
         () => createCheckpointViewStyles(palette),
@@ -228,7 +229,7 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
         officePhone: routeOfficePhone = null,
     } = route.params || { last: false };
 
-    const { data } = useInfoCheckpoint();
+    const data = useInfoCheckpoint((state) => state.data);
 
     const dispatchPhone = useMemo(
         () =>
@@ -619,7 +620,11 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
             await Linking.openURL(fallback);
             return true;
         } catch (error) {
-            Alert.alert('Navigation unavailable', 'Unable to open maps on this device.');
+            showAlert({
+                title: 'Navigation Unavailable',
+                message: 'Unable to open maps on this device.',
+                variant: 'error',
+            });
             return false;
         }
     };
@@ -631,7 +636,11 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
 
         const point = navigationTarget;
         if (!point) {
-            Alert.alert('Navigation unavailable', 'Location details are missing for this checkpoint.');
+            showAlert({
+                title: 'Navigation Unavailable',
+                message: 'Location details are missing for this checkpoint.',
+                variant: 'warning',
+            });
             return;
         }
 

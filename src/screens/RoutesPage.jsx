@@ -264,7 +264,7 @@ const RoutesPageContent = ({ navigation }) => {
     const { tokens, spacing, typography } = useDesignSystem();
     const styles = useMemo(() => createPageStyles({ tokens, spacing, typography }), [tokens, spacing, typography]);
 
-    const { routeChangeReason } = useRouteStore();
+    const routeChangeReason = useRouteStore((state) => state.routeChangeReason);
     const isFocused = useIsFocused();
 
     const [routesData, setRoutesData] = useState([]);

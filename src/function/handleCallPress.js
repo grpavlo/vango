@@ -1,21 +1,25 @@
-import {Alert, Linking, Platform} from "react-native";
+import { Linking, Platform } from "react-native";
+import { showAppAlert } from "../store/useAppAlertStore";
 
 const handleCallPress = async (phone) => {
-    let url = '';
-
-    if (Platform.OS === 'android') {
-        url = `tel:${phone}`;
-    } else {
-        url = `telprompt:${phone}`;
-    }
+    const scheme = Platform.OS === "android" ? "tel" : "telprompt";
+    const url = `${scheme}:${phone}`;
 
     const supported = await Linking.canOpenURL(url);
 
     if (supported) {
-        Linking.openURL(url).catch(err => console.error('Не вдалося зробити виклик:', err));
-    } else {
-        Alert.alert('Помилка', 'Ваш пристрій не підтримує телефонні дзвінки.');
+        Linking.openURL(url).catch((error) => {
+            console.error("Phone dialer open error:", error);
+        });
+        return;
     }
+
+    showAppAlert({
+        title: "Calling Not Supported",
+        message: "This device does not support phone calls from the app.",
+        variant: "warning",
+    });
 };
 
-export {handleCallPress}
+export { handleCallPress };
+

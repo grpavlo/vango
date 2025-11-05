@@ -13,6 +13,7 @@ import SettingsScreen from '../components/SettingsScreen';
 import ChangePasswordScreen from '../components/ChangePasswordScreen';
 import ActionsScreen from '../components/ActionsScreen';
 import PickUpSamplesScreen from '../components/PickUpSamplesScreen';
+import ReceiveSamplesFromDriversScreen from '../components/ReceiveSamplesFromDriversScreen';
 import DropOffToLabScreen from '../components/DropOffToLabScreen';
 import GetHelpScreen from '../components/GetHelpScreen';
 import CallFuneralServiceScreen from '../components/CallFuneralServiceScreen';
@@ -34,7 +35,7 @@ import MainDashboardScreen from '../components/MainDashboardScreen';
 import ReportsScreen from '../components/ReportsScreen';
 
 
-type Screen = 'dashboard' | 'routes-list' | 'route-detail' | 'route-description' | 'navigation' | 'arrival-check' | 'visit' | 'samples' | 'vehicle-selection' | 'map' | 'report-samples' | 'collected-samples' | 'settings' | 'change-password' | 'actions' | 'notifications' | 'pick-up-samples' | 'drop-off-to-lab' | 'ship' | 'get-help' | 'call-funeral' | 'call-dispatcher' | 'send-help-request' | 'find-courier-transfer' | 'no-samples-form' | 'closed-office-form' | 'take-pictures' | 'help-screen' | 'reports';
+type Screen = 'dashboard' | 'routes-list' | 'route-detail' | 'route-description' | 'navigation' | 'arrival-check' | 'visit' | 'samples' | 'vehicle-selection' | 'map' | 'report-samples' | 'collected-samples' | 'settings' | 'change-password' | 'actions' | 'notifications' | 'receive-samples' | 'pick-up-samples' | 'drop-off-to-lab' | 'ship' | 'get-help' | 'call-funeral' | 'call-dispatcher' | 'send-help-request' | 'find-courier-transfer' | 'no-samples-form' | 'closed-office-form' | 'take-pictures' | 'help-screen' | 'reports';
 
 const Index = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
@@ -359,7 +360,7 @@ const Index = () => {
             onNavigateToReports={handleNavigateToCollectedSamples}
             onNavigateToGetHelp={() => setCurrentScreen('get-help')}
             onStartActiveRoute={() => setCurrentScreen('vehicle-selection')}
-            onPickUpSamples={() => setCurrentScreen('pick-up-samples')}
+            onReceiveSamplesFromDrivers={() => setCurrentScreen('receive-samples')}
             onDropOffToLab={() => setCurrentScreen('drop-off-to-lab')}
             onShip={() => setCurrentScreen('ship')}
             onRequestDispatcherAssistance={() => setCurrentScreen('send-help-request')}
@@ -575,6 +576,21 @@ const Index = () => {
         </AppLayout>
       )}
       
+      {currentScreen === 'receive-samples' && (
+        <AppLayout 
+          bottomContent={
+            <BottomNavigation 
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+            />
+          }
+        >
+          <ReceiveSamplesFromDriversScreen 
+            onBack={() => setCurrentScreen('dashboard')}
+          />
+        </AppLayout>
+      )}
+
       {currentScreen === 'pick-up-samples' && (
         <AppLayout 
           bottomContent={

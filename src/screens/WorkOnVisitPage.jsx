@@ -141,7 +141,7 @@ const registerBackgroundTask = async () => {
 
 const WorkOnVisitPage = ({navigation, route}) => {
     const {routeName = '', idRoute} = route.params || {};
-    const {data} = useInfoCheckpoint()
+    const data = useInfoCheckpoint((state) => state.data);
 
 
     const [photos, setPhotos] = useState([]);

@@ -14,7 +14,7 @@ interface MainDashboardScreenProps {
   onNavigateToReports: () => void;
   onNavigateToGetHelp: () => void;
   onStartActiveRoute: () => void;
-  onPickUpSamples: () => void;
+  onReceiveSamplesFromDrivers: () => void;
   onDropOffToLab: () => void;
   onShip: () => void;
   onRequestDispatcherAssistance: () => void;
@@ -33,7 +33,7 @@ const MainDashboardScreen = ({
   onNavigateToReports,
   onNavigateToGetHelp,
   onStartActiveRoute,
-  onPickUpSamples,
+  onReceiveSamplesFromDrivers,
   onDropOffToLab,
   onShip,
   onRequestDispatcherAssistance,
@@ -172,7 +172,7 @@ const MainDashboardScreen = ({
           <div className="grid grid-cols-3 gap-3">
             <Card 
               className="p-3 cursor-pointer hover:bg-surfaceAlt transition-colors"
-              onClick={onPickUpSamples}
+              onClick={onReceiveSamplesFromDrivers}
             >
               <div className="flex flex-col items-center text-center space-y-2">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">

@@ -1,6 +1,5 @@
 import {useEffect, useMemo, useState} from "react";
 import {
-    Alert,
     Modal,
     Platform,
     ScrollView,
@@ -17,6 +16,7 @@ import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import {serverUrlApi} from "../const/api";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
 import {THEME_LABELS, THEME_OPTIONS} from "../utils/designSystem";
+import { useAppAlert } from "../hooks/useAppAlert";
 
 const gpsEnabled = true;
 
@@ -304,6 +304,7 @@ const SettingsPageContent = ({navigation}) => {
         spacing,
         radii
     } = useDesignSystem();
+    const { showAlert } = useAppAlert();
 
     const styles = useMemo(
         () => createStyles({tokens, theme, typography, spacing, radii}),
@@ -384,9 +385,17 @@ const SettingsPageContent = ({navigation}) => {
             await SecureStore.setItemAsync("timeInterval", timeInterval);
             await SecureStore.setItemAsync("savedLastSentTime", savedLastSentTime);
             await SecureStore.setItemAsync("distanceInterval", distanceInterval);
-            Alert.alert("Success", "Time & distance intervals have been saved!");
+            showAlert({
+                title: "Settings Saved",
+                message: "Time and distance intervals have been stored successfully.",
+                variant: "success",
+            });
         } catch (error) {
-            Alert.alert("Error", "Failed to save settings.");
+            showAlert({
+                title: "Save Failed",
+                message: "We could not save your settings. Please try again.",
+                variant: "error",
+            });
         }
     };
 

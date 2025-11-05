@@ -1,4 +1,4 @@
-import {Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
@@ -14,6 +14,7 @@ import {handleCallPress} from "../function/handleCallPress";
 import {serverUrlApi} from "../const/api";
 import {useInfoCheckpoint} from "../store/infoCheckpoint";
 import {convertMetersToMiles} from "../function/convertMetersToMiles";
+import { useAppAlert } from "../hooks/useAppAlert";
 
 const GOOGLE_API_KEY = 'AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs'; // замініть на ваш дійсний ключ
 
@@ -137,9 +138,10 @@ const MapPageContent = ({navigation}) => {
     const [routeRegion, setRouteRegion] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
 
-    const {setData} = useInfoCheckpoint();
+    const setData = useInfoCheckpoint((state) => state.setData);
 
     const {tokens, theme, spacing, radii} = useDesignSystem();
+    const { showAlert } = useAppAlert();
     const [navOffset, setNavOffset] = useState(() => spacing.xl + spacing.base);
     const palette = useMemo(
         () => createPalette(tokens, theme),
@@ -576,19 +578,27 @@ const MapPageContent = ({navigation}) => {
             await Linking.openURL(fallback);
             return true;
         } catch (error) {
-            Alert.alert('Navigation unavailable', 'Unable to open maps on this device.');
+            showAlert({
+                title: 'Navigation Unavailable',
+                message: 'Unable to open maps on this device.',
+                variant: 'error',
+            });
             return false;
         }
-    }, []);
+    }, [showAlert]);
 
     const handleNavigatePress = useCallback(async () => {
         if (!canNavigateToCheckpoint || !navigationTarget) {
-            Alert.alert('Navigation unavailable', 'Location details are missing for this checkpoint.');
+            showAlert({
+                title: 'Navigation Unavailable',
+                message: 'Location details are missing for this checkpoint.',
+                variant: 'warning',
+            });
             return;
         }
 
         await openNavigation(navigationTarget.latitude, navigationTarget.longitude);
-    }, [canNavigateToCheckpoint, navigationTarget, openNavigation]);
+    }, [canNavigateToCheckpoint, navigationTarget, openNavigation, showAlert]);
 
     const handleStartVisit = () => {
         if (!selectedCheckpoint || selectedCheckpoint.isCompleted) {
@@ -679,7 +689,11 @@ const MapPageContent = ({navigation}) => {
 
     const handleSmartRoute = useCallback(() => {
         if (!Array.isArray(waypoints) || waypoints.length === 0) {
-            Alert.alert('Smart Route', 'Add stops to your route to enable smart ordering.');
+            showAlert({
+                title: 'Smart Route',
+                message: 'Add stops to your route to enable smart ordering.',
+                variant: 'info',
+            });
             return;
         }
 
@@ -690,7 +704,11 @@ const MapPageContent = ({navigation}) => {
             if (lastStop) {
                 handleSelectCheckpoint(lastStop);
             }
-            Alert.alert('Smart Route', 'All stops are already completed. Showing the final stop.');
+            showAlert({
+                title: 'Smart Route',
+                message: 'All stops are already completed. Showing the final stop.',
+                variant: 'info',
+            });
             return;
         }
 
@@ -704,9 +722,13 @@ const MapPageContent = ({navigation}) => {
 
         if (nextStop) {
             handleSelectCheckpoint(nextStop);
-            Alert.alert('Smart Route', `Navigate to ${nextStop.checkpointName || 'the next stop'}.`);
+            showAlert({
+                title: 'Smart Route',
+                message: `Navigate to ${nextStop.checkpointName || 'the next stop'}.`,
+                variant: 'info',
+            });
         }
-    }, [handleSelectCheckpoint, waypoints]);
+    }, [handleSelectCheckpoint, waypoints, showAlert]);
 
     // Кнопка Default Point (доступна, якщо існує unloadPoint)
     const handleUnloadPointPress = () => {

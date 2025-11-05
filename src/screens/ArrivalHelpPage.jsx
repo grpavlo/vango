@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
 import { Fonts } from '../utils/tokens';
 import { handleCallPress } from '../function/handleCallPress';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const BUTTONS = [
     {
@@ -35,6 +36,7 @@ const BUTTONS = [
 
 const ArrivalHelpPageContent = ({ navigation, route }) => {
     const { tokens } = useDesignSystem();
+    const { showAlert } = useAppAlert();
     const palette = useMemo(() => createHelpPalette(tokens), [tokens]);
     const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -56,10 +58,11 @@ const ArrivalHelpPageContent = ({ navigation, route }) => {
                 navigation.navigate('ChatComponent', { menu: false, idRoute });
                 break;
             case 'shareLocation':
-                Alert.alert(
-                    'Share Location',
-                    'Location sharing is coming soon. Contact dispatch if you need immediate assistance.',
-                );
+                showAlert({
+                    title: 'Share Location',
+                    message: 'Location sharing is coming soon. Contact dispatch if you need immediate assistance.',
+                    variant: 'info',
+                });
                 break;
             default:
                 break;

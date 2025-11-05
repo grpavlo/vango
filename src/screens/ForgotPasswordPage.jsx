@@ -5,7 +5,6 @@ import {
     TextInput,
     View,
     TouchableOpacity,
-    Alert,
     ActivityIndicator,
     Platform,
     KeyboardAvoidingView
@@ -14,10 +13,12 @@ import Button from '../components/Button';
 import { Colors, Fonts } from '../utils/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import {serverUrlApi} from "../const/api";
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const ForgotPasswordPage = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
+    const { showAlert } = useAppAlert();
 
     // Function to generate a random clientSecretKey
     const generateClientSecretKey = (length = 32) => {
@@ -32,7 +33,11 @@ const ForgotPasswordPage = ({ navigation }) => {
     // Function to handle the Continue button press
     const handleContinue = async () => {
         if (email.trim() === '') {
-            Alert.alert('Validation Error', 'Please enter your email address.');
+            showAlert({
+                title: 'Validation Error',
+                message: 'Please enter your email address.',
+                variant: 'warning',
+            });
             return;
         }
 
@@ -59,10 +64,18 @@ const ForgotPasswordPage = ({ navigation }) => {
                 navigation.navigate('VerificationCodePage', { clientSecretKey });
             } else {
                 const errorData = await response.json();
-                Alert.alert('Error', errorData.message || 'Something went wrong. Please try again.');
+                showAlert({
+                    title: 'Error',
+                    message: errorData.message || 'Something went wrong. Please try again.',
+                    variant: 'error',
+                });
             }
         } catch (error) {
-            Alert.alert('Network Error', 'Unable to connect to the server. Please check your internet connection and try again.');
+            showAlert({
+                title: 'Network Error',
+                message: 'Unable to connect to the server. Please check your internet connection and try again.',
+                variant: 'error',
+            });
             console.error('Forgot Password Error:', error);
         } finally {
             setLoading(false);

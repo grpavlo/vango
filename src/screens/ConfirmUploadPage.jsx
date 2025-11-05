@@ -275,13 +275,14 @@
 // export default ConfirmUploadPage;
 
 import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {Fontisto, Ionicons} from '@expo/vector-icons';
 
 // Імпорт ваших констант
 import {serverUrlApi} from '../const/api';
 import {Colors, Fonts} from '../utils/tokens';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 export default function ConfirmUploadPage({route, navigation}) {
     const {idRoute, idCheckpoint} = route.params;
@@ -290,6 +291,7 @@ export default function ConfirmUploadPage({route, navigation}) {
     const [selectedSamples, setSelectedSamples] = useState([]); // Зберігаємо ID вибраних зразків
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const { showAlert } = useAppAlert();
 
     useEffect(() => {
         fetchRoutesWithSamples();
@@ -371,7 +373,11 @@ export default function ConfirmUploadPage({route, navigation}) {
 
     const confirmSelection = async () => {
         if (selectedSamples.length === 0) {
-            Alert.alert('WARNING', 'Choose at least one sample!');
+            showAlert({
+                title: 'Selection Required',
+                message: 'Choose at least one sample before confirming.',
+                variant: 'warning',
+            });
             return;
         }
 

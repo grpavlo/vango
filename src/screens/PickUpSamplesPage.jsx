@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
     Dimensions,
     FlatList,
     Image,
@@ -22,6 +21,7 @@ import { handleCallPress } from '../function/handleCallPress';
 import CameraComponent from '../components/CameraComponent';
 import { Camera, CameraView } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 
 const withAlpha = (hex, alpha) => {
@@ -48,7 +48,15 @@ const createPalette = (tokens) => ({
     destructiveForeground: tokens.destructiveForeground || '#FFFFFF',
 });
 
-const PickUpSamplesPageContent = ({ navigation, route }) => {
+const DEFAULT_COPY = {
+    actionLabel: 'Mark as Done',
+    actionDisabledHint: 'Required: samples + at least 1 photo.',
+    successTitle: 'Pick Up Complete',
+    successMessage: 'Samples and packages recorded successfully.',
+    successConfirmText: 'OK',
+};
+
+const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => {
     const {
         idRoute,
         routeName: routeNameParam = '',
@@ -57,13 +65,15 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
     } = route.params || {};
 
     const { tokens, theme } = useDesignSystem();
+    const { showAlert } = useAppAlert();
+    const copy = useMemo(() => ({ ...DEFAULT_COPY, ...copyOverrides }), [copyOverrides]);
     const palette = useMemo(() => createPalette(tokens), [tokens]);
     const styles = useMemo(() => createStyles(palette), [palette]);
     const statusBarStyle = theme === 'dark' ? 'light' : 'dark';
     const topOverlayColor = palette.background;
     const bottomOverlayColor = tokens.navBackground || palette.background;
 
-    const { data } = useInfoCheckpoint();
+    const data = useInfoCheckpoint((state) => state.data);
     const [unassignedSamples, setUnassignedSamples] = useState([]);
     const [selectedSampleIds, setSelectedSampleIds] = useState([]);
     const [packages, setPackages] = useState([]);
@@ -216,13 +226,21 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
         try {
             const { status } = await Camera.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission required', 'Camera access is needed to scan barcodes.');
+                showAlert({
+                    title: 'Permission Required',
+                    message: 'Camera access is needed to scan barcodes.',
+                    variant: 'warning',
+                });
                 return;
             }
             setScannerMode(mode);
             setScannerVisible(true);
         } catch (error) {
-            Alert.alert('Permission error', 'Unable to request camera permission.');
+            showAlert({
+                title: 'Permission Error',
+                message: 'Unable to request camera permission.',
+                variant: 'error',
+            });
         }
     };
 
@@ -268,7 +286,11 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
     const handleSampleCode = (code) => {
         const normalized = code.trim();
         if (!normalized) {
-            Alert.alert('Scan Failed', 'Unable to read the barcode. Please try again.');
+            showAlert({
+                title: 'Scan Failed',
+                message: 'Unable to read the barcode. Please try again.',
+                variant: 'error',
+            });
             return false;
         }
 
@@ -311,7 +333,11 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
     const handlePackageCode = (code) => {
         const normalized = code.trim();
         if (!normalized) {
-            Alert.alert('Scan Failed', 'Unable to read the barcode. Please try again.');
+            showAlert({
+                title: 'Scan Failed',
+                message: 'Unable to read the barcode. Please try again.',
+                variant: 'error',
+            });
             return false;
         }
 
@@ -340,7 +366,11 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
 
     const moveSelectedSamplesToPackage = (packageId) => {
         if (selectedSamples.length === 0) {
-            Alert.alert('Select Samples', 'Choose at least one sample to add to a package.');
+            showAlert({
+                title: 'Select Samples',
+                message: 'Choose at least one sample to add to a package.',
+                variant: 'warning',
+            });
             return;
         }
 
@@ -406,11 +436,13 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
     };
 
     const handleMarkDone = () => {
-        Alert.alert(
-            'Pick Up Complete',
-            'Samples and packages recorded successfully.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }],
-        );
+        showAlert({
+            title: copy.successTitle,
+            message: copy.successMessage,
+            variant: 'success',
+            confirmText: copy.successConfirmText,
+            onConfirm: () => navigation.goBack(),
+        });
     };
 
     if (isCameraOpen) {
@@ -725,10 +757,10 @@ const PickUpSamplesPageContent = ({ navigation, route }) => {
                             !canMarkDone && styles.markButtonTextDisabled,
                         ]}
                     >
-                        Mark as Done
+                        {copy.actionLabel}
                     </Text>
                 </TouchableOpacity>
-                <Text style={styles.footerHint}>Required: samples + at least 1 photo.</Text>
+                <Text style={styles.footerHint}>{copy.actionDisabledHint}</Text>
             </View>
 
             <Modal

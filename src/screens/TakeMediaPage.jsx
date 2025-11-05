@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    Alert,
     Image,
     Modal,
     ScrollView,
@@ -16,6 +15,7 @@ import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import UniversalModal from '../components/UniversalModal';
 import { Fonts } from '../utils/tokens';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const TakeMediaPageContent = ({ navigation, route }) => {
     const {
@@ -27,6 +27,7 @@ const TakeMediaPageContent = ({ navigation, route }) => {
     } = route.params || {};
 
     const { tokens } = useDesignSystem();
+    const { showAlert } = useAppAlert();
     const palette = useMemo(() => createPalette(tokens), [tokens]);
     const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -65,15 +66,16 @@ const TakeMediaPageContent = ({ navigation, route }) => {
         const hasMedia = mediaStatus.status === 'granted';
 
         if (!hasCamera || !hasMedia) {
-            Alert.alert(
-                'Permissions required',
-                'Camera and media library permissions are required to capture photos or videos.',
-            );
+            showAlert({
+                title: 'Permissions Required',
+                message: 'Camera and media library permissions are needed to capture photos or videos.',
+                variant: 'warning',
+            });
             return false;
         }
 
         return true;
-    }, []);
+    }, [showAlert]);
 
     const handleTakePhoto = useCallback(async () => {
         const hasPermission = await ensurePermissions();

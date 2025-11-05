@@ -1,7 +1,6 @@
-// src/components/LocationProvider.js
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
-import { Alert } from 'react-native';
+import { showAppAlert } from '../store/useAppAlertStore';
 
 export const LocationContext = createContext();
 
@@ -11,27 +10,27 @@ export const LocationProvider = ({ children }) => {
     const [locationError, setLocationError] = useState(null);
 
     useEffect(() => {
-        let subscription = null; // Змінна для збереження підписки
+        let subscription;
 
         const startLocationWatch = async () => {
             try {
-                // Запит дозволів на доступ до місцезнаходження
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status !== 'granted') {
-                    Alert.alert(
-                        'Дозвіл на місцезнаходження відхилено',
-                        'Будь ласка, увімкніть доступ до місцезнаходження в налаштуваннях вашого пристрою.'
-                    );
+                    showAppAlert({
+                        title: 'Location Permission Needed',
+                        message:
+                            'Please allow access to your location so we can provide accurate routing and checkpoint updates.',
+                        variant: 'warning',
+                    });
                     setLocationError('Permission denied');
                     setLocationLoading(false);
                     return;
                 }
 
-                // Починаємо "слухати" зміни місцезнаходження
                 subscription = await Location.watchPositionAsync(
                     {
                         accuracy: Location.Accuracy.High,
-                        distanceInterval: 10, // Мінімальна відстань (у метрах), на яку має зміститися користувач, щоб прийшло оновлення
+                        distanceInterval: 10,
                     },
                     (location) => {
                         setUserLocation({
@@ -50,7 +49,6 @@ export const LocationProvider = ({ children }) => {
 
         startLocationWatch();
 
-        // Повертаємо функцію, яка відписується від оновлень при демонтажі компонента
         return () => {
             if (subscription) {
                 subscription.remove();
@@ -64,3 +62,4 @@ export const LocationProvider = ({ children }) => {
         </LocationContext.Provider>
     );
 };
+

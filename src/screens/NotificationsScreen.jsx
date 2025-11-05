@@ -231,7 +231,7 @@ const NotificationsScreenContent = ({ navigation }) => {
         [tokens, spacing, radii, typography]
     );
 
-    const { routeChangeReason } = useRouteStore();
+    const routeChangeReason = useRouteStore((state) => state.routeChangeReason);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
 

@@ -397,7 +397,7 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
     const [checkpoints, setCheckpoints] = useState([]);
     const [completedCheckpoints, setCompletedCheckpoints] = useState([]);
     const [showCompleted, setShowCompleted] = useState(false);
-    const { setData: setCheckpointData } = useInfoCheckpoint();
+    const setCheckpointData = useInfoCheckpoint((state) => state.setData);
 
     useEffect(() => {
         const persistRouteId = async () => {

@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,6 +13,7 @@ import * as SecureStore from "expo-secure-store";
 import { serverUrlApi } from "../const/api";
 import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import { ThemeProvider, useDesignSystem } from "../context/ThemeContext";
+import { useAppAlert } from "../hooks/useAppAlert";
 
 const createStyles = ({ tokens, spacing, radii, typography }) =>
     StyleSheet.create({
@@ -135,6 +135,7 @@ const ChangePasswordPageContent = ({ navigation }) => {
         () => createStyles({ tokens, spacing, radii, typography }),
         [tokens, spacing, radii, typography]
     );
+    const { showAlert } = useAppAlert();
 
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
@@ -172,7 +173,11 @@ const ChangePasswordPageContent = ({ navigation }) => {
         try {
             const accessToken = await SecureStore.getItemAsync("accessToken");
             if (!accessToken) {
-                Alert.alert("Authentication error", "Session expired. Please sign in again.");
+                showAlert({
+                    title: "Authentication Error",
+                    message: "Session expired. Please sign in again.",
+                    variant: "error",
+                });
                 setIsLoading(false);
                 return;
             }
@@ -190,16 +195,28 @@ const ChangePasswordPageContent = ({ navigation }) => {
             });
 
             if (response.ok) {
-                Alert.alert("Success", "Your password was updated successfully.");
+                showAlert({
+                    title: "Password Updated",
+                    message: "Your password was updated successfully.",
+                    variant: "success",
+                });
                 setOldPassword("");
                 setNewPassword("");
                 setConfirmNewPassword("");
             } else {
                 const errorData = await response.json();
-                Alert.alert("Update failed", errorData?.message || "Unable to update password.");
+                showAlert({
+                    title: "Update Failed",
+                    message: errorData?.message || "Unable to update password.",
+                    variant: "error",
+                });
             }
         } catch (error) {
-            Alert.alert("Unexpected error", "Something went wrong. Please try again.");
+            showAlert({
+                title: "Unexpected Error",
+                message: "Something went wrong. Please try again.",
+                variant: "error",
+            });
         } finally {
             setIsLoading(false);
         }

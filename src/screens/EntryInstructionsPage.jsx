@@ -11,7 +11,7 @@ import {serverUrlApi} from "../const/api";
 
 const EntryInstructionsPage = ({navigation, route}) => {
     const { menu,routeName } = route.params || {menu:true};
-    const {data} = useInfoCheckpoint()
+    const data = useInfoCheckpoint((state) => state.data);
 
     const [instructionsHTML, setInstructionsHTML] = useState('');
     const [loading, setLoading] = useState(true);

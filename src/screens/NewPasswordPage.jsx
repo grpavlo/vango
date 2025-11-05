@@ -4,13 +4,13 @@ import {
     Text,
     View,
     TouchableOpacity,
-    ActivityIndicator,
-    Alert
+    ActivityIndicator
 } from 'react-native';
 import Button from '../components/Button';
 import { Colors, Fonts } from '../utils/tokens';
 import Input from "../components/Input";
 import {serverUrlApi} from "../const/api";
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const NewPasswordPage = ({ route, navigation }) => {
     const { clientSecretKey, token } = route.params || {}; // Retrieve clientSecretKey and token from navigation params
@@ -28,17 +28,26 @@ const NewPasswordPage = ({ route, navigation }) => {
     const [isPasswordVisible, setPasswordVisible] = useState(false);
     const [isConfirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const { showAlert } = useAppAlert();
 
     const handleContinue = async () => {
         // Validation: Check if both fields are filled
         if (!password || !confirmPassword) {
-            Alert.alert('Incomplete Fields', 'Please fill in both password fields.');
+            showAlert({
+                title: 'Incomplete Fields',
+                message: 'Please fill in both password fields.',
+                variant: 'warning',
+            });
             return;
         }
 
         // Validation: Check if passwords match
         if (password !== confirmPassword) {
-            Alert.alert('Password Mismatch', 'Passwords do not match. Please try again.');
+            showAlert({
+                title: 'Password Mismatch',
+                message: 'Passwords do not match. Please try again.',
+                variant: 'warning',
+            });
             return;
         }
 
@@ -65,14 +74,26 @@ const NewPasswordPage = ({ route, navigation }) => {
                 navigation.navigate('PasswordSetPage', { clientSecretKey });
             } else if (response.status === 400) {
                 // Handle invalid token or other client errors
-                Alert.alert('Error', 'Unable to change password. Please try again.');
+                showAlert({
+                    title: 'Error',
+                    message: 'Unable to change password. Please try again.',
+                    variant: 'error',
+                });
             } else {
                 // Handle other possible errors
-                Alert.alert('Error', 'Something went wrong. Please try again later.');
+                showAlert({
+                    title: 'Error',
+                    message: 'Something went wrong. Please try again later.',
+                    variant: 'error',
+                });
             }
         } catch (error) {
             console.error('Error changing password:', error);
-            Alert.alert('Network Error', 'Unable to change the password. Please check your internet connection and try again.');
+            showAlert({
+                title: 'Network Error',
+                message: 'Unable to change the password. Please check your internet connection and try again.',
+                variant: 'error',
+            });
         } finally {
             setIsLoading(false);
         }

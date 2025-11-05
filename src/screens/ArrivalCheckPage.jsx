@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import { Fonts } from '../utils/tokens';
@@ -7,6 +7,7 @@ import { useInfoCheckpoint } from '../store/infoCheckpoint';
 import * as SecureStore from 'expo-secure-store';
 import { serverUrlApi } from '../const/api';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const BUTTON_GREEN = '#22C55E';
 const BUTTON_ORANGE = '#EA580C';
@@ -24,9 +25,10 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     } = route.params || {};
 
     const { tokens } = useDesignSystem();
+    const { showAlert } = useAppAlert();
     const palette = useMemo(() => createArrivalColors(tokens), [tokens]);
     const styles = useMemo(() => createArrivalStyles(palette), [palette]);
-    const { data } = useInfoCheckpoint();
+    const data = useInfoCheckpoint((state) => state.data);
     const [isProcessing, setIsProcessing] = useState(false);
     const [officeCheckVisible, setOfficeCheckVisible] = useState(false);
     const [samplesModalVisible, setSamplesModalVisible] = useState(false);
@@ -67,12 +69,16 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
                             break;
                     }
                 }
-                Alert.alert('Error', message);
+                showAlert({
+                    title: 'Error',
+                    message,
+                    variant: 'error',
+                });
             } finally {
                 setIsProcessing(false);
             }
         },
-        [isProcessing],
+        [isProcessing, showAlert],
     );
 
     const navigateToConfirmUpload = useCallback(async () => {

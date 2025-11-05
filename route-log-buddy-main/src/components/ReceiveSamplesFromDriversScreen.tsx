@@ -17,7 +17,7 @@ interface CodePackage {
   name: string;
   isActiveTarget?: boolean;
 }
-interface PickUpSamplesScreenProps {
+interface ReceiveSamplesFromDriversScreenProps {
   onBack: () => void;
   copyOverrides?: Partial<CopyText>;
 }
@@ -30,14 +30,14 @@ export interface CopyText {
 
 type ScanMode = 'package' | 'sample';
 const DEFAULT_COPY: CopyText = {
-  title: 'Pick Up Samples',
-  confirmButtonLabel: 'Confirm Pick-Up',
-  confirmSuccessToast: 'Pick-up confirmed successfully!'
+  title: 'Receive Samples from Drivers',
+  confirmButtonLabel: 'Confirm Receipt',
+  confirmSuccessToast: 'Receipt confirmed successfully!'
 };
-const PickUpSamplesScreen = ({
+const ReceiveSamplesFromDriversScreen = ({
   onBack,
   copyOverrides
-}: PickUpSamplesScreenProps) => {
+}: ReceiveSamplesFromDriversScreenProps) => {
   const copy = {
     ...DEFAULT_COPY,
     ...copyOverrides
@@ -302,7 +302,7 @@ const PickUpSamplesScreen = ({
     }));
 
     if (activated) {
-      toast.success(`${activatedName} set as active target`);
+      toast.success(`${activatedName} ready to receive scans`);
     } else {
       toast("Scans will go to unassigned until a package is selected.");
     }
@@ -340,7 +340,7 @@ const PickUpSamplesScreen = ({
           <p className="text-foreground font-medium mb-2">Driver-to-Driver Transfer</p>
           <ul className="list-disc list-inside space-y-1">
             <li>Scan or enter each sealed bag first so everyone agrees which package is active.</li>
-            <li>Tap <span className="font-semibold">Set Active</span> to lock a package before scanning samples into it automatically.</li>
+            <li>Tap <span className="font-semibold">Set Receiving</span> to lock a package before scanning samples into it automatically.</li>
             <li>If a package is removed, all contained samples move back to the unassigned queue for reassignment.</li>
             <li>With a package selected, scan individual samples to place them inside automatically.</li>
           </ul>
@@ -351,7 +351,7 @@ const PickUpSamplesScreen = ({
           <Collapsible open={showPackages} onOpenChange={setShowPackages}>
             <CollapsibleTrigger className="flex items-center gap-2 w-full py-3 text-left text-foreground">
               {showPackages ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-              <h2 className="text-lg font-medium text-foreground">Packages</h2>
+              <h2 className="text-lg font-medium text-foreground">Incoming Packages</h2>
               <span className="bg-muted text-foreground px-2 py-1 rounded text-sm ml-1">
                 {packages.length}
               </span>
@@ -359,8 +359,8 @@ const PickUpSamplesScreen = ({
             <CollapsibleContent className="space-y-2 pt-2">
               {packages.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   <Package size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No packages scanned yet</p>
-                  <p className="text-xs">Use "Scan Packages" to add</p>
+                  <p className="text-sm">No driver packages yet</p>
+                  <p className="text-xs">Use "Scan Packages" to register incoming packages.</p>
                 </div> : packages.map(pkg => <div key={pkg.id} className={`bg-card rounded-lg p-3 border transition-all ${pkg.isActiveTarget ? 'border-primary bg-primary/10' : 'border-border'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -375,7 +375,7 @@ const PickUpSamplesScreen = ({
                           ({pkg.codes.length} samples)
                         </span>
                         {pkg.isActiveTarget && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
-                            Active
+                            Receiving
                           </span>}
                       </div>
                       <div className="flex items-center gap-2">
@@ -386,7 +386,7 @@ const PickUpSamplesScreen = ({
                           className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${pkg.isActiveTarget ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'border border-primary/60 text-primary hover:bg-primary/10'}`}
                         >
                           <Target size={12} />
-                          {pkg.isActiveTarget ? 'Active Target' : 'Set Active'}
+                          {pkg.isActiveTarget ? 'Receiving' : 'Set Receiving'}
                         </button>
                         <button onClick={() => handleDeletePackage(pkg.id)} className="text-destructive hover:text-destructive/80 p-1 transition-colors" title="Remove package">
                           <Trash2 size={14} />
@@ -428,7 +428,7 @@ const PickUpSamplesScreen = ({
           <Collapsible open={showSamples} onOpenChange={setShowSamples}>
             <CollapsibleTrigger className="flex items-center gap-2 w-full py-3 text-left text-foreground">
               {showSamples ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-              <h2 className="text-lg font-medium text-foreground">Consolidate Packages</h2>
+              <h2 className="text-lg font-medium text-foreground">Unassigned Samples</h2>
               <span className="bg-muted text-foreground px-2 py-1 rounded text-sm ml-1">
                 {scannedCodes.length}
               </span>
@@ -437,7 +437,7 @@ const PickUpSamplesScreen = ({
               {packages.length > 0 && <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
                   <Target size={12} className="text-primary" />
                   <span>
-                    {activeTarget ? `Scanning will add samples directly to ${activeTarget.name}.` : "Set a package as the active target to send scans there automatically."}
+                    {activeTarget ? `Scanning will add samples directly to ${activeTarget.name}.` : "Set a package as the receiving target so scans route there automatically."}
                   </span>
                 </div>}
               {scannedCodes.length === 0 ? <div className="text-center py-8 text-muted-foreground">
@@ -468,7 +468,7 @@ const PickUpSamplesScreen = ({
                         </p> : <div className="flex gap-2 flex-wrap">
                           {packages.map(pkg => <Button key={pkg.id} onClick={() => handleGroupCodes(pkg.id)} variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all">
                               <Plus size={12} className="mr-1" />
-                              Add to {pkg.name}
+                              Assign to {pkg.name}
                             </Button>)}
                         </div>}
                     </div>}
@@ -496,7 +496,7 @@ const PickUpSamplesScreen = ({
         {/* Status and Confirm Button */}
         <div className="bg-card/95 backdrop-blur-sm rounded-lg border border-border p-4">
           <p className={`text-sm mb-3 text-center ${canConfirm() ? 'text-foreground' : 'text-muted-foreground'}`}>
-            {packages.length === 0 ? "Scan packages first, then add samples." : !packages.some(pkg => pkg.codes.length > 0) ? "Add samples to packages to continue." : "Ready to confirm receipt."}
+            {packages.length === 0 ? "Scan packages first, then assign samples." : !packages.some(pkg => pkg.codes.length > 0) ? "Add samples to packages to continue." : "Ready to confirm receipt."}
           </p>
           <Button onClick={handleConfirmAction} disabled={!canConfirm()} className={`w-full ${canConfirm() ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : ''}`}>
             {copy.confirmButtonLabel}
@@ -538,4 +538,4 @@ const PickUpSamplesScreen = ({
       </Dialog>
     </div>;
 };
-export default PickUpSamplesScreen;
+export default ReceiveSamplesFromDriversScreen;

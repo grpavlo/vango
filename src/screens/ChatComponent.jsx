@@ -3,7 +3,6 @@ import {
     KeyboardAvoidingView,
     Linking,
     StyleSheet,
-    Alert,
     View,
     Text,
     TextInput,
@@ -19,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as signalR from '@microsoft/signalr';
 import { serverUrlApi, serverUrlSignalR } from '../const/api';
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const ChatComponent = ({ navigation, route }) => {
     const [inputText, setInputText] = useState('');
@@ -29,6 +29,7 @@ const ChatComponent = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     const routeIdParam = (route?.params && route.params.idRoute) || null;
     const [routeId, setRouteId] = useState(routeIdParam ? String(routeIdParam) : null);
+    const { showAlert } = useAppAlert();
 
     const formatDate = (isoString) => {
         const date = new Date(isoString);
@@ -224,7 +225,11 @@ const ChatComponent = ({ navigation, route }) => {
 
     const copyMessage = async (text) => {
         await Clipboard.setStringAsync(text);
-        Alert.alert('Copied', 'The message has been copied to the clipboard.');
+        showAlert({
+            title: 'Copied',
+            message: 'The message has been copied to the clipboard.',
+            variant: 'success',
+        });
     };
 
     const renderMessage = ({ item }) => (

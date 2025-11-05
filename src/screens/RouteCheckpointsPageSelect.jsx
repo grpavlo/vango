@@ -41,8 +41,9 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
     const [checkpointsMain, setCheckpointsMain] = useState([]);
     const [checkpointsMainCompleted, setCheckpointsMainCompleted] = useState([]);
 
-    const {routeChangeReason} = useRouteStore();
-    const {setData, data} = useInfoCheckpoint();
+    const routeChangeReason = useRouteStore((state) => state.routeChangeReason);
+    const setData = useInfoCheckpoint((state) => state.setData);
+    const data = useInfoCheckpoint((state) => state.data);
 
     useEffect(() => {
         async function setIdRoute() {

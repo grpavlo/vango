@@ -6,7 +6,6 @@ import {
     View,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     Platform,
     KeyboardAvoidingView
 } from 'react-native';
@@ -14,13 +13,15 @@ import Button from '../components/Button';
 import { Colors, Fonts } from '../utils/tokens';
 import SuccessPage from "./SuccessPage";
 import {serverUrlApi} from "../const/api";
+import { useAppAlert } from '../hooks/useAppAlert';
 
 const VerificationCodePage = ({ route, navigation }) => {
-    const { clientSecretKey } = route.params || {clientSecretKey:null};; // Retrieve clientSecretKey from navigation params
+    const { clientSecretKey } = route.params || { clientSecretKey: null }; // Retrieve clientSecretKey from navigation params
 
     const [code, setCode] = useState(['', '', '', '']);
     const inputs = useRef([]);
     const [isLoading, setIsLoading] = useState(false);
+    const { showAlert } = useAppAlert();
 
     const handleChangeText = (value, index) => {
         const newCode = [...code];
@@ -43,7 +44,11 @@ const VerificationCodePage = ({ route, navigation }) => {
 
         // Basic validation to ensure all digits are entered
         if (enteredCode.length < 4) {
-            Alert.alert('Invalid Code', 'Please enter all 4 digits of the code.');
+            showAlert({
+                title: 'Invalid Code',
+                message: 'Please enter all 4 digits of the code.',
+                variant: 'error',
+            });
             return;
         }
 
@@ -70,14 +75,26 @@ const VerificationCodePage = ({ route, navigation }) => {
                 navigation.navigate('SuccessPage', { clientSecretKey,token:data });
             } else if (response.status === 400) {
                 // Handle invalid code
-                Alert.alert('Invalid Code', 'The code you entered is incorrect. Please try again.');
+                showAlert({
+                    title: 'Invalid Code',
+                    message: 'The code you entered is incorrect. Please try again.',
+                    variant: 'error',
+                });
             } else {
                 // Handle other possible errors
-                Alert.alert('Error', 'Something went wrong. Please try again later.');
+                showAlert({
+                    title: 'Error',
+                    message: 'Something went wrong. Please try again later.',
+                    variant: 'error',
+                });
             }
         } catch (error) {
             console.error('Error validating code:', error);
-            Alert.alert('Network Error', 'Unable to validate the code. Please check your internet connection and try again.');
+            showAlert({
+                title: 'Network Error',
+                message: 'Unable to validate the code. Please check your internet connection and try again.',
+                variant: 'error',
+            });
         } finally {
             setIsLoading(false);
         }
