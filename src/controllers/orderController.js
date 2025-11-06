@@ -316,6 +316,34 @@ async function cancelReserve(req, res) {
   }
 }
 
+async function updateFinalPrice(req, res) {
+  const orderId = req.params.id;
+  const { finalPrice } = req.body;
+
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order) return res.status(404).send("Замовлення не знайдено");
+
+    // 👇 Лише замовник може змінювати ціну, поки не підтвердив водія
+    if (order.customerId !== req.user.id || !["CREATED", "PENDING"].includes(order.status)) {
+      return res.status(400).send("Не можна редагувати фінальну ціну на цьому етапі");
+    }
+
+    const n = Number(finalPrice);
+    if (!Number.isFinite(n) || n <= 0) {
+      return res.status(400).send("Некоректна сума");
+    }
+
+    order.finalPrice = Math.round(n);
+    await order.save();
+    broadcastOrder(order);
+    res.json(order);
+  } catch (err) {
+    res.status(400).send("Не вдалося змінити фінальну ціну");
+  }
+}
+
+
 async function acceptOrder(req, res) {
   const orderId = req.params.id;
   try {
@@ -673,4 +701,5 @@ module.exports = {
   getOrder,
   updateOrder,
   deleteOrder,
+  updateFinalPrice
 };

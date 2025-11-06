@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../components/Colors";
 import AppButton from "../components/AppButton";
+import AppInput from "../components/AppInput";
 import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import OrderCardSkeleton from "../components/OrderCardSkeleton";
@@ -36,6 +37,7 @@ export default function MyOrdersScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const wsRef = useRef(null);
   const [filter, setFilter] = useState("active");
+  const [editedFinal, setEditedFinal] = useState({}); // { [orderId]: "12345" }
 
   async function load() {
     try {
@@ -117,31 +119,31 @@ export default function MyOrdersScreen({ navigation }) {
       console.log(err);
     }
   }
-function confirmFinalPriceModal(order) {
-  const fp = Number(order.finalPrice);
-  const priceText = Number.isFinite(fp) ? `${Math.round(fp)} грн` : "—";
-  return new Promise((resolve) => {
-    Alert.alert(
-      "Підтвердити фінальну ціну?",
-      `Фінальна ціна: ${priceText}`,
-      [
-        { text: "Відхилити", style: "destructive", onPress: () => resolve(false) },
+  function confirmFinalPriceModal(order) {
+    const fp = Number(order.finalPrice);
+    const priceText = Number.isFinite(fp) ? `${Math.round(fp)} грн` : "—";
+    return new Promise((resolve) => {
+      Alert.alert("Підтвердити фінальну ціну?", `Фінальна ціна: ${priceText}`, [
+        {
+          text: "Відхилити",
+          style: "destructive",
+          onPress: () => resolve(false),
+        },
         { text: "Скасувати", onPress: () => resolve(null) },
         { text: "Прийняти", onPress: () => resolve(true) },
-      ]
-    );
-  });
-}
-
-async function handleConfirmOrReject(order) {
-  const choice = await confirmFinalPriceModal(order);
-  if (choice === true) {
-    await confirmDriver(order.id);
-  } else if (choice === false) {
-    await rejectDriver(order.id);
+      ]);
+    });
   }
-  // choice === null → нічого не робимо
-}
+
+  async function handleConfirmOrReject(order) {
+    const choice = await confirmFinalPriceModal(order);
+    if (choice === true) {
+      await confirmDriver(order.id);
+    } else if (choice === false) {
+      await rejectDriver(order.id);
+    }
+    // choice === null → нічого не робимо
+  }
 
   function confirmAction(message) {
     return new Promise((resolve) => {
@@ -358,33 +360,61 @@ async function handleConfirmOrReject(order) {
               />
             )
           }
+          {/* Фінальна ціна: показувати і при RESERVED (CREATED+reserved), і при PENDING */}
+          {(role === "CUSTOMER" || role === "DRIVER") && (reserved || item.status === "PENDING") && (
+            <View style={styles.finalPriceRow}>
+              <Text style={styles.finalPriceLabel}>Фінальна ціна:</Text>
 
+              <AppInput
+                style={styles.finalPriceInput}
+                keyboardType="numeric"
+                value={
+                  editedFinal[item.id] ??
+                  (item.finalPrice ? String(Math.round(item.finalPrice)) : "")
+                }
+                onChangeText={(v) =>
+                  setEditedFinal((prev) => ({
+                    ...prev,
+                    [item.id]: v.replace(/[^\d]/g, ""),
+                  }))
+                }
+                placeholder="Вкажіть суму"
+              />
+
+              <TouchableOpacity
+                onPress={async () => {
+                  const val = editedFinal[item.id];
+                  if (!val) return;
+                  await apiFetch(`/orders/${item.id}/final-price`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      finalPrice: String(Math.round(Number(val))),
+                    }),
+                  });
+                  load();
+                }}
+                accessibilityLabel="Зберегти фінальну ціну"
+              >
+                <Ionicons name="save" size={22} color={colors.green} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Кнопки підтвердження лише у PENDING */}
           {role === "CUSTOMER" && item.status === "PENDING" && (
-            <View>
-              <View style={styles.actionRow}>
-                <AppButton
-                  title="Прийняти"
-                  onPress={() => handleConfirmOrReject(item)}
-                  style={styles.smallBtn}
-                />
-                <AppButton
-                  title="Відхилити"
-                  color="#EF4444"
-                  onPress={() => rejectDriver(item.id)}
-                  style={styles.smallBtn}
-                />
-              </View>
-              <View style={styles.finalPriceRow}>
-                <Text style={styles.finalPriceLabel}>Фінальна ціна:</Text>
-                <Text
-                  style={[
-                    styles.finalPriceValue,
-                    !item.finalPrice && { color: "#9CA3AF" },
-                  ]}
-                >
-                  {item.finalPrice ? `${Math.round(item.finalPrice)} грн` : "—"}
-                </Text>
-              </View>
+            <View style={styles.actionRow}>
+              <AppButton
+                title="Прийняти"
+                onPress={() => handleConfirmOrReject(item)}
+                style={styles.smallBtn}
+              />
+              <AppButton
+                title="Відхилити"
+                color="#EF4444"
+                onPress={() => rejectDriver(item.id)}
+                style={styles.smallBtn}
+              />
             </View>
           )}
 
@@ -585,27 +615,39 @@ const styles = StyleSheet.create({
   activeFilterText: { color: "#fff" },
   filterText: { fontSize: 16, fontWeight: "600", color: "#111827" },
   finalPriceRow: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  backgroundColor: "#F3FFF4",
-  borderColor: "#22C55E",
-  borderWidth: 1,
-  borderRadius: 10,
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  marginTop: 10,
-},
-finalPriceLabel: {
-  fontSize: 15,
-  fontWeight: "700",
-  color: "#166534", // темно-зелений
-},
-finalPriceValue: {
-  fontSize: 16,
-  fontWeight: "800",
-  color: "#16A34A", // зелений
-},
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F3FFF4",
+    borderColor: "#22C55E",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: 10,
+  },
+  finalPriceLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#166534", // темно-зелений
+  },
+  finalPriceValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#16A34A", // зелений
+  },
+  finalPriceInput: {
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 100,
+    textAlign: "right",
+  },
 });
 
 function formatDate(d) {

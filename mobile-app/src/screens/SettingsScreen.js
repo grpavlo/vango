@@ -10,7 +10,7 @@ import ListItem from "../components/ListItem";
 import { colors } from "../components/Colors";
 import ProfileCardSkeleton from "../components/ProfileCardSkeleton";
 
-export default function SettingsScreen({navigation}) {
+export default function SettingsScreen({ navigation }) {
   const { logout, role, selectRole, token } = useAuth();
   const [user, setUser] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -64,13 +64,14 @@ export default function SettingsScreen({navigation}) {
             </View>
             <AppText style={styles.name}>{user.name}</AppText>
             <AppText style={styles.phone}>{user.phone}</AppText>
-            <ListItem
-              title="Редагувати профіль"
-              onPress={() => {
-                navigation.navigate('ProfileScreen');    
-                   }}
-              icon="pencil"
-            />
+            {role === "DRIVER" && (
+              <ListItem
+                title="Редагувати профіль"
+                onPress={() => navigation.navigate("ProfileScreen", { user })}
+                icon="pencil"
+              />
+            )}
+
             <View style={styles.roleCard}>
               <View style={styles.badge}>
                 <Ionicons name="person" size={20} color="#fff" />

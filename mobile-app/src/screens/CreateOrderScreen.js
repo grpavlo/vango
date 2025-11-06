@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
+
 import AppText from "../components/AppText";
 import AppInput from "../components/AppInput";
 import AppButton from "../components/AppButton";
@@ -243,7 +244,7 @@ export default function CreateOrderScreen({ navigation }) {
       return;
     }
     try {
-      const apiKey = "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs";
+      const apiKey = "";
       const url =
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?` +
         `input=${encodeURIComponent(text)}` +
@@ -260,7 +261,7 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
   async function fetchPlaceDetails(placeId) {
-    const apiKey = "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs";
+    const apiKey = "";
 
     const url =
       "https://maps.googleapis.com/maps/api/place/details/json" +

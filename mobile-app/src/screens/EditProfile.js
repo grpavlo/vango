@@ -23,12 +23,13 @@ import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
 
-export default function EditProfile({ navigation }) {
+export default function EditProfile({ navigation, route }) {
+  const user = route.params?.user;
   const { token } = useAuth();
   const toast = useToast();
 
   // Текстові поля
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(user.name || "");
   const [noInn, setNoInn] = useState(false);
   const [inn, setInn] = useState("");
 
@@ -66,7 +67,7 @@ export default function EditProfile({ navigation }) {
     if (path.startsWith("http")) return path;
     return `${HOST_URL}${path}`;
   }
-  
+
   // Підтягнути наявний профіль (якщо є)
   useEffect(() => {
     (async () => {
@@ -76,7 +77,11 @@ export default function EditProfile({ navigation }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (data) {
-          setFullName(data.fullName ?? "");
+          // Завжди використовуємо user.name з SettingsScreen
+          if (user?.name) {
+            setFullName(user.name);
+          }
+         
           setNoInn(data.noInn);
           setInn(data.inn ?? "");
 
@@ -246,6 +251,7 @@ export default function EditProfile({ navigation }) {
                 label="ПІБ"
                 value={fullName}
                 onChangeText={setFullName}
+                editable={false}
               />
 
               {/* ІПН */}

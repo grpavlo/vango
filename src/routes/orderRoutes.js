@@ -14,6 +14,7 @@ const {
   getOrder,
   updateOrder,
   deleteOrder,
+  updateFinalPrice
 } = require('../controllers/orderController');
 const { UserRole } = require('../models/user');
 
@@ -31,5 +32,7 @@ router.post('/:id/reject-driver', authenticate, authorize([UserRole.CUSTOMER]), 
 router.patch('/:id/status', authenticate, updateStatus);
 router.patch('/:id', authenticate, authorize([UserRole.CUSTOMER]), upload.array('photos', 10), updateOrder);
 router.delete('/:id', authenticate, authorize([UserRole.CUSTOMER]), deleteOrder);
+router.post("/:id/final-price", authenticate, authorize([UserRole.CUSTOMER]), updateFinalPrice);
+
 
 module.exports = router;
