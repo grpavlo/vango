@@ -53,6 +53,23 @@ export default function AllOrdersScreen({ navigation }) {
         longitude: parseFloat(pickupPoint.lon),
       }
     : location;
+  const dropoffPointRad = dropoffPoint
+    ? {
+        latitude: parseFloat(dropoffPoint.lat),
+        longitude: parseFloat(dropoffPoint.lon),
+      }
+    : null;
+
+  const radiusKm = Number.parseFloat(radius || "0");
+  const hasOrigin =
+    !!originPoint &&
+    Number.isFinite(originPoint.latitude) &&
+    Number.isFinite(originPoint.longitude);
+  const hasDropoff =
+    !!dropoffPointRad &&
+    Number.isFinite(dropoffPointRad.latitude) &&
+    Number.isFinite(dropoffPointRad.longitude);
+  const hasRadius = Number.isFinite(radiusKm) && radiusKm > 0;
 
   const corridorCorners = useMemo(() => {
     if (!originPoint || !dropoffPoint) return null;
@@ -177,6 +194,50 @@ export default function AllOrdersScreen({ navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       let list = data.available;
+
+      const hasCorridor = !!(originPoint && dropoffPoint);
+      const A = hasCorridor
+        ? {
+            lat: Number(originPoint.latitude),
+            lon: Number(originPoint.longitude),
+          }
+        : null;
+      const B = hasCorridor
+        ? { lat: Number(dropoffPoint.lat), lon: Number(dropoffPoint.lon) }
+        : null;
+      const D = CORRIDOR_HALF_WIDTH_KM;
+
+      const rKm = radiusKm;
+      const canUsePickupR = hasRadius && hasOrigin;
+      const canUseDropoffR = hasRadius && hasDropoff;
+
+      list = list.filter((o) => {
+        const P1 =
+          o.pickupLat && o.pickupLon
+            ? { lat: Number(o.pickupLat), lon: Number(o.pickupLon) }
+            : null;
+        const P2 =
+          o.dropoffLat && o.dropoffLon
+            ? { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) }
+            : null;
+
+        const inCorridor = hasCorridor && P1 && isInsideCorridor(P1, A, B, D);
+
+        const inPickupRadius =
+          canUsePickupR && P1 && inRadiusKm(P1, originPoint, rKm);
+
+        const inDropoffRadius =
+          canUseDropoffR && P1 && inRadiusKm(P1, dropoffPointRad, rKm);
+
+        // якщо увімкнена хоч одна геометрія – показуємо, якщо pickup входить у ХОЧ ОДНУ
+        if (hasCorridor || canUsePickupR || canUseDropoffR) {
+          return inCorridor || inPickupRadius || inDropoffRadius;
+        }
+        return true;
+      });
+
+      setOrders(list);
+
       // if (!(pickupPoint && dropoffPoint) && radius && origin) {
       //   const r = parseFloat(radius);
       //   if (!isNaN(r) && r > 0) {
@@ -193,26 +254,26 @@ export default function AllOrdersScreen({ navigation }) {
       //   }
       // }
       // ... після setOrders(list) — ЗАМІНИ на:
-      if (originPoint && dropoffPoint) {
-        const A = {
-          lat: parseFloat(originPoint.latitude),
-          lon: parseFloat(originPoint.longitude),
-        };
-        const B = {
-          lat: parseFloat(dropoffPoint.lat),
-          lon: parseFloat(dropoffPoint.lon),
-        };
-        const D = CORRIDOR_HALF_WIDTH_KM; // км відступ від прямої
+      // if (originPoint && dropoffPoint) {
+      //   const A = {
+      //     lat: parseFloat(originPoint.latitude),
+      //     lon: parseFloat(originPoint.longitude),
+      //   };
+      //   const B = {
+      //     lat: parseFloat(dropoffPoint.lat),
+      //     lon: parseFloat(dropoffPoint.lon),
+      //   };
+      //   const D = CORRIDOR_HALF_WIDTH_KM; // км відступ від прямої
 
-        list = list.filter((o) => {
-          if (!o.pickupLat || !o.pickupLon || !o.dropoffLat || !o.dropoffLon)
-            return false;
-          const P1 = { lat: Number(o.pickupLat), lon: Number(o.pickupLon) };
-          const P2 = { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) };
-          return isInsideCorridor(P1, A, B, D) || isInsideCorridor(P2, A, B, D);
-        });
-      }
-      setOrders(list);
+      //   list = list.filter((o) => {
+      //     if (!o.pickupLat || !o.pickupLon || !o.dropoffLat || !o.dropoffLon)
+      //       return false;
+      //     const P1 = { lat: Number(o.pickupLat), lon: Number(o.pickupLon) };
+      //     const P2 = { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) };
+      //     return isInsideCorridor(P1, A, B, D) || isInsideCorridor(P2, A, B, D);
+      //   });
+      // }
+      // setOrders(list);
 
       setLoading(false);
     } catch (err) {
@@ -221,23 +282,15 @@ export default function AllOrdersScreen({ navigation }) {
     }
   }
 
+  function inRadiusKm(point, center, rKm) {
+    if (!point || !center) return false;
+    return (
+      haversine(center.latitude, center.longitude, point.lat, point.lon) <= rKm
+    );
+  }
+
   function passesFilters(o) {
-    if (originPoint && dropoffPoint) {
-      if (!o.pickupLat || !o.pickupLon || !o.dropoffLat || !o.dropoffLon)
-        return false;
-      const A = {
-        lat: Number(originPoint.latitude),
-        lon: Number(originPoint.longitude),
-      };
-      const B = {
-        lat: Number(dropoffPoint.lat),
-        lon: Number(dropoffPoint.lon),
-      };
-      const P1 = { lat: Number(o.pickupLat), lon: Number(o.pickupLon) };
-      const P2 = { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) };
-      const D = CORRIDOR_HALF_WIDTH_KM;
-      return isInsideCorridor(P1, A, B, D) && isInsideCorridor(P2, A, B, D);
-    }
+    // базові перевірки
     if (o.deleted) return false;
     const now = new Date();
     if (o.status !== "CREATED") return false;
@@ -245,53 +298,59 @@ export default function AllOrdersScreen({ navigation }) {
       return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date))
       return false;
+
+    // якщо нема повного маршруту — залишимо фільтр по назві міста
     if (!(pickupPoint && dropoffPoint)) {
       if (
         pickupCity &&
         !(o.pickupCity || "").toLowerCase().includes(pickupCity.toLowerCase())
-      )
+      ) {
         return false;
+      }
     }
-    // const origin = pickupPoint
-    //   ? {
-    //       latitude: parseFloat(pickupPoint.lat),
-    //       longitude: parseFloat(pickupPoint.lon),
-    //     }
-    //   : location;
-    // if (!(pickupPoint && dropoffPoint) && radius && origin) {
-    //   const r = parseFloat(radius);
-    //   if (!isNaN(r) && r > 0) {
-    //     if (!o.pickupLat || !o.pickupLon) return false;
-    //     const dist = haversine(
-    //       origin.latitude,
-    //       origin.longitude,
-    //       o.pickupLat,
-    //       o.pickupLon
-    //     );
-    //     if (dist > r) return false;
-    //   }
-    // }
-    if (pickupPoint && dropoffPoint) {
-      const A = {
-        lat: parseFloat(pickupPoint.lat),
-        lon: parseFloat(pickupPoint.lon),
-      };
-      const B = {
-        lat: parseFloat(dropoffPoint.lat),
-        lon: parseFloat(dropoffPoint.lon),
-      };
-      const D = CORRIDOR_HALF_WIDTH_KM;
-      if (!o.pickupLat || !o.pickupLon || !o.dropoffLat || !o.dropoffLon)
-        return false;
-      const P1 = { lat: Number(o.pickupLat), lon: Number(o.pickupLon) };
-      const P2 = { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) };
-      if (!(isInsideCorridor(P1, A, B, D) && isInsideCorridor(P2, A, B, D)))
-        return false;
+
+    const P1 =
+      o.pickupLat && o.pickupLon
+        ? { lat: Number(o.pickupLat), lon: Number(o.pickupLon) }
+        : null;
+    const P2 =
+      o.dropoffLat && o.dropoffLon
+        ? { lat: Number(o.dropoffLat), lon: Number(o.dropoffLon) }
+        : null;
+
+    const hasCorridor = !!(originPoint && dropoffPoint);
+    const A = hasCorridor
+      ? {
+          lat: Number(originPoint.latitude),
+          lon: Number(originPoint.longitude),
+        }
+      : null;
+    const B = hasCorridor
+      ? { lat: Number(dropoffPoint.lat), lon: Number(dropoffPoint.lon) }
+      : null;
+    const D = CORRIDOR_HALF_WIDTH_KM;
+
+   const inCorridor =
+  hasCorridor && (P1 && isInsideCorridor(P1, A, B, D));
+
+const inPickupRadius =
+  canUsePickupR && (P1 && inRadiusKm(P1, originPoint, rKm));
+
+const inDropoffRadius =
+  canUseDropoffR && (P1 && inRadiusKm(P1, dropoffPointRad, rKm));
+
+    const rKm = radiusKm;
+    const canUsePickupR = hasRadius && hasOrigin;
+    const canUseDropoffR = hasRadius && hasDropoff;
+
+    
+
+    if (hasCorridor || canUsePickupR || canUseDropoffR) {
+      return inCorridor || inPickupRadius || inDropoffRadius;
     }
 
     return true;
   }
-
   function connectWs() {
     if (!token) return;
     if (wsRef.current) wsRef.current.close();
@@ -427,6 +486,32 @@ export default function AllOrdersScreen({ navigation }) {
         ]);
       }
     }
+    if (dropoffPoint && radius) {
+      const r = parseFloat(radius);
+      if (!isNaN(r) && r > 0) {
+        const latDelta = r / 111;
+        const lonDelta =
+          r / (111 * Math.cos((dropoffPoint.latitude * Math.PI) / 180));
+        coords = coords.concat([
+          {
+            latitude: dropoffPoint.latitude + latDelta,
+            longitude: dropoffPoint.longitude + lonDelta,
+          },
+          {
+            latitude: dropoffPoint.latitude + latDelta,
+            longitude: dropoffPoint.longitude - lonDelta,
+          },
+          {
+            latitude: dropoffPoint.latitude - latDelta,
+            longitude: dropoffPoint.longitude + lonDelta,
+          },
+          {
+            latitude: dropoffPoint.latitude - latDelta,
+            longitude: dropoffPoint.longitude - lonDelta,
+          },
+        ]);
+      }
+    }
 
     if (coords.length) {
       if (originPoint && dropoffPoint) {
@@ -474,13 +559,31 @@ export default function AllOrdersScreen({ navigation }) {
         initialRegion={region}
         showsUserLocation
       >
-        {/* {originPoint && !(originPoint && dropoffPoint) && (
+        {hasOrigin && hasRadius && (
           <Circle
-            center={originPoint}
-            radius={parseFloat(radius || "0") * 1000}
+            center={{
+              latitude: originPoint.latitude,
+              longitude: originPoint.longitude,
+            }}
+            radius={radiusKm * 1000}
             fillColor="rgba(22,163,74,0.15)"
             strokeColor="rgba(22,163,74,0.4)"
           />
+        )}
+
+        {hasDropoff && hasRadius && (
+          <Circle
+            center={{
+              latitude: dropoffPointRad.latitude,
+              longitude: dropoffPointRad.longitude,
+            }}
+            radius={radiusKm * 1000}
+            fillColor="rgba(163, 22, 22, 0.15)"
+            strokeColor="rgba(22,163,74,0.4)"
+          />
+        )}
+        {/* {originPoint && !(originPoint && dropoffPoint) && (
+         
         )} */}
         {orders.map(
           (o) =>
@@ -564,7 +667,15 @@ export default function AllOrdersScreen({ navigation }) {
                   lat={pickupPoint?.lat}
                   lon={pickupPoint?.lon}
                   currentLocation={location}
-                  style={styles.input}
+                  provider="google"
+                  googleApiKey="" //googleApiKey!!!
+                  suggestionStyles={{
+                    dropdown: styles.suggestionsDropdown,
+                    box: styles.suggestionsBox,
+                    item: styles.suggestionItem,
+                    main: styles.suggestionMain,
+                    sub: styles.suggestionSub,
+                  }}
                 />
                 <AddressSearchInput
                   placeholder="Місце розвантаження"
@@ -592,7 +703,7 @@ export default function AllOrdersScreen({ navigation }) {
                   }}
                 />
 
-                {/* <View style={styles.radiusRow}>
+                <View style={styles.radiusRow}>
                   <AppButton
                     title="-"
                     onPress={() =>
@@ -616,7 +727,7 @@ export default function AllOrdersScreen({ navigation }) {
                     }
                     style={styles.radiusButton}
                   />
-                </View> */}
+                </View>
                 <View style={styles.actionsRow}>
                   <AppButton
                     title="Очистити"

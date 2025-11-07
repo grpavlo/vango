@@ -244,7 +244,7 @@ export default function CreateOrderScreen({ navigation }) {
       return;
     }
     try {
-      const apiKey = "";
+      const apiKey = ""; //googleApiKey!!!
       const url =
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?` +
         `input=${encodeURIComponent(text)}` +
@@ -261,7 +261,7 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
   async function fetchPlaceDetails(placeId) {
-    const apiKey = "";
+    const apiKey = ""; //googleApiKey!!!
 
     const url =
       "https://maps.googleapis.com/maps/api/place/details/json" +

@@ -220,7 +220,7 @@ export default function EditOrderScreen({ route, navigation }) {
       return;
     }
     try {
-      const apiKey = "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs";
+      const apiKey = ""; //googleApiKey!!!
       const url =
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?` +
         `input=${encodeURIComponent(text)}` +
@@ -237,7 +237,7 @@ export default function EditOrderScreen({ route, navigation }) {
   }
 
   async function fetchPlaceDetails(placeId) {
-    const apiKey = "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs";
+    const apiKey = ""; //googleApiKey!!!
 
     const url =
       "https://maps.googleapis.com/maps/api/place/details/json" +
