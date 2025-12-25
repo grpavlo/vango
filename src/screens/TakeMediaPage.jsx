@@ -16,6 +16,8 @@ import UniversalModal from '../components/UniversalModal';
 import { Fonts } from '../utils/tokens';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useInfoCheckpoint } from '../store/infoCheckpoint';
+import { combineArrivalFlags, finishVisit, VISIT_ARRIVAL_CHECK_TYPE } from '../utils/visitApi';
 
 const TakeMediaPageContent = ({ navigation, route }) => {
     const {
@@ -24,14 +26,24 @@ const TakeMediaPageContent = ({ navigation, route }) => {
         idCheckpoint = null,
         dispatchPhone = null,
         officePhone = null,
+        arrivalFlags = null,
+        personName = null,
+        note: noteParam = null,
     } = route.params || {};
 
     const { tokens } = useDesignSystem();
     const { showAlert } = useAppAlert();
     const palette = useMemo(() => createPalette(tokens), [tokens]);
     const styles = useMemo(() => createStyles(palette), [palette]);
+    const data = useInfoCheckpoint((state) => state.data);
+    const arrivalCheckType = useMemo(
+        () => combineArrivalFlags(arrivalFlags, [VISIT_ARRIVAL_CHECK_TYPE.OtherIssues]),
+        [arrivalFlags],
+    );
+    const visitId = useMemo(() => idCheckpoint || data?.id || null, [data, idCheckpoint]);
 
     const [capturedMedia, setCapturedMedia] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [removeModalVisible, setRemoveModalVisible] = useState(false);
     const [pendingRemovalIndex, setPendingRemovalIndex] = useState(null);
@@ -164,16 +176,67 @@ const TakeMediaPageContent = ({ navigation, route }) => {
     }, []);
 
     const handleOpenFinishModal = useCallback(() => {
-        if (capturedMedia.length === 0) {
+        if (capturedMedia.length === 0 || isSubmitting) {
             return;
         }
         setFinishModalVisible(true);
-    }, [capturedMedia.length]);
+    }, [capturedMedia, isSubmitting]);
 
-    const handleConfirmFinish = useCallback(() => {
+    const handleConfirmFinish = useCallback(async () => {
         setFinishModalVisible(false);
-        navigation.navigate('RoutesPage');
-    }, [navigation]);
+        if (!visitId) {
+            showAlert({
+                title: 'Visit missing',
+                message: 'Unable to determine the visit id. Please try again from the route list.',
+                variant: 'error',
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await finishVisit({
+                visitId,
+                arrivalCheckType,
+                personsName: personName || null,
+                note: noteParam || null,
+                mediaAssets: capturedMedia,
+            });
+            showAlert({
+                title: 'Visit updated',
+                message: 'Visit result sent successfully.',
+                variant: 'success',
+                onConfirm: () =>
+                    navigation.navigate('RouteCheckpointsPage', {
+                        idRoute,
+                        idCheckpoint: visitId,
+                    }),
+            });
+        } catch (error) {
+            let message = 'Unable to finish the visit. Please try again.';
+            if (error?.message === 'AUTH_MISSING') {
+                message = 'Authentication token is missing. Please log in again.';
+            } else if (error?.message === 'VISIT_ID_MISSING') {
+                message = 'Visit identifier is missing.';
+            }
+            showAlert({
+                title: 'Error',
+                message,
+                variant: 'error',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [
+        arrivalCheckType,
+        capturedMedia,
+        idRoute,
+        navigation,
+        noteParam,
+        personName,
+        showAlert,
+        visitId,
+    ]);
 
     const handleCancelFinish = useCallback(() => {
         setFinishModalVisible(false);
@@ -286,14 +349,18 @@ const TakeMediaPageContent = ({ navigation, route }) => {
                         styles.primaryActionButton,
                         {
                             backgroundColor:
-                                capturedMedia.length === 0 ? palette.primaryDisabled : palette.primary,
+                                capturedMedia.length === 0 || isSubmitting
+                                    ? palette.primaryDisabled
+                                    : palette.primary,
                         },
                     ]}
-                    disabled={capturedMedia.length === 0}
+                    disabled={capturedMedia.length === 0 || isSubmitting}
                     onPress={handleOpenFinishModal}
                     activeOpacity={0.85}
                 >
-                    <Text style={[styles.primaryActionText, { color: palette.onPrimary }]}>FINISH</Text>
+                    <Text style={[styles.primaryActionText, { color: palette.onPrimary }]}>
+                        {isSubmitting ? 'Submitting...' : 'FINISH'}
+                    </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -309,9 +376,9 @@ const TakeMediaPageContent = ({ navigation, route }) => {
 
             <UniversalModal
                 visible={finishModalVisible}
-                title="All required photos captured"
-                description="Confirm to finish capturing and return to the previous step."
-                confirmText="Confirm"
+                title="Submit visit result?"
+                description="We will upload the media and complete this visit."
+                confirmText="Submit"
                 cancelText="Back"
                 onConfirm={handleConfirmFinish}
                 onCancel={handleCancelFinish}

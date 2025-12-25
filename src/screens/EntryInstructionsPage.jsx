@@ -1,17 +1,21 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {StyleSheet, View, TouchableOpacity, Text, SafeAreaView, ActivityIndicator} from 'react-native';
 import {WebView} from 'react-native-webview';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
-import {Colors, Fonts} from '../utils/tokens';
+import {Fonts, createColorsFromTokens, withAlpha} from '../utils/tokens';
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import {handleCallPress} from "../function/handleCallPress";
 import {useInfoCheckpoint} from "../store/infoCheckpoint";
 import {serverUrlApi} from "../const/api";
+import {useDesignSystem} from "../context/ThemeContext";
 
 const EntryInstructionsPage = ({navigation, route}) => {
     const { menu,routeName } = route.params || {menu:true};
     const data = useInfoCheckpoint((state) => state.data);
+    const {tokens} = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [instructionsHTML, setInstructionsHTML] = useState('');
     const [loading, setLoading] = useState(true);
@@ -63,13 +67,11 @@ const EntryInstructionsPage = ({navigation, route}) => {
     }, [data]);
 
     return (
-        <View style={{
-            flex: 1
-        }}>
+        <View style={styles.screen}>
             <View style={styles.container}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                         <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
@@ -81,13 +83,13 @@ const EntryInstructionsPage = ({navigation, route}) => {
                             <Text style={styles.visitInfoText}>Visit Info</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={()=>handleCallPress(data.phone)}>
-                            <Ionicons name="call" size={20} color={Colors.mainBlue} style={{marginRight: 5}}/>
+                            <Ionicons name="call" size={20} color={colors.primary} style={{marginRight: 5}}/>
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 <View style={styles.checkpointDetails}>
-                    <MaterialCommunityIcons name="map-marker-outline" size={20} color={Colors.mainRed}
+                    <MaterialCommunityIcons name="map-marker-outline" size={20} color={colors.destructive}
                                             style={{marginRight: 5}}/>
                     <View style={styles.infoRowNext}>
                         <Text style={styles.checkpointAddressLabel}>Checkpoint Address</Text>
@@ -107,7 +109,7 @@ const EntryInstructionsPage = ({navigation, route}) => {
 
 
                 {loading ? (
-                    <ActivityIndicator size="large" color={Colors.mainBlue} style={{ marginTop: 20 }} />
+                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
                 ) : errorMessage ? (
                     <Text style={styles.errorText}>{errorMessage}</Text>
                 ) : (
@@ -124,10 +126,14 @@ const EntryInstructionsPage = ({navigation, route}) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
     },
     headerRow: {
         flexDirection: 'row',
@@ -140,7 +146,7 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
     },
     containerWeb: {
         padding: 20
@@ -150,7 +156,8 @@ const styles = StyleSheet.create({
     },
     webTitle: {
         fontSize: Fonts.f14,
-        color: Colors.mainBlue,
+        color: colors.primary,
+        fontWeight: '600',
     },
     checkpointHeader: {
         flexDirection: 'row',
@@ -167,41 +174,50 @@ const styles = StyleSheet.create({
     },
     checkpointTitle: {
         fontSize: Fonts.f20,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         fontWeight: 'bold',
     },
     headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
     },
+    visitInfoButton: {
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 12,
+        backgroundColor: withAlpha(colors.primary, '12'),
+        marginRight: 12,
+    },
 
     visitInfoText: {
-        color: Colors.white,
+        color: colors.primaryForeground,
         fontSize: Fonts.f14,
+        fontWeight: '600',
     },
     callIcon: {
         fontSize: Fonts.f20,
-        color: Colors.mainBlue,
+        color: colors.primary,
     },
     checkpointDetails: {
         borderBottomWidth: 0.5,
         borderTopWidth: 0.5,
-        borderBottomColor: Colors.mainBlue,
-        borderTopColor: Colors.mainBlue,
+        borderBottomColor: colors.border,
+        borderTopColor: colors.border,
         paddingBottom: 10,
         marginBottom: 10,
         flexDirection: 'row',
         alignItems: 'flex-start',
         padding: 10,
-
+        backgroundColor: colors.surface,
+        borderRadius: 12,
     },
     checkpointAddressLabel: {
         fontSize: Fonts.f12,
-        color: Colors.blackText + '60',
+        color: withAlpha(colors.textPrimary, '60'),
     },
     checkpointAddress: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 10,
     },
     pickupTimeContainer: {
@@ -210,17 +226,18 @@ const styles = StyleSheet.create({
     },
     pickupTimeLabel: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '60',
+        color: withAlpha(colors.textPrimary, '60'),
     },
     pickupTimeValue: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
     },
     webView: {
         flex: 1,
         marginHorizontal: 20,
         borderRadius: 8,
         overflow: 'hidden',
+        backgroundColor: colors.surface,
     },
 });
 

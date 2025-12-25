@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Image, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {Ionicons, MaterialCommunityIcons} from '@expo/vector-icons';
-import {Colors, Fonts} from '../utils/tokens';
+import {Fonts, createColorsFromTokens, withAlpha} from '../utils/tokens';
 import CameraComponent from '../components/CameraComponent';
 import GalleryComponent from '../components/GalleryComponent';
 import UniversalModal from '../components/UniversalModal';
@@ -12,9 +12,21 @@ import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useInfoCheckpoint} from "../store/infoCheckpoint";
 import {serverUrlApi} from "../const/api";
+import {useDesignSystem} from "../context/ThemeContext";
 
 const BACKGROUND_UPLOAD_TASK = 'BACKGROUND_UPLOAD_TASK';
 const COMPRESSION_FACTOR = 0.3;
+const VISIT_ARRIVAL_CHECK_TYPE = {
+    None: 0,
+    PickupSamples: 1 << 0,
+    EmptyBox: 1 << 1,
+    UnableFindBox: 1 << 2,
+    OtherIssues: 1 << 3,
+    OfficeIsOpen: 1 << 4,
+    OfficeIsClosed: 1 << 5,
+    TheyHaveSamples: 1 << 6,
+    TheyDoNotHaveSamples: 1 << 7,
+};
 
 const uploadQueueProcess = async () => {
     try {
@@ -27,44 +39,10 @@ const uploadQueueProcess = async () => {
                 const accessToken = await SecureStore.getItemAsync('accessToken');
                 if (!accessToken) continue;
 
-                let photoUploads = [];
-                if (!item.emptyBox) {
-                    for (let i = 0; i < item.photos.length; i++) {
-                        const compressed = await ImageManipulator.manipulateAsync(
-                            item.photos[i].uri,
-                            [],
-                            {
-                                compress: COMPRESSION_FACTOR,
-                                format: ImageManipulator.SaveFormat.JPEG
-                            }
-                        );
-
-                        const formData = new FormData();
-                        formData.append('files[]', {
-                            uri: compressed.uri,
-                            name: `photo${i}.jpg`,
-                            type: 'image/jpeg'
-                        });
-
-                        const resp = await fetch(serverUrlApi + 'files', {
-                            method: 'POST',
-                            headers: {
-                                Authorization: `Bearer ${accessToken}`
-                            },
-                            body: formData
-                        });
-
-                        const result = await resp.json();
-                        if (Array.isArray(result)) {
-                            photoUploads = [...photoUploads, {photoId: result[0].id}];
-                        }
-                    }
-                }
-
-                const overallIds = [];
-                for (let i = 0; i < item.photosOverall.length; i++) {
-                    const compressedOverall = await ImageManipulator.manipulateAsync(
-                        item.photosOverall[i].uri,
+                const mediaFileIds = [];
+                const uploadAsset = async (asset, index, prefix) => {
+                    const compressed = await ImageManipulator.manipulateAsync(
+                        asset.uri,
                         [],
                         {
                             compress: COMPRESSION_FACTOR,
@@ -72,32 +50,56 @@ const uploadQueueProcess = async () => {
                         }
                     );
 
-                    const formData2 = new FormData();
-                    formData2.append('files[]', {
-                        uri: compressedOverall.uri,
-                        name: `photo${i}.jpg`,
+                    const formData = new FormData();
+                    formData.append('files[]', {
+                        uri: compressed.uri,
+                        name: `${prefix}${index}.jpg`,
                         type: 'image/jpeg'
                     });
 
-                    const resp2 = await fetch(serverUrlApi + 'files', {
+                    const resp = await fetch(serverUrlApi + 'files', {
                         method: 'POST',
                         headers: {
                             Authorization: `Bearer ${accessToken}`
                         },
-                        body: formData2
+                        body: formData
                     });
 
-                    const result2 = await resp2.json();
-                    if (Array.isArray(result2)) {
-                        overallIds.push(result2[0].id);
+                    if (!resp.ok) {
+                        return;
                     }
-                }
 
-                const bodyData = {
-                    samples: item.emptyBox ? [] : photoUploads,
-                    overallPhotoIds: overallIds
+                    const result = await resp.json();
+                    if (Array.isArray(result) && result[0]?.id) {
+                        mediaFileIds.push(result[0].id);
+                    }
                 };
 
+                const samplePhotos = Array.isArray(item.photos) ? item.photos : [];
+                const overallPhotos = Array.isArray(item.photosOverall) ? item.photosOverall : [];
+
+                for (let i = 0; i < samplePhotos.length; i++) {
+                    await uploadAsset(samplePhotos[i], i, 'sample');
+                }
+
+                for (let i = 0; i < overallPhotos.length; i++) {
+                    await uploadAsset(overallPhotos[i], i, 'overall');
+                }
+
+                const arrivalCheckType = item.arrivalCheckType !== undefined && item.arrivalCheckType !== null
+                    ? item.arrivalCheckType
+                    : item.emptyBox
+                        ? VISIT_ARRIVAL_CHECK_TYPE.EmptyBox
+                        : VISIT_ARRIVAL_CHECK_TYPE.PickupSamples;
+
+                const bodyData = {
+                    arrivalCheckType,
+                    personsName: item.personsName ?? null,
+                    note: item.note ?? null,
+                    items: Array.isArray(item.items) ? item.items : [],
+                    itemLinks: Array.isArray(item.itemLinks) ? item.itemLinks : [],
+                    mediaFileIds,
+                };
 
                 await fetch(serverUrlApi + `visits/${item.dataId}/finish`, {
                     method: 'PATCH',
@@ -142,6 +144,9 @@ const registerBackgroundTask = async () => {
 const WorkOnVisitPage = ({navigation, route}) => {
     const {routeName = '', idRoute} = route.params || {};
     const data = useInfoCheckpoint((state) => state.data);
+    const {tokens} = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
 
     const [photos, setPhotos] = useState([]);
@@ -271,7 +276,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
         <View style={styles.container}>
             <View style={styles.topContainer}>
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={Colors.blackText}/>
+                    <Ionicons name="chevron-back" size={24} color={colors.textPrimary}/>
                     <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
             </View>
@@ -300,7 +305,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                     <MaterialCommunityIcons
                         name='map-marker-outline'
                         size={20}
-                        color={Colors.mainRed}
+                        color={colors.destructive}
                         style={styles.icon}
                     />
 
@@ -342,8 +347,8 @@ const WorkOnVisitPage = ({navigation, route}) => {
                             {
                                 backgroundColor:
                                     photosOverall.length === 0 || photos.length > 0
-                                        ? Colors.darkGray + '50'
-                                        : Colors.darkGray
+                                        ? withAlpha(colors.darkGray, '50')
+                                        : colors.darkGray
                             }
                         ]}
                         disabled={photosOverall.length === 0 || photos.length > 0}
@@ -372,7 +377,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                                         <MaterialCommunityIcons
                                             name='trash-can-outline'
                                             size={20}
-                                            color={Colors.white}
+                                            color='#FFFFFF'
                                         />
                                     </TouchableOpacity>
 
@@ -386,7 +391,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                                         <Ionicons
                                             name='eye-outline'
                                             size={20}
-                                            color={Colors.white}
+                                            color='#FFFFFF'
                                         />
                                     </TouchableOpacity>
 
@@ -433,7 +438,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                                         <MaterialCommunityIcons
                                             name='trash-can-outline'
                                             size={20}
-                                            color={Colors.white}
+                                            color='#FFFFFF'
                                         />
                                     </TouchableOpacity>
 
@@ -447,7 +452,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                                         <Ionicons
                                             name='eye-outline'
                                             size={20}
-                                            color={Colors.white}
+                                            color='#FFFFFF'
                                         />
                                     </TouchableOpacity>
 
@@ -463,7 +468,7 @@ const WorkOnVisitPage = ({navigation, route}) => {
                         styles.markAsDoneButton,
                         {
                             backgroundColor:
-                                photos.length === 0 ? Colors.mainBlue + '50' : Colors.mainBlue
+                                photos.length === 0 ? withAlpha(colors.primary, '50') : colors.primary
                         }
                     ]}
                     disabled={photos.length === 0}
@@ -527,10 +532,10 @@ const WorkOnVisitPage = ({navigation, route}) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white
+        backgroundColor: colors.background
     },
     scrollContainer: {
         padding: 20
@@ -546,22 +551,22 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: Fonts.f20,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         fontWeight: 'bold'
     },
     visitInfoButton: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: colors.primary,
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 6
     },
     visitInfoText: {
-        color: Colors.white,
+        color: colors.primaryForeground,
         fontSize: Fonts.f14
     },
     detailsContainer: {
         borderWidth: 1,
-        borderColor: Colors.lightGray,
+        borderColor: colors.border,
         borderRadius: 10,
         padding: 15,
         flexDirection: 'row',
@@ -573,23 +578,23 @@ const styles = StyleSheet.create({
     },
     addressText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '80'
+        color: withAlpha(colors.textPrimary, '80')
     },
     addressDetail: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 10
     },
     pickupTime: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '80'
+        color: withAlpha(colors.textPrimary, '80')
     },
     pickupTimeDetail: {
         fontSize: Fonts.f16,
-        color: Colors.blackText
+        color: colors.textPrimary
     },
     writeToDispButton: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: colors.primary,
         borderRadius: 8,
         paddingVertical: 6,
         paddingHorizontal: 12,
@@ -597,7 +602,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center'
     },
     writeToDispText: {
-        color: Colors.white,
+        color: colors.primaryForeground,
         fontSize: Fonts.f14
     },
     actionRow: {
@@ -607,54 +612,54 @@ const styles = StyleSheet.create({
         marginBottom: 20
     },
     actionButton: {
-        backgroundColor: Colors.lightGray,
+        backgroundColor: colors.mutedBackground,
         borderRadius: 8,
         paddingHorizontal: 15,
         paddingVertical: 10
     },
     actionButtonText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText
+        color: colors.textPrimary
     },
     totalContainer: {
         alignItems: 'center'
     },
     totalLabel: {
         fontSize: Fonts.f14,
-        color: Colors.blackText + '80'
+        color: withAlpha(colors.textPrimary, '80')
     },
     totalValue: {
         fontSize: Fonts.f16,
         fontWeight: 'bold',
-        color: Colors.blackText
+        color: colors.textPrimary
     },
     samplesContainer: {
-        backgroundColor: Colors.lightGray,
+        backgroundColor: colors.mutedBackground,
         borderRadius: 8,
         padding: 10,
         marginBottom: 20
     },
     samplesTitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 10
     },
     overallContainer: {
-        backgroundColor: Colors.lightGray,
+        backgroundColor: colors.mutedBackground,
         borderRadius: 8,
         padding: 10,
         marginBottom: 20
     },
     overallTitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 10
     },
     uploadContainer: {
         height: 100,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: Colors.lightGray,
+        borderColor: colors.border,
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center'
@@ -662,16 +667,16 @@ const styles = StyleSheet.create({
     uploadContainerMini: {
         height: 100,
         width: 100,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: Colors.lightGray,
+        borderColor: colors.border,
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 10
     },
     uploadText: {
-        color: Colors.blackText + '80',
+        color: withAlpha(colors.textPrimary, '70'),
         fontSize: Fonts.f14
     },
     markAsDoneButton: {
@@ -682,7 +687,7 @@ const styles = StyleSheet.create({
     markAsDoneText: {
         fontSize: Fonts.f16,
         fontWeight: 'bold',
-        color: Colors.white
+        color: colors.primaryForeground
     },
     sampleItem: {
         width: 100,
@@ -714,7 +719,7 @@ const styles = StyleSheet.create({
     },
     sampleLabel: {
         fontSize: Fonts.f12,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         textAlign: 'center',
         marginTop: 5
     },
@@ -725,7 +730,7 @@ const styles = StyleSheet.create({
     topContainer: {
         paddingTop: 10,
         paddingHorizontal: 16,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
 });
 

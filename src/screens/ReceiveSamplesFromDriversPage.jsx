@@ -1,24 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Dimensions,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { Camera, CameraView, useCameraPermissions } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
 
 import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import { ThemeProvider, useDesignSystem } from "../context/ThemeContext";
 import { Fonts } from "../utils/tokens";
 import UniversalModal from "../components/UniversalModal";
 import { useAppAlert } from "../hooks/useAppAlert";
+import { serverUrlApi } from "../const/api";
+import { VISIT_RESULT_ITEM_TYPE } from "../utils/visitApi";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
@@ -45,7 +47,6 @@ const createPalette = (tokens) => ({
 });
 
 const buildPackageName = (index) => `Package ${index}`;
-const randomCode = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
     const { tokens, theme } = useDesignSystem();
@@ -61,47 +62,42 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
     const [unassignedSamples, setUnassignedSamples] = useState([]);
     const [selectedSamples, setSelectedSamples] = useState([]);
     const [activePackageId, setActivePackageId] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [scannerVisible, setScannerVisible] = useState(false);
     const [scannerMode, setScannerMode] = useState(null);
     const [scannerNotice, setScannerNotice] = useState(null);
-    const [manualEntry, setManualEntry] = useState("");
-
-    const [banner, setBanner] = useState(null);
     const [pendingPackageRemoval, setPendingPackageRemoval] = useState(undefined);
+    const [scannerError, setScannerError] = useState(null);
 
-    const scannerInputRef = useRef(null);
-
-    const canConfirmReceipt =
-        packages.length > 0 && packages.some((pkg) => pkg.samples.length > 0);
+    const hasPackages = packages.length > 0;
+    const hasAssignedSamples = packages.some((pkg) => pkg.samples.length > 0);
+    const hasUnassignedSamples = unassignedSamples.length > 0;
+    const canConfirmPickup = hasPackages || hasAssignedSamples || hasUnassignedSamples;
+    const confirmDisabled = !canConfirmPickup || isSubmitting;
 
     const statusMessage = useMemo(() => {
-        if (packages.length === 0) {
-            return "Scan packages first, then add samples.";
+        if (isSubmitting) {
+            return "Submitting pick-up...";
         }
-        if (!packages.some((pkg) => pkg.samples.length > 0)) {
-            return "Assign sampled tubes to a package to proceed.";
+        if (!canConfirmPickup) {
+            return "Scan a package or sample to enable confirmation.";
         }
-        return "Ready to confirm receipt.";
-    }, [packages]);
+        return "Ready to confirm pick-up.";
+    }, [canConfirmPickup, isSubmitting]);
 
     const setActivePackage = useCallback((packageId) => {
-        setPackages((prev) =>
-            prev.map((pkg) => ({
-                ...pkg,
-                isActive: pkg.id === packageId,
-            })),
-        );
-        setActivePackageId(packageId);
+        setActivePackageId((prevActiveId) => {
+            const nextActiveId = prevActiveId === packageId ? null : packageId;
+            setPackages((prevPackages) =>
+                prevPackages.map((pkg) => ({
+                    ...pkg,
+                    isActive: nextActiveId ? pkg.id === nextActiveId : false,
+                })),
+            );
+            return nextActiveId;
+        });
     }, []);
-
-    useEffect(() => {
-        if (!banner) {
-            return;
-        }
-        const timeout = setTimeout(() => setBanner(null), 3000);
-        return () => clearTimeout(timeout);
-    }, [banner]);
 
     useEffect(() => {
         if (!scannerVisible) {
@@ -113,7 +109,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
             if (scannerMode === "package") {
                 setScannerNotice("Point the camera at the package label");
             } else if (scannerMode === "sample") {
-                setScannerNotice("Scan the sample barcode or enter it manually");
+                setScannerNotice("Scan the sample barcode");
             }
         }, 600);
 
@@ -135,7 +131,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
     const closeScanner = useCallback(() => {
         setScannerVisible(false);
         setScannerMode(null);
-        setManualEntry("");
+        setScannerError(null);
     }, []);
 
     const openScanner = useCallback(
@@ -149,26 +145,20 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 });
                 return;
             }
+            setScannerError(null);
             setScannerMode(mode);
             setScannerVisible(true);
         },
         [ensureCameraPermission, showAlert],
     );
 
-    const raiseDuplicateBanner = useCallback((message) => {
-        setBanner({
-            message,
-            type: "warning",
-            id: Date.now(),
-        });
-    }, []);
-
-    const normalizeCode = (value) => value.trim().toUpperCase();
+    const normalizeCode = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
     const addPackage = useCallback(
         (rawCode) => {
-            const barcode = normalizeCode(rawCode || randomCode("PKG"));
+            const barcode = normalizeCode(rawCode);
             if (!barcode) {
+                setScannerError("Unable to read package code. Try again.");
                 return false;
             }
 
@@ -176,7 +166,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 packages.some((pkg) => pkg.barcode === barcode) ||
                 unassignedSamples.some((sample) => sample.code === barcode);
             if (exists) {
-                raiseDuplicateBanner("Package already scanned. Review the list below.");
+                setScannerError("Package already scanned.");
                 return false;
             }
 
@@ -184,52 +174,22 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
                 barcode,
                 name: buildPackageName(packages.length + 1),
-                isActive: packages.length === 0,
+                isActive: false,
                 samples: [],
             };
 
-            setPackages((prev) => {
-                if (prev.length === 0) {
-                    setActivePackageId(nextPackage.id);
-                    return [nextPackage];
-                }
-                const updated = prev.map((pkg) => ({ ...pkg, isActive: false }));
-                setActivePackageId(nextPackage.id);
-                return [...updated, nextPackage];
-            });
-
-            showAlert({
-                title: "Package Added",
-                message: `${nextPackage.name} ready to receive samples.`,
-                variant: "success",
-            });
+            setPackages((prev) => [...prev, nextPackage]);
 
             return true;
         },
-        [packages, raiseDuplicateBanner, showAlert, unassignedSamples],
+        [packages, setScannerError, unassignedSamples],
     );
 
-    const appendSampleToActive = useCallback(
-        (sample) => {
-            if (!activePackageId) {
-                setUnassignedSamples((prev) => [...prev, sample]);
-                return;
-            }
-
-            setPackages((prev) =>
-                prev.map((pkg) =>
-                    pkg.id === activePackageId
-                        ? { ...pkg, samples: [...pkg.samples, sample] }
-                        : pkg,
-                ),
-            );
-        },
-        [activePackageId],
-    );
     const addSample = useCallback(
         (rawCode) => {
-            const code = normalizeCode(rawCode || randomCode("SMP"));
+            const code = normalizeCode(rawCode);
             if (!code) {
+                setScannerError("Unable to read sample code. Try again.");
                 return false;
             }
 
@@ -238,7 +198,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 packages.some((pkg) => pkg.samples.some((sample) => sample.code === code));
 
             if (duplicate) {
-                raiseDuplicateBanner("Sample already captured. Check the lists below.");
+                setScannerError("Sample already scanned.");
                 return false;
             }
 
@@ -248,29 +208,13 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 timestamp: new Date(),
             };
 
-            appendSampleToActive(sample);
+            setUnassignedSamples((prev) => [...prev, sample]);
 
-            if (activePackageId) {
-                showAlert({
-                    title: "Sample Assigned",
-                    message: `${code} saved to the active package.`,
-                    variant: "success",
-                });
-            } else {
-                showAlert({
-                    title: "Sample Added",
-                    message: `${code} stored in unassigned samples.`,
-                    variant: "info",
-                });
-            }
             return true;
         },
         [
-            activePackageId,
-            appendSampleToActive,
             packages,
-            raiseDuplicateBanner,
-            showAlert,
+            setScannerError,
             unassignedSamples,
         ],
     );
@@ -278,15 +222,17 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
     const handleCodeCaptured = useCallback(
         (code) => {
             if (!code) {
+                setScannerError("Unable to read code. Try again.");
                 return;
             }
+            setScannerError(null);
             const action = scannerMode === "package" ? addPackage : addSample;
             const success = action(code);
             if (success) {
                 closeScanner();
             }
         },
-        [addPackage, addSample, closeScanner, scannerMode],
+        [addPackage, addSample, closeScanner, scannerMode, setScannerError],
     );
 
     const handleBarcodeScanned = ({ data }) => {
@@ -402,31 +348,128 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
         }
 
         if (activePackageId === pendingPackageRemoval) {
-            nextActiveId = updatedPackages[0]?.id ?? null;
+            nextActiveId = null;
         }
 
-        setPackages(updatedPackages.map((pkg) => ({ ...pkg, isActive: pkg.id === nextActiveId })));
+        setPackages(
+            updatedPackages.map((pkg) => ({
+                ...pkg,
+                isActive: nextActiveId ? pkg.id === nextActiveId : false,
+            })),
+        );
         setActivePackageId(nextActiveId);
         setPendingPackageRemoval(null);
 
-        showAlert({
-            title: "Package Removed",
-            message:
-                returningSamples.length > 0
-                    ? `${returningSamples.length} sample(s) returned to unassigned.`
-                    : "Package removed successfully.",
-            variant: "info",
-        });
     }, [activePackageId, packages, pendingPackageRemoval, showAlert]);
 
-    const handleConfirmReceipt = useCallback(() => {
-        showAlert({
-            title: "Receipt Confirmed",
-            message: "All packages and samples recorded for the driver handoff.",
-            variant: "success",
-            onConfirm: () => navigation.goBack(),
+    const buildDriverPickupPayload = useCallback(() => {
+        const packageItems = [];
+        const sampleItems = [];
+        const itemLinks = [];
+        const seenSamples = new Set();
+
+        packages.forEach((pkg) => {
+            if (pkg?.barcode) {
+                packageItems.push({
+                    type: VISIT_RESULT_ITEM_TYPE.Package,
+                    code: pkg.barcode,
+                });
+            }
+            (pkg?.samples || []).forEach((sample) => {
+                if (pkg?.barcode && sample?.code) {
+                    itemLinks.push({
+                        parentCode: pkg.barcode,
+                        childCode: sample.code,
+                    });
+                }
+                if (sample?.code && !seenSamples.has(sample.code)) {
+                    sampleItems.push({
+                        type: VISIT_RESULT_ITEM_TYPE.Sample,
+                        code: sample.code,
+                    });
+                    seenSamples.add(sample.code);
+                }
+            });
         });
-    }, [navigation, showAlert]);
+
+        unassignedSamples.forEach((sample) => {
+            if (sample?.code && !seenSamples.has(sample.code)) {
+                sampleItems.push({
+                    type: VISIT_RESULT_ITEM_TYPE.Sample,
+                    code: sample.code,
+                });
+                seenSamples.add(sample.code);
+            }
+        });
+
+        return {
+            items: [...packageItems, ...sampleItems],
+            itemLinks,
+        };
+    }, [packages, unassignedSamples]);
+
+    const handleConfirmPickup = useCallback(async () => {
+        if (!canConfirmPickup || isSubmitting) {
+            return;
+        }
+
+        const { items, itemLinks } = buildDriverPickupPayload();
+
+        setIsSubmitting(true);
+        try {
+            const accessToken = await SecureStore.getItemAsync("accessToken");
+            if (!accessToken) {
+                throw new Error("AUTH_MISSING");
+            }
+
+            const response = await fetch(`${serverUrlApi}samples/driver-pickup`, {
+                method: "PATCH",
+                headers: {
+                    accept: "application/json",
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                    items,
+                    itemLinks,
+                }),
+            });
+
+            if (!response.ok) {
+                if (response.status === 400) {
+                    throw new Error("BARCODE_NOT_FOUND");
+                }
+                const message = await response.text().catch(() => "");
+                const code = typeof message === "string" && message.trim() ? message.trim() : null;
+                throw new Error(code || `HTTP_${response.status}`);
+            }
+
+            showAlert({
+                title: "Pick-Up Confirmed",
+                message: "Driver handoff recorded successfully.",
+                variant: "success",
+                onConfirm: () => navigation.goBack(),
+            });
+        } catch (error) {
+            let message = "Unable to record the driver pick-up. Please try again.";
+            if (error?.message === "AUTH_MISSING") {
+                message = "Authentication token is missing. Please log in again.";
+            } else if (error?.message === "BARCODE_NOT_FOUND") {
+                message = "Barcode not found. Please verify and try again.";
+            } else if (error?.message === "HTTP_401" || error?.message === "HTTP_403") {
+                message = "Session expired. Please log in again.";
+            } else if (error?.message && !error.message.startsWith("HTTP_")) {
+                message = error.message;
+            }
+            showAlert({
+                title: "Error",
+                message,
+                variant: "error",
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [buildDriverPickupPayload, canConfirmPickup, isSubmitting, navigation, showAlert]);
 
     return (
         <View style={styles.screen}>
@@ -441,20 +484,9 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={22} color={palette.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Receive Samples from Drivers</Text>
+                <Text style={styles.headerTitle}>Receive Samples from Drivers </Text>
                 <View style={styles.headerSpacer} />
             </View>
-
-            {banner ? (
-                <View style={styles.banner}>
-                    <Ionicons name="warning-outline" size={16} color={palette.destructive} />
-                    <Text style={styles.bannerText}>{banner.message}</Text>
-                    <TouchableOpacity onPress={() => setBanner(null)}>
-                        <Ionicons name="close" size={18} color={palette.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-            ) : null}
-
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.sectionCard}>
                     <View style={styles.sectionHeader}>
@@ -498,7 +530,11 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                                             onPress={() => setActivePackage(pkg.id)}
                                         >
                                             <Ionicons
-                                                name="radio-button-on-outline"
+                                                name={
+                                                    pkg.isActive
+                                                        ? "radio-button-on-outline"
+                                                        : "radio-button-off-outline"
+                                                }
                                                 size={16}
                                                 color={pkg.isActive ? palette.primary : palette.textSecondary}
                                             />
@@ -508,7 +544,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                                                     pkg.isActive && styles.packageActionTextActive,
                                                 ]}
                                             >
-                                                {pkg.isActive ? "Active" : "Set Active"}
+                                                {pkg.isActive ? "Deactivate" : "Set Active"}
                                             </Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
@@ -627,7 +663,7 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                 </View>
             </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: 12 + insets.bottom }]}>
+            <View style={[styles.footer, { paddingBottom: 70 + insets.bottom }]}>
                 <View style={styles.footerActions}>
                     <TouchableOpacity
                         style={styles.footerButton}
@@ -648,17 +684,17 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                     <Text style={styles.footerStatusText}>{statusMessage}</Text>
                 </View>
                 <TouchableOpacity
-                    style={[styles.confirmButton, !canConfirmReceipt && styles.confirmButtonDisabled]}
-                    disabled={!canConfirmReceipt}
-                    onPress={handleConfirmReceipt}
+                    style={[styles.confirmButton, confirmDisabled && styles.confirmButtonDisabled]}
+                    disabled={confirmDisabled}
+                    onPress={handleConfirmPickup}
                 >
                     <Text
                         style={[
                             styles.confirmButtonText,
-                            !canConfirmReceipt && styles.confirmButtonTextDisabled,
+                            confirmDisabled && styles.confirmButtonTextDisabled,
                         ]}
                     >
-                        Confirm Receipt
+                        {isSubmitting ? "Submitting..." : "Confirm Pick-Up"}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -680,6 +716,12 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                             <Ionicons name="close" size={22} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
+                    {scannerError ? (
+                        <View style={styles.scannerError}>
+                            <Ionicons name="warning-outline" size={18} color="#FFE5E5" />
+                            <Text style={styles.scannerErrorText}>{scannerError}</Text>
+                        </View>
+                    ) : null}
                     <CameraView
                         style={styles.camera}
                         facing="back"
@@ -690,23 +732,6 @@ const ReceiveSamplesFromDriversPageContent = ({ navigation }) => {
                     />
                     <View style={styles.scannerFooter}>
                         {scannerNotice ? <Text style={styles.scannerNotice}>{scannerNotice}</Text> : null}
-                        <TextInput
-                            ref={scannerInputRef}
-                            value={manualEntry}
-                            onChangeText={setManualEntry}
-                            placeholder="Enter code manually"
-                            placeholderTextColor={withAlpha("#FFFFFF", "70")}
-                            style={styles.manualInput}
-                            autoCapitalize="characters"
-                            returnKeyType="done"
-                            onSubmitEditing={() => handleCodeCaptured(manualEntry)}
-                        />
-                        <TouchableOpacity
-                            style={styles.manualButton}
-                            onPress={() => handleCodeCaptured(manualEntry)}
-                        >
-                            <Text style={styles.manualButtonText}>Add Code</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -769,27 +794,9 @@ const createStyles = (palette) =>
             width: 40,
             height: 40,
         },
-        banner: {
-            marginHorizontal: 20,
-            marginBottom: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: withAlpha(palette.destructive, "40"),
-            backgroundColor: withAlpha(palette.destructive, "12"),
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-        },
-        bannerText: {
-            flex: 1,
-            fontSize: Fonts.f12,
-            color: palette.textSecondary,
-        },
         scrollContent: {
             paddingHorizontal: 20,
-            paddingBottom: 140,
+            paddingBottom: 240,
             gap: 16,
         },
         sectionCard: {
@@ -1063,32 +1070,30 @@ const createStyles = (palette) =>
             width: windowWidth * 0.85,
             marginTop: 24,
             gap: 12,
+            alignItems: "center",
         },
         scannerNotice: {
             fontSize: Fonts.f12,
             color: withAlpha("#FFFFFF", "80"),
             textAlign: "center",
         },
-        manualInput: {
-            width: "100%",
+        scannerError: {
+            position: "absolute",
+            top: 120,
+            left: 40,
+            right: 40,
             borderRadius: 12,
-            borderWidth: 1,
-            borderColor: withAlpha("#FFFFFF", "30"),
+            paddingVertical: 12,
             paddingHorizontal: 16,
-            paddingVertical: 12,
-            color: "#FFFFFF",
-            fontSize: Fonts.f14,
-        },
-        manualButton: {
-            borderRadius: 12,
-            paddingVertical: 12,
+            backgroundColor: "rgba(220,53,69,0.92)",
+            flexDirection: "row",
             alignItems: "center",
-            backgroundColor: "#FFFFFF",
+            gap: 10,
         },
-        manualButtonText: {
-            fontSize: Fonts.f14,
-            fontWeight: "600",
-            color: "#000000",
+        scannerErrorText: {
+            flex: 1,
+            fontSize: Fonts.f12,
+            color: "#FFE5E5",
         },
     });
 

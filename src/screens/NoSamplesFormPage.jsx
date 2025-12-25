@@ -11,6 +11,7 @@ const NoSamplesFormPageContent = ({ navigation, route }) => {
         idCheckpoint = null,
         dispatchPhone = null,
         officePhone = null,
+        arrivalFlags = null,
     } = route.params || {};
 
     const { tokens } = useDesignSystem();
@@ -27,8 +28,21 @@ const NoSamplesFormPageContent = ({ navigation, route }) => {
             idCheckpoint,
             dispatchPhone,
             officePhone,
+            arrivalFlags,
+            personName,
+            note,
         });
-    }, [navigation, routeName, idRoute, idCheckpoint, dispatchPhone, officePhone]);
+    }, [
+        arrivalFlags,
+        dispatchPhone,
+        idCheckpoint,
+        idRoute,
+        navigation,
+        note,
+        officePhone,
+        personName,
+        routeName,
+    ]);
 
     const handleHelp = useCallback(() => {
         navigation.navigate('CheckpointViewPage', {

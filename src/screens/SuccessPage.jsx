@@ -1,10 +1,11 @@
-import React, {useEffect} from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
+import { useDesignSystem } from "../context/ThemeContext";
 
-const SuccessPage = ({  route, navigation }) => {
-    const { clientSecretKey,token } = route.params|| {clientSecretKey:null,token:null};; // Retrieve clientSecretKey from navigation params
+const SuccessPage = ({ route, navigation }) => {
+    const { clientSecretKey, token } = route.params || { clientSecretKey: null, token: null }; // Retrieve clientSecretKey from navigation params
 
 
     useEffect(() => {
@@ -16,6 +17,10 @@ const SuccessPage = ({  route, navigation }) => {
     }, [navigation]);
 
 
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             <View style={styles.textContainer}>
@@ -24,39 +29,36 @@ const SuccessPage = ({  route, navigation }) => {
                     Instructions for setting a new password have been sent to your email.
                 </Text>
             </View>
-            <Button title="Continue" onPress={() => navigation.navigate('NewPasswordPage', { clientSecretKey,token })} style={styles.continueButton} />
+            <Button title="Continue" onPress={() => navigation.navigate('NewPasswordPage', { clientSecretKey, token })} style={styles.continueButton} />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
     },
     textContainer: {
         flex: 1,
         alignItems: 'flex-start',
-        marginTop: 200,
+        justifyContent: 'center',
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         marginBottom: 30,
         textAlign: 'left',
     },
     continueButton: {
-        position: 'absolute',
-        bottom: '40%',
-        alignSelf: 'center',
-
+        marginBottom: 40,
     },
 });
 

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {View, Text, StyleSheet, Image, ActivityIndicator, ScrollView, TouchableOpacity} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {Ionicons} from "@expo/vector-icons";
-import {Colors} from "../utils/tokens";
+import {createColorsFromTokens, withAlpha} from "../utils/tokens";
 import {serverUrlApi} from "../const/api";
+import {useDesignSystem} from "../context/ThemeContext";
 
 // Допоміжна функція для перетворення Blob -> base64
 const blobToBase64 = (blob) => {
@@ -26,6 +27,9 @@ export default function SampleDetailScreen({ route, navigation }) {
     const [photoUri, setPhotoUri] = useState(null);
     const [loadingPhoto, setLoadingPhoto] = useState(false);
     const [error, setError] = useState(null);
+    const {tokens} = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     // Завантажуємо фото при монтуванні екрану
     useEffect(() => {
@@ -74,7 +78,7 @@ export default function SampleDetailScreen({ route, navigation }) {
         <View style={styles.container}>
 
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                 <Text style={styles.backText}> Back</Text>
             </TouchableOpacity>
 
@@ -97,8 +101,8 @@ export default function SampleDetailScreen({ route, navigation }) {
 
             {/* Блок із фото */}
             <View style={styles.photoContainer}>
-                {loadingPhoto && <ActivityIndicator size="large" color="#000" />}
-                {error && <Text style={{ color: 'red' }}>{error}</Text>}
+                {loadingPhoto && <ActivityIndicator size="large" color={colors.primary} />}
+                {error && <Text style={styles.errorText}>{error}</Text>}
 
                 {photoUri && (
                     <Image
@@ -112,10 +116,10 @@ export default function SampleDetailScreen({ route, navigation }) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingTop: 50,
     },
     header: {
@@ -127,29 +131,33 @@ const styles = StyleSheet.create({
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        color: '#007AFF',
         fontSize: 16,
-        marginBottom:15
+        marginBottom:15,
+        paddingHorizontal: 16,
     },
     infoContainer: {
-        backgroundColor: '#eee',
+        backgroundColor: withAlpha(colors.primary, '10'),
         marginHorizontal: 16,
         padding: 16,
-        borderRadius: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: withAlpha(colors.primary, '20'),
     },
     routeName: {
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 8,
+        color: colors.textSecondary,
     },
     sampleTitle: {
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 6,
+        color: colors.textPrimary,
     },
     sampleAddress: {
         fontSize: 14,
-        color: '#333',
+        color: colors.textSecondary,
         marginBottom: 6,
     },
     photoContainer: {
@@ -163,6 +171,12 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 300,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
-
+    errorText: {
+        color: colors.destructive,
+        marginTop: 8,
+        textAlign: 'center',
+    },
 });

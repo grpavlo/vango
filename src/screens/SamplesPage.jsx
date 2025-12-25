@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {serverUrlApi} from "../const/api";
 import {Ionicons} from "@expo/vector-icons";
-import {Colors, Fonts} from "../utils/tokens";
+import {Fonts, createColorsFromTokens, withAlpha} from "../utils/tokens";
+import {useDesignSystem} from "../context/ThemeContext";
 
 export default function SamplesScreen({navigation}) {
     const [routes, setRoutes] = useState([]);
     const [totalPackages, setTotalPackages] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const {tokens} = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         fetchRoutesWithSamples();
@@ -96,7 +100,7 @@ export default function SamplesScreen({navigation}) {
     if (loading) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#000" />
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
@@ -104,7 +108,7 @@ export default function SamplesScreen({navigation}) {
     if (error) {
         return (
             <View style={styles.centered}>
-                <Text style={{ color: 'red' }}>Помилка: {error}</Text>
+                <Text style={styles.errorText}>Помилка: {error}</Text>
             </View>
         );
     }
@@ -113,7 +117,7 @@ export default function SamplesScreen({navigation}) {
         <View style={{ flex: 1 }}>
             <View style={styles.container}>
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                    <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                     <Text style={styles.backText}> Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerText}>You have <Text style={styles.headerCount}>{totalPackages}</Text> packages</Text>
@@ -122,17 +126,21 @@ export default function SamplesScreen({navigation}) {
                     data={routes}
                     keyExtractor={(item) => item.id}
                     renderItem={renderRouteItem}
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={styles.listContent}
                 />
             </View>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingHorizontal: 16,
         paddingTop: 50,
     },
@@ -140,53 +148,70 @@ const styles = StyleSheet.create({
         fontSize: Fonts.f36,
         fontWeight: '600',
         marginBottom: 16,
-        color:Colors.mainBlue
+        color: colors.textPrimary,
     },
     headerCount: {
         fontSize: Fonts.f36,
         fontWeight: '600',
-        marginBottom: 16,
-        color:Colors.mainYellow
+        color: colors.primary,
     },
     routeContainer: {
         marginBottom: 24,
-        padding: 12,
+        padding: 16,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
+        borderColor: colors.border,
+        borderRadius: 12,
+        backgroundColor: colors.surface,
     },
     routeDate: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#444',
+        color: colors.textSecondary,
         marginBottom: 4,
     },
     routeName: {
         fontSize: 16,
-        fontWeight: '400',
-        marginBottom: 8,
+        fontWeight: '500',
+        color: colors.textPrimary,
+        marginBottom: 12,
     },
     sampleItem: {
-        backgroundColor: Colors.mainBlue+'10',
-        padding: 8,
-        borderRadius: 6,
-        marginBottom: 6,
+        backgroundColor: withAlpha(colors.primary, '12'),
+        padding: 10,
+        borderRadius: 10,
+        marginBottom: 8,
     },
     sampleTitle: {
         fontSize: Fonts.f12,
-        fontWeight: '400',
+        fontWeight: '600',
+        color: colors.textPrimary,
     },
     sampleAddress: {
-        color: '#666',
+        color: colors.textSecondary,
         marginTop: 2,
+        fontSize: Fonts.f12,
+    },
+    listContent: {
+        paddingBottom: 24,
     },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.background,
+    },
+    errorText: {
+        color: colors.destructive,
+        fontWeight: '600',
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 24,
+    },
+    backText: {
+        color: colors.textPrimary,
+        marginLeft: 6,
+        fontSize: Fonts.f14,
     },
 });

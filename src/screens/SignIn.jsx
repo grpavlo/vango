@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -9,11 +9,12 @@ import {
     KeyboardAvoidingView
 } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
 import Input from "../components/Input";
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import {serverUrlApi} from "../const/api";
+import { serverUrlApi } from "../const/api";
+import { useDesignSystem } from "../context/ThemeContext";
 
 const LoginPage = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -22,6 +23,9 @@ const LoginPage = ({ navigation }) => {
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const refreshTimeout = useRef(null);
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         if (email && password) {
@@ -107,7 +111,7 @@ const LoginPage = ({ navigation }) => {
             <TouchableOpacity style={styles.backButton} onPress={() => {
                 navigation.navigate('WelcomeScreen')
             }}>
-                <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                 <Text style={styles.backText}> Back</Text>
             </TouchableOpacity>
 
@@ -139,7 +143,7 @@ const LoginPage = ({ navigation }) => {
                 </TouchableOpacity>
 
                 {loading ? (
-                    <ActivityIndicator size="large" color={Colors.mainBlue} />
+                    <ActivityIndicator size="large" color={colors.primary} />
                 ) : (
                     <Button
                         title="Sign in"
@@ -156,15 +160,15 @@ const LoginPage = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
     },
     containerMain: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         justifyContent: "center",
     },
     backButton: {
@@ -174,22 +178,22 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginLeft: 5,
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         marginBottom: 10,
     },
     errorText: {
-        color: Colors.mainRed,
+        color: colors.destructive,
         fontSize: Fonts.f14,
         marginBottom: 10,
         textAlign: 'center',
@@ -199,14 +203,14 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     forgotPasswordText: {
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontSize: Fonts.f16,
     },
     signInButton: {
         marginTop: 10,
     },
     disabledButton: {
-        backgroundColor: Colors.darkGray,
+        backgroundColor: withAlpha(colors.textSecondary, '40'),
     },
 });
 

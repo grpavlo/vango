@@ -1,7 +1,8 @@
-import React, {useEffect} from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
+import { useDesignSystem } from "../context/ThemeContext";
 
 const PasswordSetPage = ({ navigation }) => {
 
@@ -13,6 +14,10 @@ const PasswordSetPage = ({ navigation }) => {
         return unsubscribe;
     }, [navigation]);
 
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             <Text style={styles.title}>The new password set</Text>
@@ -21,17 +26,17 @@ const PasswordSetPage = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'flex-start',
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'left',

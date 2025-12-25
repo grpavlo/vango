@@ -93,10 +93,13 @@ const GoogleMapComponent = ({
                                 onOptimizeRoute = null,
                                 routeRegion = null,
                                 routeCoordinates = [],
+                                showUserLocation = true,
                             }) => {
     const mapRef = useRef(null);
     const { userLocation, locationLoading, locationError } = useContext(LocationContext);
     const isFocused = useIsFocused();
+    const shouldUseUserLocation = Boolean(showUserLocation);
+    const effectiveUserLocation = shouldUseUserLocation ? userLocation : null;
 
     const selectedIdString = useMemo(() => {
         if (selectedCheckpointId === null || selectedCheckpointId === undefined) {
@@ -104,6 +107,19 @@ const GoogleMapComponent = ({
         }
         return String(selectedCheckpointId);
     }, [selectedCheckpointId]);
+
+    const sanitizedWaypoints = useMemo(
+        () =>
+            Array.isArray(waypoints)
+                ? waypoints.filter(
+                    (point) =>
+                        point &&
+                        Number.isFinite(point.latitude) &&
+                        Number.isFinite(point.longitude),
+                )
+                : [],
+        [waypoints],
+    );
 
 
 
@@ -114,12 +130,25 @@ const GoogleMapComponent = ({
             : []
     );
 
+    const baseRoute = useMemo(() => {
+        if (encodedRoute && decodedPolyline.length > 0) {
+            return decodedPolyline;
+        }
+        if (routeCoordinates && routeCoordinates.length > 0) {
+            return routeCoordinates;
+        }
+        if (destination) {
+            return [origin, ...sanitizedWaypoints, destination].filter(Boolean);
+        }
+        return [origin, ...sanitizedWaypoints].filter(Boolean);
+    }, [encodedRoute, decodedPolyline, routeCoordinates, destination, origin, sanitizedWaypoints]);
+
     // Зберігаємо поточний маршрут (залежно від navigator)
-    const [activeRoute, setActiveRoute] = useState(
-        encodedRoute && decodedPolyline.length > 0
-            ? decodedPolyline
-            : [origin, ...waypoints, destination]
-    );
+    const [activeRoute, setActiveRoute] = useState(baseRoute);
+
+    useEffect(() => {
+        setActiveRoute(baseRoute);
+    }, [baseRoute]);
 
     // Відцентровуємо мапу при першому рендері чи зміні залежностей
     useEffect(() => {
@@ -132,17 +161,7 @@ const GoogleMapComponent = ({
             return;
         }
 
-        let coordinates = [];
-
-        if (encodedRoute && decodedPolyline.length > 0) {
-            coordinates = decodedPolyline;
-        } else if (routeCoordinates && routeCoordinates.length > 0) {
-            coordinates = routeCoordinates;
-        } else if (destination) {
-            coordinates = [origin, ...waypoints, destination];
-        } else {
-            coordinates = [origin, ...waypoints];
-        }
+        const coordinates = baseRoute;
 
         if (coordinates.length > 0) {
             mapRef.current.fitToCoordinates(coordinates, {
@@ -150,20 +169,20 @@ const GoogleMapComponent = ({
                 animated: true,
             });
         }
-    }, [keyMap, mapRef, isFocused, origin, destination, waypoints, encodedRoute, decodedPolyline, navigator, routeRegion, routeCoordinates]);
+    }, [keyMap, mapRef, isFocused, baseRoute, navigator, routeRegion]);
 
     // Якщо увімкнено навігацію, слідкуємо за зміною location
     useEffect(() => {
-        if (navigator && userLocation && activeRoute.length > 1) {
+        if (navigator && shouldUseUserLocation && effectiveUserLocation && activeRoute.length > 1) {
             // Знаходимо найближчу точку до userLocation
-            const closestIndex = getClosestPointIndex(userLocation, activeRoute);
+            const closestIndex = getClosestPointIndex(effectiveUserLocation, activeRoute);
             // Обрізаємо все, що позаду
             const newRoute = activeRoute.slice(closestIndex);
             setActiveRoute(newRoute);
 
             // Масштабуємося на новий активний маршрут
             if (mapRef.current && newRoute.length > 0) {
-                const coords = [userLocation, ...newRoute];
+                const coords = [effectiveUserLocation, ...newRoute];
                 mapRef.current.fitToCoordinates(coords, {
                     edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
                     animated: true,
@@ -171,7 +190,7 @@ const GoogleMapComponent = ({
 
                 mapRef.current.animateToRegion(
                     {
-                        ...userLocation,
+                        ...effectiveUserLocation,
                         latitudeDelta: 0.01,
                         longitudeDelta: 0.01,
                     },
@@ -179,14 +198,14 @@ const GoogleMapComponent = ({
                 );
             }
         }
-    }, [navigator, userLocation]);
+    }, [navigator, effectiveUserLocation, shouldUseUserLocation, activeRoute]);
 
     // Функція повернення до поточної локації
     const handleRecenter = () => {
-        if (mapRef.current && userLocation) {
+        if (mapRef.current && shouldUseUserLocation && effectiveUserLocation) {
             mapRef.current.animateToRegion(
                 {
-                    ...userLocation,
+                    ...effectiveUserLocation,
                     latitudeDelta: 0.01,
                     longitudeDelta: 0.01,
                 },
@@ -197,6 +216,14 @@ const GoogleMapComponent = ({
 
         if (mapRef.current && routeRegion) {
             mapRef.current.animateToRegion(routeRegion, 450);
+            return;
+        }
+
+        if (mapRef.current && baseRoute.length > 0) {
+            mapRef.current.fitToCoordinates(baseRoute, {
+                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                animated: true,
+            });
         }
     };
 
@@ -205,7 +232,7 @@ const GoogleMapComponent = ({
             return;
         }
 
-        const selectedPoint = waypoints.find((checkpoint) => {
+        const selectedPoint = sanitizedWaypoints.find((checkpoint) => {
             if (!checkpoint) {
                 return false;
             }
@@ -227,7 +254,7 @@ const GoogleMapComponent = ({
                 500
             );
         }
-    }, [selectedIdString, waypoints]);
+    }, [selectedIdString, sanitizedWaypoints]);
 
     // Якщо змінилася encodedRoute, оновлюємо decodedPolyline
     useEffect(() => {
@@ -238,7 +265,7 @@ const GoogleMapComponent = ({
     }, [encodedRoute]);
 
     // Якщо триває завантаження локації
-    if (locationLoading) {
+    if (shouldUseUserLocation && locationLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
@@ -248,7 +275,7 @@ const GoogleMapComponent = ({
     }
 
     // Якщо сталась помилка
-    if (locationError) {
+    if (shouldUseUserLocation && locationError) {
         return (
             <View style={styles.loadingContainer}>
                 <Text style={styles.loadingText}>The location could not be determined.</Text>
@@ -317,7 +344,7 @@ const GoogleMapComponent = ({
                 ref={mapRef}
                 style={styles.map}
                 initialRegion={initialRegion}
-                showsUserLocation={!!userLocation}
+                showsUserLocation={shouldUseUserLocation && !!effectiveUserLocation}
                 showsMyLocationButton={false}
                 customMapStyle={customMapStyle}
                 // provider={PROVIDER_GOOGLE}
@@ -331,8 +358,8 @@ const GoogleMapComponent = ({
                     </Marker>
                 )}
 
-                {waypoints.length > 0 &&
-                    waypoints.map((checkpoint, index) => {
+                {sanitizedWaypoints.length > 0 &&
+                    sanitizedWaypoints.map((checkpoint, index) => {
                         if (!checkpoint || typeof checkpoint.latitude !== 'number' || typeof checkpoint.longitude !== 'number') {
                             return null;
                         }
@@ -355,19 +382,13 @@ const GoogleMapComponent = ({
                         );
                     })}
 
-                {(destination && decodedPolyline) ? (
+                {(navigator ? activeRoute : baseRoute).length > 1 ? (
                     <Polyline
-                        coordinates={navigator ? activeRoute : (encodedRoute ? decodedPolyline : [origin, ...waypoints, destination])}
+                        coordinates={navigator ? activeRoute : baseRoute}
                         strokeColor={ROUTE_STROKE_COLOR}
                         strokeWidth={ROUTE_STROKE_WIDTH}
                     />
-                ) : (
-                    <Polyline
-                        coordinates={navigator ? activeRoute : (encodedRoute ? decodedPolyline : [origin, ...waypoints])}
-                        strokeColor={ROUTE_STROKE_COLOR}
-                        strokeWidth={ROUTE_STROKE_WIDTH}
-                    />
-                )}
+                ) : null}
             </MapView>
 
             <View style={styles.mapControlsContainer} pointerEvents="box-none">
@@ -422,6 +443,7 @@ GoogleMapComponent.propTypes = {
             longitude: PropTypes.number.isRequired,
         })
     ),
+    showUserLocation: PropTypes.bool,
 };
 
 const styles = StyleSheet.create({

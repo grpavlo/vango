@@ -1,17 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
 import * as SecureStore from 'expo-secure-store';
-import {Ionicons} from "@expo/vector-icons";
-import {WebView} from "react-native-webview";
-import {serverUrlApi} from "../const/api";
+import { Ionicons } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
+import { serverUrlApi } from "../const/api";
+import { useDesignSystem } from "../context/ThemeContext";
 
 const RouteDescriptionPage = ({ navigation, route }) => {
     const { idRoute, name } = route.params || { idRoute: null, name: "" };
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState('');
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         const fetchDescription = async () => {
@@ -53,17 +57,17 @@ const RouteDescriptionPage = ({ navigation, route }) => {
     }, [idRoute]);
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={styles.screen}>
             <View style={styles.container}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                         <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
 
                 {loading ? (
-                    <ActivityIndicator size="large" color={Colors.mainBlue} />
+                    <ActivityIndicator size="large" color={colors.primary} />
                 ) : (
                     <>
                         {errorMessage ? (
@@ -88,10 +92,14 @@ const RouteDescriptionPage = ({ navigation, route }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         padding: 20,
     },
     headerRow: {
@@ -105,26 +113,32 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginLeft: 5,
     },
     title: {
         fontSize: Fonts.f20,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         marginBottom: 20,
     },
     description: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
+    },
+    webView: {
+        flex: 1,
+        backgroundColor: colors.surface,
+        borderRadius: 10,
+        overflow: 'hidden',
     },
     errorText: {
-        color: Colors.mainRed,
+        color: colors.destructive,
         fontSize: Fonts.f14,
         marginBottom: 10,
         textAlign: 'center',

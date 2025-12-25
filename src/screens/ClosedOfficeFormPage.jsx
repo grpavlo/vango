@@ -11,6 +11,7 @@ const ClosedOfficeFormPageContent = ({ navigation, route }) => {
         idCheckpoint = null,
         dispatchPhone = null,
         officePhone = null,
+        arrivalFlags = null,
     } = route.params || {};
 
     const { tokens } = useDesignSystem();
@@ -26,8 +27,19 @@ const ClosedOfficeFormPageContent = ({ navigation, route }) => {
             idCheckpoint,
             dispatchPhone,
             officePhone,
+            arrivalFlags,
+            note: description,
         });
-    }, [navigation, routeName, idRoute, idCheckpoint, dispatchPhone, officePhone]);
+    }, [
+        arrivalFlags,
+        description,
+        dispatchPhone,
+        idCheckpoint,
+        idRoute,
+        navigation,
+        officePhone,
+        routeName,
+    ]);
 
     const handleHelp = useCallback(() => {
         navigation.navigate('CheckpointViewPage', {

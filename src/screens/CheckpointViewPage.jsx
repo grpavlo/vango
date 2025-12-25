@@ -182,6 +182,7 @@ const formatTimeRange = (start, end, fallback = null) => {
 const joinParts = (parts, separator = ', ') => parts.filter(Boolean).join(separator);
 
 const INFO_PREVIEW_HEIGHT = 140;
+const INFO_MAX_HEIGHT = 600;
 
 function QuickActionButton({ icon, label, onPress, disabled, styles, palette }) {
     return (
@@ -227,6 +228,7 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
         showHelp = false,
         dispatchPhone: routeDispatchPhone = null,
         officePhone: routeOfficePhone = null,
+        arrivalFlags = null,
     } = route.params || { last: false };
 
     const data = useInfoCheckpoint((state) => state.data);
@@ -260,12 +262,13 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
                     params: {
                         idRoute,
                         idCheckpoint,
-                        routeName,
-                        dispatchPhone,
-                        officePhone,
-                    },
-                }}
-            />
+                routeName,
+                dispatchPhone,
+                officePhone,
+                arrivalFlags,
+            },
+        }}
+    />
         );
     }
     if (showHelp) {
@@ -313,6 +316,7 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
     const [infoExpanded, setInfoExpanded] = useState(false);
     const [infoContentHeight, setInfoContentHeight] = useState(INFO_PREVIEW_HEIGHT);
     const [mapPrefetched, setMapPrefetched] = useState(false);
+    const [visitInfoHtmlFromApi, setVisitInfoHtmlFromApi] = useState(null);
 
     const lastUserLocationRef = useRef(null);
     const lastCheckpointRef = useRef(null);
@@ -340,20 +344,109 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
         null
     ), [data, startDate]);
 
-    const visitInfoHtml = useMemo(() => {
-        if (!data) {
-            return null;
-        }
+    useEffect(() => {
+        let isMounted = true;
 
+        const fetchVisitInfo = async () => {
+            if (!idCheckpoint) {
+                setVisitInfoHtmlFromApi(null);
+                return;
+            }
+
+            try {
+                setVisitInfoHtmlFromApi(null);
+                const accessToken = await SecureStore.getItemAsync('accessToken');
+                if (!accessToken) {
+                    return;
+                }
+
+
+                const response = await fetch(`${serverUrlApi}visits/${idCheckpoint}/info`, {
+                    method: 'GET',
+                    headers: {
+                        accept: 'application/json',
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const text = await response.text();
+                if (!isMounted) {
+                    return;
+                }
+
+                let html = typeof text === 'string' ? text : '';
+                try {
+                    const parsed = JSON.parse(text);
+                    const extractStringField = (value) => {
+                        if (typeof value === 'string') {
+                            return value;
+                        }
+                        if (!value || typeof value !== 'object') {
+                            return null;
+                        }
+                        const candidateKeys = [
+                            'html',
+                            'content',
+                            'data',
+                            'info',
+                            'value',
+                            'visitInfo',
+                            'visitInformation',
+                        ];
+                        for (const key of candidateKeys) {
+                            if (typeof value[key] === 'string') {
+                                return value[key];
+                            }
+                        }
+                        if (value.data && typeof value.data === 'object') {
+                            for (const key of candidateKeys) {
+                                if (typeof value.data[key] === 'string') {
+                                    return value.data[key];
+                                }
+                            }
+                        }
+                        return null;
+                    };
+
+                    const parsedHtml = extractStringField(parsed);
+                    if (parsedHtml) {
+                        html = parsedHtml;
+                    }
+                } catch (_err) {
+                    // not JSON, keep raw text
+                }
+
+                const normalized = typeof html === 'string' ? html.trim() : '';
+                setVisitInfoHtmlFromApi(normalized.length > 0 ? html : null);
+            } catch (err) {
+                // leave existing visit info as fallback
+            }
+        };
+
+        fetchVisitInfo();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [idCheckpoint]);
+
+    const visitInfoHtml = useMemo(() => {
         const raw =
-            data.visitInformationHtml ??
-            data.visitInformation ??
-            data.visitInfoHtml ??
-            data.visitInfo ??
-            data.informationHtml ??
-            data.information ??
-            data.descriptionHtml ??
-            data.description ??
+            (typeof visitInfoHtmlFromApi === 'string' && visitInfoHtmlFromApi.trim().length > 0
+                ? visitInfoHtmlFromApi
+                : null) ??
+            data?.visitInformationHtml ??
+            data?.visitInformation ??
+            data?.visitInfoHtml ??
+            data?.visitInfo ??
+            data?.informationHtml ??
+            data?.information ??
+            data?.descriptionHtml ??
+            data?.description ??
             null;
 
         if (!raw || typeof raw !== 'string') {
@@ -374,15 +467,17 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
                     <style>
                         body {
                             margin: 0;
+                            padding: 12px;
                             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                            font-size: 14px;
-                            color: #1F2937;
-                            background-color: transparent;
-                            line-height: 1.5;
+                            font-size: 46px;
+                            color: ${palette.blackText};
+                            background-color: ${palette.background};
+                            line-height: 1.6;
                         }
-                        p { margin: 0 0 8px; }
-                        ul { margin: 0 0 12px 16px; padding: 0; }
-                        li { margin-bottom: 6px; }
+                        p { margin: 0 0 10px; }
+                        ul { margin: 0 0 12px 18px; padding: 0; }
+                        li { margin-bottom: 8px; }
+                        a { color: ${palette.mainBlue}; }
                     </style>
                 </head>
                 <body>${bodyContent}</body>
@@ -400,7 +495,7 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
 
         const escaped = escapeHtml(raw).replace(/\r?\n/g, '<br/>');
         return wrapWithDocument(`<div>${escaped}</div>`);
-    }, [data]);
+    }, [data, palette.background, palette.blackText, palette.mainBlue, visitInfoHtmlFromApi]);
 
     const visitInfoItems = useMemo(() => {
         const items = [];
@@ -572,22 +667,18 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
                 return false;
             }
 
-            if (!startDate) {
-                const response = await fetch(`${serverUrlApi}visits/${idCheckpoint}/start`, {
-                    method: 'PATCH',
-                    headers: {
-                        accept: '*/*',
-                        Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(idCheckpoint),
-                });
+            const response = await fetch(`${serverUrlApi}visits/${idCheckpoint}/start`, {
+                method: 'PATCH',
+                headers: {
+                    accept: '*/*',
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
 
-                if (!response.ok) {
-                    setErrorMessage('Failed to start the visit. Please try again.');
-                    return false;
-                }
-            }
+            // if (!response.ok) {
+            //     setErrorMessage('Failed to start the visit. Please try again.');
+            //     return false;
+            // }
 
             return true;
         } catch (error) {
@@ -708,7 +799,9 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
         }
     };
 
-    const infoCardHeight = infoExpanded ? infoContentHeight : INFO_PREVIEW_HEIGHT;
+    const infoCardHeight = infoExpanded
+        ? Math.min(infoContentHeight, INFO_MAX_HEIGHT)
+        : INFO_PREVIEW_HEIGHT;
 
     useEffect(() => {
         let isMounted = true;
@@ -1054,7 +1147,7 @@ const CheckpointViewPageContent = ({ navigation, route }) => {
                                 <WebView
                                     originWhitelist={['*']}
                                     source={{ html: visitInfoHtml }}
-                                    scrollEnabled={false}
+                                    scrollEnabled={infoExpanded}
                                     onMessage={handleInfoWebViewMessage}
                                     injectedJavaScript={infoInjectedScript}
                                     style={styles.infoWebView}

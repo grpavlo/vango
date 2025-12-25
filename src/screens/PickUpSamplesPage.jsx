@@ -416,7 +416,7 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
     };
 
     const handleSampleCode = (code) => {
-        const normalized = code.trim();
+        const normalized = (code || '').trim().toLowerCase();
         if (!normalized) {
             showAlert({
                 title: 'Scan Failed',
@@ -463,7 +463,7 @@ const PickUpSamplesPageContent = ({ navigation, route, copyOverrides = {} }) => 
     };
 
     const handlePackageCode = (code) => {
-        const normalized = code.trim();
+        const normalized = (code || '').trim().toLowerCase();
         if (!normalized) {
             showAlert({
                 title: 'Scan Failed',

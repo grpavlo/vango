@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
+import { useDesignSystem } from '../context/ThemeContext';
 
 const Button = ({ title, onPress, style, disabled }) => {
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <TouchableOpacity
             style={[
@@ -18,29 +23,29 @@ const Button = ({ title, onPress, style, disabled }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     button: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: colors.primary,
         borderRadius: 8,
         paddingVertical: 14,
         paddingHorizontal: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
+        shadowColor: withAlpha(colors.textPrimary, '40'),
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 2,
         elevation: 3,
-        width:"100%"
+        width: "100%"
     },
     buttonText: {
-        color: Colors.white,
+        color: colors.primaryForeground,
         fontSize: Fonts.f16,
         fontWeight: 'bold',
         fontFamily: 'PlusJakartaSans-SemiBold',
     },
     disabled: {
-        backgroundColor: Colors.darkGray,
+        backgroundColor: withAlpha(colors.primary, '50'),
     },
 });
 

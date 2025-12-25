@@ -49,6 +49,8 @@ const ChooseCarPageContent = ({ navigation, route }) => {
 
                 if (response.status === 200) {
                     const data = await response.json();
+                    console.log(data);
+                    
                     const formattedCars = data.map((car) => ({
                         key: car.id,
                         value: car.id,

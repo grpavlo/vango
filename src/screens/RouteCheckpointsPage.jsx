@@ -444,6 +444,7 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
 
                 if (response.status === 200) {
                     const data = await response.json();
+                    console.log(data)
 
                     setRouteDetails({
                         id: data.id,
@@ -454,13 +455,15 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
                         durationLabel: formatDurationLabel(data.estimatedDuration),
                     });
 
-                    const activeVisits = (data.visits || []).map((visit, index) =>
-                        mapVisitToCheckpoint(visit, index, palette),
-                    );
+                    const activeVisits = (data.visits || []).map((visit, index) => ({
+                        ...mapVisitToCheckpoint(visit, index, palette),
+                        isCompleted: false,
+                    }));
 
-                    const completedVisits = (data.completedVisits || []).map((visit, index) =>
-                        mapVisitToCheckpoint(visit, index, palette),
-                    );
+                    const completedVisits = (data.completedVisits || []).map((visit, index) => ({
+                        ...mapVisitToCheckpoint(visit, index, palette),
+                        isCompleted: true,
+                    }));
 
                     setCheckpoints(activeVisits);
                     setCompletedCheckpoints(completedVisits);
@@ -527,7 +530,18 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
     };
 
     const handleCheckpointPress = (checkpoint) => {
+        if (checkpoint?.isCompleted) {
+            return;
+        }
         setCheckpointData(checkpoint);
+
+        if (checkpoint?.type === 'unloading') {
+            navigation.navigate('ShipPage', {
+                checkpointId: checkpoint?.id ?? null,
+            });
+            return;
+        }
+
         const allowActions = Boolean(routeDetails.started);
         navigation.navigate('CheckpointViewPage', {
             idCheckpoint: checkpoint.id,
@@ -577,17 +591,16 @@ const RouteCheckpointsPageContent = ({ navigation, route }) => {
                             index === completedCheckpoints.length - 1
                                 ? styles.completedItemLast
                                 : styles.completedItemWrapper;
-                        return (
-                            <View key={key} style={wrapperStyle}>
-                                <CheckpointItem
-                                    checkpoint={item}
-                                    index={item.count}
-                                    disabled={false}
-                                    onPress={() => handleCheckpointPress(item)}
-                                />
-                            </View>
-                        );
-                    })}
+                                return (
+                                    <View key={key} style={wrapperStyle}>
+                                        <CheckpointItem
+                                            checkpoint={item}
+                                            index={item.count}
+                                            disabled={true}
+                                        />
+                                    </View>
+                                );
+                            })}
                 </View>
             ) : null}
         </View>

@@ -1,0 +1,7136 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Logistics Web API",
+    "version": "v1",
+    "x-logo": {
+      "url": "/img/chrome/logo.svg",
+      "altText": "Company Logo"
+    }
+  },
+  "paths": {
+    "/api-v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Retrieves authorization tokens based on user credentials",
+        "operationId": "AuthLogin",
+        "requestBody": {
+          "description": "User credentials",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Retrieves authorization tokens based on refresh token",
+        "operationId": "AuthRefresh",
+        "requestBody": {
+          "description": "Refresh token",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Revoke access token",
+        "operationId": "AuthLogout",
+        "requestBody": {
+          "description": "Refresh token",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send recovery code to email",
+        "operationId": "AuthForgotPassword",
+        "requestBody": {
+          "description": "Forgot password model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.ForgotPassword"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/auth/validate-code": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Validate recovery code",
+        "operationId": "AuthValidateCode",
+        "requestBody": {
+          "description": "Validation code model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.ValidateCode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api-v1/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change password",
+        "operationId": "AuthChangePassword",
+        "requestBody": {
+          "description": "New password and token",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Auth.ChangePassword"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/car-brands": {
+      "get": {
+        "tags": [
+          "CarBrands"
+        ],
+        "summary": "Retrieves car brands for the list items",
+        "operationId": "CarBrandsGet",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/cars": {
+      "get": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Retrieves cars for overview",
+        "operationId": "CarsGet",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Creates a new car",
+        "operationId": "CarsCreate",
+        "requestBody": {
+          "description": "Car creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Updates an existing car",
+        "operationId": "CarsUpdate",
+        "requestBody": {
+          "description": "Car update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/cars/count": {
+      "get": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Retrieves the number of cars for overview",
+        "operationId": "CarsGetCount",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/cars/{id}": {
+      "get": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Retrieves car for edit",
+        "operationId": "CarsGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Car id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cars"
+        ],
+        "summary": "Deletes an existing car",
+        "operationId": "CarsDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Car id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/checkpoints/route-plan-list-items": {
+      "get": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Retrieves checkpoints route plan for the list items",
+        "operationId": "CheckpointsGetRoutePlanListItems",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointRoutePlanListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/checkpoints/list-items": {
+      "get": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Retrieves checkpoints for the list items",
+        "operationId": "CheckpointsGetListItems",
+        "parameters": [
+          {
+            "name": "CustomerId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/checkpoints/checkpoint-list-items": {
+      "get": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Retrieves checkpoints for the list items",
+        "operationId": "CheckpointsGetCheckpointListItems",
+        "parameters": [
+          {
+            "name": "CustomerId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/checkpoints/{id}": {
+      "get": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Retrieves checkpoint for edit",
+        "operationId": "CheckpointsGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Checkpoint id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Deletes an existing checkpoint",
+        "operationId": "CheckpointsDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Checkpoint id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/checkpoints": {
+      "post": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Creates a new checkpoint",
+        "operationId": "CheckpointsCreate",
+        "requestBody": {
+          "description": "Checkpoint creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Checkpoints"
+        ],
+        "summary": "Updates an existing checkpoint",
+        "operationId": "CheckpointsUpdate",
+        "requestBody": {
+          "description": "Checkpoint update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contacts": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Retrieves contacts for overview",
+        "operationId": "ContactsGetOverviews",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Creates a new contact",
+        "operationId": "ContactsCreate",
+        "requestBody": {
+          "description": "Contact creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Updates an existing contact",
+        "operationId": "ContactsUpdate",
+        "requestBody": {
+          "description": "Contact update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contacts/count": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Retrieves the number of contacts for overview",
+        "operationId": "ContactsGetCount",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contacts/list-items": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Retrieves contacts for the list items",
+        "operationId": "ContactsGetListItems",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contacts/{id}": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Retrieves contact for edit",
+        "operationId": "ContactsGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Contact id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Deletes an existing contact",
+        "operationId": "ContactsDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Contact id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contacts/{id}/customers": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Retrieves the customers of the specified contact for overview",
+        "operationId": "ContactsGetCustomers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Contact id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/contractors": {
+      "get": {
+        "tags": [
+          "Contractors"
+        ],
+        "summary": "Retrieves contractors for overview",
+        "operationId": "ContractorsGet",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "A specific date for retrieve active contractors",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.ContractorOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves customers for overview",
+        "operationId": "CustomersGet",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Creates a new customer",
+        "operationId": "CustomersCreate",
+        "requestBody": {
+          "description": "Customer creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Updates an existing customer",
+        "operationId": "CustomersUpdate",
+        "requestBody": {
+          "description": "Customer update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers/list-items": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves customers for the list items",
+        "operationId": "CustomersGetListItems",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers/count": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves the number of customers for overview",
+        "operationId": "CustomersGetCount",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers/{id}": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves customer for edit",
+        "operationId": "CustomersGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Customer id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CustomerEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Deletes an existing customer",
+        "operationId": "CustomersDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Customer id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers/{id}/checkpoints": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves the checkpoints of the specified customer for overview",
+        "operationId": "CustomersGetCheckpoints",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Customer id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/customers/{id}/contacts": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "summary": "Retrieves the contacts of the specified customer for overview",
+        "operationId": "CustomersGetContacts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Customer id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Contacts.ContactOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/employees": {
+      "get": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Retrieves employees for overview",
+        "operationId": "EmployeesGet",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Creates a new employee",
+        "operationId": "EmployeesCreate",
+        "requestBody": {
+          "description": "Employee creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Updates an existing employee",
+        "operationId": "EmployeesUpdate",
+        "requestBody": {
+          "description": "Employee update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/employees/count": {
+      "get": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Retrieves the number of employees for overview",
+        "operationId": "EmployeesGetCount",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/employees/list-items": {
+      "get": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Retrieves employees for the list items",
+        "operationId": "EmployeesGetListItems",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/employees/{id}": {
+      "get": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Retrieves employee for edit",
+        "operationId": "EmployeesGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Employee id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Employees.EmployeeUpdateDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Employees"
+        ],
+        "summary": "Deletes an existing employee",
+        "operationId": "EmployeesDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Employee id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/files/{id}/content": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Retrieves file content by id",
+        "operationId": "FilesGetFileContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "File attachment id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/files": {
+      "post": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "Create file",
+        "operationId": "FilesCreate",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/locations": {
+      "get": {
+        "tags": [
+          "Locations"
+        ],
+        "summary": "Retrieves track data",
+        "operationId": "LocationsGet",
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "query",
+            "description": "Route identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Track.LocationDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Locations"
+        ],
+        "summary": "Creates a new locations",
+        "operationId": "LocationsCreate",
+        "requestBody": {
+          "description": "Location creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Track.LocationCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/locations/last-location": {
+      "get": {
+        "tags": [
+          "Locations"
+        ],
+        "summary": "Retrieves latest locations",
+        "operationId": "LocationsGetLastLocation",
+        "parameters": [
+          {
+            "name": "routeIds",
+            "in": "query",
+            "description": "An array of route identifiers",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "employeeIds",
+            "in": "query",
+            "description": "An array of employee identifiers",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Track.LastLocationDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-changes/me": {
+      "get": {
+        "tags": [
+          "RouteChanges"
+        ],
+        "summary": "Retrieves route changes for the current user",
+        "operationId": "RouteChangesGetCurrentUserRouteChanges",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Changes.RouteChangeDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-changes/me/count": {
+      "get": {
+        "tags": [
+          "RouteChanges"
+        ],
+        "summary": "Retrieves the number of unread route changes for the current user",
+        "operationId": "RouteChangesGetCurrentUserUnreadRouteChangesCount",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-changes/{id}": {
+      "patch": {
+        "tags": [
+          "RouteChanges"
+        ],
+        "summary": "Updates the status of a route change (e.g., mark as read).",
+        "operationId": "RouteChangesUpdateRouteChange",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route change identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Route change patch model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Changes.RouteChangePatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RouteChanges"
+        ],
+        "summary": "Deletes an existing route change",
+        "operationId": "RouteChangesDeleteRouteChange",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route change identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-comments/counts": {
+      "get": {
+        "tags": [
+          "RouteComments"
+        ],
+        "summary": "Retrieves the count of route comments by read/unread status for a specific date.",
+        "operationId": "RouteCommentsGetCommentCounts",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date to retrieve comment counts for",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Comments.RouteCommentCountDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-comments": {
+      "get": {
+        "tags": [
+          "RouteComments"
+        ],
+        "summary": "Retrieves a list of route comments for a specific route.",
+        "operationId": "RouteCommentsGetRouteComments",
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "query",
+            "description": "Route identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Comments.RouteCommentOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RouteComments"
+        ],
+        "summary": "Creates a new route comment.",
+        "operationId": "RouteCommentsCreateRouteComment",
+        "requestBody": {
+          "description": "Route comment creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Comments.RouteCommentCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Comments.RouteCommentOverviewDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-comments/{id}": {
+      "patch": {
+        "tags": [
+          "RouteComments"
+        ],
+        "summary": "Updates the status of a route comment (e.g., mark as read).",
+        "operationId": "RouteCommentsUpdateRouteComment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Comment identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Route comment patch model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Comments.RouteCommentPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves activity routes for overview",
+        "operationId": "RoutesGet",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date to generate the activity",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.RouteOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/map-data-items": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves route map data",
+        "operationId": "RoutesGetRouteMapDataItems",
+        "parameters": [
+          {
+            "name": "routeTemplateIds",
+            "in": "query",
+            "description": "An array of route template identifiers",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date to retrieve map data",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteMapDataDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/me": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves planned routes by date",
+        "operationId": "RoutesGetMe",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date for route",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.RouteMeOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/{id}": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves planned route by id",
+        "operationId": "RoutesGetMe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.RouteMeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/{id}/description": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves route description by id",
+        "operationId": "RoutesGetDescription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/me/samples": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves collected samples",
+        "operationId": "RoutesGetMeSamples",
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "query",
+            "description": "Route identifier",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.RouteSampleDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/me/samples/count": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Retrieves the number of samples collected",
+        "operationId": "RoutesGetMeSamplesCount",
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "query",
+            "description": "Route identifier",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/{id}/start": {
+      "patch": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Start route by id",
+        "operationId": "RoutesStart",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/{id}/finish": {
+      "patch": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Finish route by id",
+        "operationId": "RoutesFinish",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/routes/{id}/set-car": {
+      "patch": {
+        "tags": [
+          "Routes"
+        ],
+        "summary": "Set car for route",
+        "operationId": "RoutesSetCar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Car id",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves routes for overview",
+        "operationId": "RouteTemplatesGet",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Creates a new route",
+        "operationId": "RouteTemplatesCreate",
+        "requestBody": {
+          "description": "Route creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Updates an existing route",
+        "operationId": "RouteTemplatesUpdate",
+        "requestBody": {
+          "description": "Route update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/count": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves the number of routes for overview",
+        "operationId": "RouteTemplatesGetCount",
+        "parameters": [
+          {
+            "name": "SearchText",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/list-items": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves routes for the list items",
+        "operationId": "RouteTemplatesGetListItems",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date when the route is planned",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/route-employee-list-items": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves routes with employee for the list items",
+        "operationId": "RouteTemplatesGetRouteEmployeeListItems",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date when the route is planned",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEmployeeListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/{id}": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves route for edit",
+        "operationId": "RouteTemplatesGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Deletes an existing route",
+        "operationId": "RouteTemplatesDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/{id}/checkpoints": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves the checkpoints of the specified route for overview",
+        "operationId": "RouteTemplatesGetCheckpoints",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "includeOnCall",
+            "in": "query",
+            "description": "On Call",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointRoutePlanOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/{id}/location-points": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves the location points of the specified route",
+        "operationId": "RouteTemplatesGetLocationPoints",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Route id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.Utilities.Spatial.LocationPoint"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/map-data-items": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves route map data",
+        "operationId": "RouteTemplatesGetRouteMapDataItems",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "An array of route template identifiers",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteMapDataDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/route-templates/optimal-items": {
+      "get": {
+        "tags": [
+          "RouteTemplates"
+        ],
+        "summary": "Retrieves optimal routes by checkpoint",
+        "operationId": "RouteTemplatesGetOptimalRoutes",
+        "parameters": [
+          {
+            "name": "CheckpointId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "StartTime",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "EndTime",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "query",
+            "description": "Distance in miles to search",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateOptimalDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/samples/{code}/hierarchy": {
+      "get": {
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Get a sample hierarchy by code",
+        "operationId": "SamplesGetHierarchyByCode",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "Scanned code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultHierarchyItemDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/samples/driver-pickup": {
+      "patch": {
+        "tags": [
+          "Samples"
+        ],
+        "summary": "Pick up samples from drivers",
+        "operationId": "SamplesDriverPickup",
+        "requestBody": {
+          "description": "DriverResult model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.DriverResultDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/settings/me": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Retrieves application settings",
+        "operationId": "SettingsGet",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Settings.AppSettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/users/me/password": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Updates own user password",
+        "operationId": "UsersUpdatePasswordSelf",
+        "requestBody": {
+          "description": "User password settings",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Settings.UserPasswordSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits": {
+      "post": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Creates a new visit",
+        "operationId": "VisitEditCreate",
+        "requestBody": {
+          "description": "Visit creation model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Updates an existing visit",
+        "operationId": "VisitEditUpdate",
+        "requestBody": {
+          "description": "Visit update model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Patch a generated visit",
+        "operationId": "VisitEditPatch",
+        "requestBody": {
+          "description": "Visit patch model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitPatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "VisitReadOnly"
+        ],
+        "summary": "Retrieves visits for overview",
+        "operationId": "VisitReadOnlyGet",
+        "parameters": [
+          {
+            "name": "routeTemplateIds",
+            "in": "query",
+            "description": "An array of route template identifiers",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The specific date to generate the visits",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitOverviewDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/{id}": {
+      "delete": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Deletes an existing visit",
+        "operationId": "VisitEditDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "VisitReadOnly"
+        ],
+        "summary": "Retrieves visit for view/edit",
+        "operationId": "VisitReadOnlyGet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitEditDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/{id}/set-scheduled": {
+      "patch": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Set up a schedule for an existing visit",
+        "operationId": "VisitEditSetScheduled",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Scheduled",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/sort-order": {
+      "patch": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Update sort order for existing visits",
+        "operationId": "VisitEditUpdateSortOrder",
+        "requestBody": {
+          "description": "visit ids",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/{id}/start": {
+      "patch": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Start visit by id",
+        "operationId": "VisitEditStart",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/{id}/finish": {
+      "patch": {
+        "tags": [
+          "VisitEdit"
+        ],
+        "summary": "Finish visit by id",
+        "operationId": "VisitEditFinish",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "VisitResult model",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/visits/{id}/info": {
+      "get": {
+        "tags": [
+          "VisitReadOnly"
+        ],
+        "summary": "Retrieves visit info by id",
+        "operationId": "VisitReadOnlyGetInfo",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Visit id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/warehouses/transits": {
+      "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "Retrieves a list of warehouses currently holding cargo in transit.",
+        "operationId": "WarehousesGetWarehousesInTransit",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.WarehouseTransitDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-v1/warehouses/cargos": {
+      "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "summary": "Retrieves a list of warehouses holding cargo for a specific date and time.",
+        "operationId": "WarehousesGetWarehousesForCargo",
+        "parameters": [
+          {
+            "name": "cargoDate",
+            "in": "query",
+            "description": "The UTC date and time to retrieve the warehouse cargo information for.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.WarehouseCargoDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Logistics.Utilities.Spatial.LocationPoint": {
+        "type": "object",
+        "properties": {
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.ChangePassword": {
+        "required": [
+          "password",
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "password": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "token": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.ForgotPassword": {
+        "required": [
+          "clientSecretKey",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "clientSecretKey": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.LoginRequest": {
+        "required": [
+          "password",
+          "userName"
+        ],
+        "type": "object",
+        "properties": {
+          "userName": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "password": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.TokenRequest": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.TokenResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "accessToken": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
+          "tokenType": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "refreshToken": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Auth.ValidateCode": {
+        "required": [
+          "clientSecretKey",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "clientSecretKey": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Cars.CarCreateDto": {
+        "type": "object",
+        "properties": {
+          "carBrandId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "licensePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileAttachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarFileDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Cars.CarFileDto": {
+        "type": "object",
+        "properties": {
+          "fileAttachmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "carDocumentType": {
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Cars.CarOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "carBrandName": {
+            "type": "string",
+            "nullable": true
+          },
+          "licensePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Cars.CarUpdateDto": {
+        "type": "object",
+        "properties": {
+          "carBrandId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "licensePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileAttachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Cars.CarFileDto"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Contacts.ContactCreateDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "emailSending": {
+            "type": "boolean"
+          },
+          "emailSendingDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "phoneSending": {
+            "type": "boolean"
+          },
+          "phoneSendingDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Contacts.ContactOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Contacts.ContactUpdateDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "emailSending": {
+            "type": "boolean"
+          },
+          "emailSendingDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "phoneSending": {
+            "type": "boolean"
+          },
+          "phoneSendingDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointCreateDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTransit": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "position": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "entryInstruction": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleType": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Schedules.CheckpointScheduleDayDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "position": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointRoutePlanListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTransit": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleTypeTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedulePeriodTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startOfPickup": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "latestPickupTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointRoutePlanOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "position": {
+            "type": "string",
+            "nullable": true
+          },
+          "onCall": {
+            "type": "boolean"
+          },
+          "scheduleTypeTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedulePeriodTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startOfPickup": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "latestPickupTime": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CheckpointUpdateDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTransit": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "position": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "entryInstruction": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleType": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Schedules.CheckpointScheduleDayDto"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CustomerCreateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialties": {
+            "type": "array",
+            "items": {
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29
+              ],
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CustomerEditDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialties": {
+            "type": "array",
+            "items": {
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29
+              ],
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CustomerOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Customers.CustomerUpdateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "number": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialties": {
+            "type": "array",
+            "items": {
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29
+              ],
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Employees.EmployeeCreateDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Employees.EmployeeOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Employees.EmployeeUpdateDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "middleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.ListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteMapDataDto": {
+        "type": "object",
+        "properties": {
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "distance": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "duration": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "encodedPolyline": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateCreateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "lockEdit": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "enum": [
+              0,
+              1,
+              2,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultUnloadCheckpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduleType": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Schedules.RouteTemplateScheduleDayDto"
+            },
+            "nullable": true
+          },
+          "employees": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplatePlanDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEditDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "lockEdit": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "enum": [
+              0,
+              1,
+              2,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultUnloadCheckpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduleType": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Schedules.RouteTemplateScheduleDayDto"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.ListItemDto"
+            },
+            "nullable": true
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointRoutePlanListItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEmployeeListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateOptimalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedulePeriodTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduleTypeTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedulePeriodTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "employees": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplatePlanDto": {
+        "type": "object",
+        "properties": {
+          "scheduleDayId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dropOff": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.RouteTemplates.RouteTemplateUpdateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "lockEdit": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "enum": [
+              0,
+              1,
+              2,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultUnloadCheckpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scheduleType": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Schedules.RouteTemplateScheduleDayDto"
+            },
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employees": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplatePlanDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Changes.RouteChangeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "routeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "routeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "readDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reason": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "fieldIdentifiers": {
+            "enum": [
+              0,
+              1,
+              2,
+              4,
+              8,
+              16
+            ],
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Changes.RouteChangePatchDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              1
+            ],
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Comments.RouteCommentCountDto": {
+        "type": "object",
+        "properties": {
+          "routeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "readCommentsCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unreadCommentsCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Comments.RouteCommentCreateDto": {
+        "type": "object",
+        "properties": {
+          "routeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Comments.RouteCommentOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "routeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdByUser": {
+            "$ref": "#/components/schemas/Logistics.WebAPI.Models.UserInfoDto"
+          },
+          "readDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Comments.RouteCommentPatchDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              1
+            ],
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.ContractorOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "licensePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "carBrandName": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "imei": {
+            "type": "string",
+            "nullable": true
+          },
+          "gsm": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.RouteMeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "estimatedDuration": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitMeDto"
+            },
+            "nullable": true
+          },
+          "completedVisits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.Visits.VisitMeDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.RouteMeOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "finished": {
+            "type": "boolean"
+          },
+          "estimatedDistance": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "estimatedDuration": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "visitFinishedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "visitCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.RouteOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.RouteSampleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Routes.SampleItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.SampleItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cargoName": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "photoId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitCreateDto": {
+        "type": "object",
+        "properties": {
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "routeDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitEditDto": {
+        "type": "object",
+        "properties": {
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "routeDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "generated": {
+            "type": "boolean"
+          },
+          "routeTemplate": {
+            "$ref": "#/components/schemas/Logistics.WebAPI.Models.RouteTemplates.RouteTemplateEmployeeListItemDto"
+          },
+          "checkpoint": {
+            "$ref": "#/components/schemas/Logistics.WebAPI.Models.Customers.CheckpointListItemDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitMeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationPoint": {
+            "$ref": "#/components/schemas/Logistics.Utilities.Spatial.LocationPoint"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isDefaultUnload": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitOverviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "generated": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startOfPickup": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "latestPickupTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "customerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationPoint": {
+            "$ref": "#/components/schemas/Logistics.Utilities.Spatial.LocationPoint"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "zipCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "onCall": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "visitStarted": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "visitFinished": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitPatchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Routes.Visits.VisitUpdateDto": {
+        "type": "object",
+        "properties": {
+          "routeTemplateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkpointId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "routeDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "endTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dropOff": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "flag": {
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "visitInfo": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Schedules.CheckpointScheduleDayDto": {
+        "type": "object",
+        "properties": {
+          "dayOfPeriods": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "startOfPickup": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "latestPickupTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "onCall": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Schedules.RouteTemplateScheduleDayDto": {
+        "type": "object",
+        "properties": {
+          "dayOfPeriods": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Settings.AppSettingsDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/Logistics.WebAPI.Models.Settings.UserSettingsDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Settings.UserPasswordSettingsDto": {
+        "required": [
+          "newPassword",
+          "oldPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "oldPassword": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "newPassword": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Settings.UserSettingsDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Track.LastLocationDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "routeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "sent": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "carBrandName": {
+            "type": "string",
+            "nullable": true
+          },
+          "licensePlate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Track.LocationCreateDto": {
+        "type": "object",
+        "properties": {
+          "rawData": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Track.LocationDto": {
+        "type": "object",
+        "properties": {
+          "routeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sent": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.UserInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.VisitResults.DriverResultDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemDto"
+            },
+            "nullable": true
+          },
+          "itemLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemLinkDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultDto": {
+        "type": "object",
+        "properties": {
+          "arrivalCheckType": {
+            "enum": [
+              0,
+              1,
+              2,
+              4,
+              8,
+              16,
+              32,
+              64,
+              128
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "personsName": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemDto"
+            },
+            "nullable": true
+          },
+          "itemLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemLinkDto"
+            },
+            "nullable": true
+          },
+          "mediaFileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultHierarchyItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              1,
+              2
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "boolean"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultHierarchyItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              1,
+              2
+            ],
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.VisitResults.VisitResultItemLinkDto": {
+        "type": "object",
+        "properties": {
+          "parentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "childCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.WarehouseCargoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cargoName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceEmployeeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "sourceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationPoint": {
+            "$ref": "#/components/schemas/Logistics.Utilities.Spatial.LocationPoint"
+          },
+          "received": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Logistics.WebAPI.Models.Warehouses.WarehouseTransitDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceEmployeeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "sourceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationPoint": {
+            "$ref": "#/components/schemas/Logistics.Utilities.Spatial.LocationPoint"
+          },
+          "cargoName": {
+            "type": "string",
+            "nullable": true
+          },
+          "received": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalDuration": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Microsoft.AspNetCore.Mvc.ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": { }
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "JWT Authorization header using the Bearer scheme. \r\n\r\nEnter your shared access token in the text input below.\r\n\r\nExample: \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZ...\"",
+        "scheme": "Bearer"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": [
+        "Bearer"
+      ]
+    }
+  ]
+}

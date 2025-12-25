@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -7,10 +7,11 @@ import {
     ActivityIndicator
 } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
 import Input from "../components/Input";
-import {serverUrlApi} from "../const/api";
+import { serverUrlApi } from "../const/api";
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useDesignSystem } from "../context/ThemeContext";
 
 const NewPasswordPage = ({ route, navigation }) => {
     const { clientSecretKey, token } = route.params || {}; // Retrieve clientSecretKey and token from navigation params
@@ -29,6 +30,9 @@ const NewPasswordPage = ({ route, navigation }) => {
     const [isConfirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { showAlert } = useAppAlert();
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const handleContinue = async () => {
         // Validation: Check if both fields are filled
@@ -126,7 +130,7 @@ const NewPasswordPage = ({ route, navigation }) => {
             </View>
 
             {isLoading ? (
-                <ActivityIndicator size="large" color={Colors.mainBlue} />
+                <ActivityIndicator size="large" color={colors.primary} />
             ) : (
                 <Button
                     title="Continue"
@@ -138,16 +142,16 @@ const NewPasswordPage = ({ route, navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
         justifyContent: 'center',
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'left',
@@ -157,7 +161,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 5,
     },
     continueButton: {

@@ -1,10 +1,9 @@
 // App.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import { serverUrlApi } from './src/const/api';
@@ -39,27 +38,109 @@ import SamplesScreen from './src/screens/SamplesPage';
 import SampleDetailScreen from './src/screens/SampleDetailScreen';
 import PickUpSamplesPage from './src/screens/PickUpSamplesPage';
 import ReceiveSamplesFromDriversPage from './src/screens/ReceiveSamplesFromDriversPage';
+import DropOffToLabPage from './src/screens/DropOffToLabPage';
+import ShipPage from './src/screens/ShipPage';
 
 // Contexts
 import { LocationProvider } from './src/components/LocationProvider';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useDesignSystem } from './src/context/ThemeContext';
 import AppAlertHost from './src/components/AppAlertHost';
+import ThemeSystemBridge from './src/components/ThemeSystemBridge';
 
 const Stack = createNativeStackNavigator();
+
+const getActiveRouteName = (state) => {
+    const route = state.routes[state.index];
+    return route.state ? getActiveRouteName(route.state) : route.name;
+};
+
+const AppNavigation = ({ initialRoute, navRef }) => {
+    const { tokens, theme, isReady } = useDesignSystem();
+
+    const navigationTheme = useMemo(() => {
+        const baseTheme = theme === 'dark' ? DarkTheme : DefaultTheme;
+        return {
+            ...baseTheme,
+            dark: theme === 'dark',
+            colors: {
+                ...baseTheme.colors,
+                background: tokens.background,
+                card: tokens.cardBackground,
+                border: tokens.border,
+                text: tokens.textPrimary,
+                primary: tokens.primary,
+                notification: tokens.destructive,
+            },
+        };
+    }, [theme, tokens]);
+
+    if (!isReady) {
+        return (
+            <SafeAreaView style={[styles.safeArea, styles.loadingContainer, { backgroundColor: tokens.background }]}>
+                <ActivityIndicator size="large" color={tokens.primary} />
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <>
+            <ThemeSystemBridge />
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: tokens.background }]}>
+                <NavigationContainer
+                    theme={navigationTheme}
+                    ref={navRef}
+                    onStateChange={(state) => {
+                        const currentRoute = getActiveRouteName(state);
+                        AsyncStorage.setItem('lastRoute', currentRoute);
+                    }}
+                >
+                    <Stack.Navigator
+                        initialRouteName={initialRoute}
+                        screenOptions={{ headerShown: false, animation: 'none' }}
+                    >
+                        <Stack.Screen name="WelcomeScreen" component={WelcomeScreen} />
+                        <Stack.Screen name="SignIn" component={SignIn} />
+                        <Stack.Screen name="ForgotPasswordPage" component={ForgotPasswordPage} />
+                        <Stack.Screen name="VerificationCodePage" component={VerificationCodePage} />
+                        <Stack.Screen name="SuccessPage" component={SuccessPage} />
+                        <Stack.Screen name="NewPasswordPage" component={NewPasswordPage} />
+                        <Stack.Screen name="PasswordSetPage" component={PasswordSetPage} />
+                        <Stack.Screen name="RoutesPage" component={RoutesPage} />
+                        <Stack.Screen name="RouteCheckpointsPage" component={RouteCheckpointsPage} />
+                        <Stack.Screen name="ChooseCarPage" component={ChooseCarPage} />
+                        <Stack.Screen name="RouteCheckpointsPageSelect" component={RouteCheckpointsPageSelect} />
+                        <Stack.Screen name="ActionListsPage" component={ActionListsPage} />
+                        <Stack.Screen name="CheckpointViewPage" component={CheckpointViewPage} />
+                        <Stack.Screen name="RouteDescriptionPage" component={RouteDescriptionPage} />
+                        <Stack.Screen name="EntryInstructionsPage" component={EntryInstructionsPage} />
+                        <Stack.Screen name="ChatComponent" component={ChatComponent} />
+                        <Stack.Screen name="WorkOnVisitPage" component={WorkOnVisitPage} />
+                        <Stack.Screen name="ConfirmUploadPage" component={ConfirmUploadPage} />
+                        <Stack.Screen name="ClosedOfficeFormPage" component={ClosedOfficeFormPage} />
+                        <Stack.Screen name="NoSamplesFormPage" component={NoSamplesFormPage} />
+                        <Stack.Screen name="TakeMediaPage" component={TakeMediaPage} />
+                        <Stack.Screen name="MapPage" component={MapPage} />
+                        <Stack.Screen name="SettingsPage" component={SettingsPage} />
+                        <Stack.Screen name="ChangePasswordPage" component={ChangePasswordPage} />
+                        <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+                        <Stack.Screen name="SamplesScreen" component={SamplesScreen} />
+                        <Stack.Screen name="SampleDetailScreen" component={SampleDetailScreen} />
+                        <Stack.Screen name="PickUpSamplesPage" component={PickUpSamplesPage} />
+                        <Stack.Screen name="ReceiveSamplesFromDriversPage" component={ReceiveSamplesFromDriversPage} />
+                        <Stack.Screen name="DropOffToLabPage" component={DropOffToLabPage} />
+                        <Stack.Screen name="ShipPage" component={ShipPage} />
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </SafeAreaView>
+        </>
+    );
+};
 
 export default function App() {
     const [isReady, setIsReady] = useState(false);
     const [initialRoute, setInitialRoute] = useState(null);
     const navRef = useRef();
     const refreshTimeout = useRef(null);
-
-
-    // Helper to get active route name in nested navigator
-    const getActiveRouteName = (state) => {
-        const route = state.routes[state.index];
-        return route.state ? getActiveRouteName(route.state) : route.name;
-    };
-
     useEffect(() => {
 
         const storeTokens = async (accessToken, refreshToken, userId) => {
@@ -126,61 +207,20 @@ export default function App() {
     }, []);
 
     if (!isReady || initialRoute === null) {
-        return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+        return (
+            <SafeAreaProvider>
+                <SafeAreaView style={[styles.safeArea, styles.loadingContainer]}>
+                    <ActivityIndicator size="large" />
+                </SafeAreaView>
+            </SafeAreaProvider>
+        );
     }
 
     return (
         <SafeAreaProvider>
             <ThemeProvider>
                 <LocationProvider>
-                    <StatusBar />
-                    <SafeAreaView style={styles.safeArea}>
-                        <NavigationContainer
-                            ref={navRef}
-                            onStateChange={(state) => {
-                                const currentRoute = getActiveRouteName(state);
-                                AsyncStorage.setItem('lastRoute', currentRoute);
-                            }}
-                        >
-                            <Stack.Navigator
-                                initialRouteName={initialRoute}
-                                screenOptions={{ headerShown: false, animation: 'none' }}
-                            >
-                                <Stack.Screen name="WelcomeScreen" component={WelcomeScreen} />
-                                <Stack.Screen name="SignIn" component={SignIn} />
-                                <Stack.Screen name="ForgotPasswordPage" component={ForgotPasswordPage} />
-                                <Stack.Screen name="VerificationCodePage" component={VerificationCodePage} />
-                                <Stack.Screen name="SuccessPage" component={SuccessPage} />
-                                <Stack.Screen name="NewPasswordPage" component={NewPasswordPage} />
-                                <Stack.Screen name="PasswordSetPage" component={PasswordSetPage} />
-                                <Stack.Screen name="RoutesPage" component={RoutesPage} />
-                                <Stack.Screen name="RouteCheckpointsPage" component={RouteCheckpointsPage} />
-                                <Stack.Screen name="ChooseCarPage" component={ChooseCarPage} />
-                                <Stack.Screen name="RouteCheckpointsPageSelect" component={RouteCheckpointsPageSelect} />
-                                <Stack.Screen name="ActionListsPage" component={ActionListsPage} />
-                                <Stack.Screen name="CheckpointViewPage" component={CheckpointViewPage} />
-                                <Stack.Screen name="RouteDescriptionPage" component={RouteDescriptionPage} />
-                                <Stack.Screen name="EntryInstructionsPage" component={EntryInstructionsPage} />
-                                <Stack.Screen name="ChatComponent" component={ChatComponent} />
-                                <Stack.Screen name="WorkOnVisitPage" component={WorkOnVisitPage} />
-                                <Stack.Screen name="ConfirmUploadPage" component={ConfirmUploadPage} />
-                                <Stack.Screen name="ClosedOfficeFormPage" component={ClosedOfficeFormPage} />
-                                <Stack.Screen name="NoSamplesFormPage" component={NoSamplesFormPage} />
-                                <Stack.Screen name="TakeMediaPage" component={TakeMediaPage} />
-                                <Stack.Screen name="MapPage" component={MapPage} />
-                                <Stack.Screen name="SettingsPage" component={SettingsPage} />
-                                <Stack.Screen name="ChangePasswordPage" component={ChangePasswordPage} />
-                                <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
-                                <Stack.Screen name="SamplesScreen" component={SamplesScreen} />
-                                <Stack.Screen name="SampleDetailScreen" component={SampleDetailScreen} />
-                                <Stack.Screen name="PickUpSamplesPage" component={PickUpSamplesPage} />
-                                <Stack.Screen
-                                    name="ReceiveSamplesFromDriversPage"
-                                    component={ReceiveSamplesFromDriversPage}
-                                />
-                            </Stack.Navigator>
-                        </NavigationContainer>
-                    </SafeAreaView>
+                    <AppNavigation initialRoute={initialRoute} navRef={navRef} />
                     <AppAlertHost />
                 </LocationProvider>
             </ThemeProvider>
@@ -191,5 +231,9 @@ export default function App() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
+    },
+    loadingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

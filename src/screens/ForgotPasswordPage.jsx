@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -10,15 +10,19 @@ import {
     KeyboardAvoidingView
 } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
 import { Ionicons } from '@expo/vector-icons';
-import {serverUrlApi} from "../const/api";
+import { serverUrlApi } from "../const/api";
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useDesignSystem } from "../context/ThemeContext";
 
 const ForgotPasswordPage = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const { showAlert } = useAppAlert();
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     // Function to generate a random clientSecretKey
     const generateClientSecretKey = (length = 32) => {
@@ -88,7 +92,7 @@ const ForgotPasswordPage = ({ navigation }) => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0} >
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                 <Text style={styles.backText}>Back</Text>
             </TouchableOpacity>
 
@@ -103,16 +107,16 @@ const ForgotPasswordPage = ({ navigation }) => {
                     <TextInput
                         style={styles.input}
                         placeholder="Type your email here..."
+                        placeholderTextColor={withAlpha(colors.textPrimary, '60')}
                         value={email}
                         onChangeText={setEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
-                        placeholderTextColor={Colors.blackText + '60'}
                     />
                 </View>
 
                 <Button
-                    title={loading ? <ActivityIndicator color={Colors.white} /> : "Continue"}
+                    title={loading ? <ActivityIndicator color={colors.primaryForeground} /> : "Continue"}
                     onPress={handleContinue}
                     disabled={loading}
                     style={styles.continueButton}
@@ -122,10 +126,10 @@ const ForgotPasswordPage = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
     },
     backButton: {
@@ -135,7 +139,7 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginLeft: 5,
     },
     contentContainer: {
@@ -144,13 +148,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         marginBottom: 20,
     },
     inputContainer: {
@@ -158,22 +162,21 @@ const styles = StyleSheet.create({
     },
     inputLabel: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         marginBottom: 5,
     },
     input: {
         height: 50,
         borderWidth: 1,
-        borderColor: Colors.blackText + '30',
+        borderColor: withAlpha(colors.textPrimary, '30'),
         borderRadius: 8,
-        paddingHorizontal: 10,
+        paddingHorizontal: 14,
         fontSize: Fonts.f16,
-        color: Colors.blackText,
-        backgroundColor: Colors.white,
+        color: colors.textPrimary,
+        backgroundColor: colors.surface,
     },
     continueButton: {
         marginTop: 10,
-        backgroundColor: Colors.mainBlue, // Ensure the button has a background color
     },
 });
 

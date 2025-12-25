@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Linking,
@@ -13,12 +13,13 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Autolink from 'react-native-autolink';
 import * as Clipboard from 'expo-clipboard';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as signalR from '@microsoft/signalr';
 import { serverUrlApi, serverUrlSignalR } from '../const/api';
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useDesignSystem } from '../context/ThemeContext';
 
 const ChatComponent = ({ navigation, route }) => {
     const [inputText, setInputText] = useState('');
@@ -30,6 +31,9 @@ const ChatComponent = ({ navigation, route }) => {
     const routeIdParam = (route?.params && route.params.idRoute) || null;
     const [routeId, setRouteId] = useState(routeIdParam ? String(routeIdParam) : null);
     const { showAlert } = useAppAlert();
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const formatDate = (isoString) => {
         const date = new Date(isoString);
@@ -263,7 +267,7 @@ const ChatComponent = ({ navigation, route }) => {
             <SafeAreaView style={styles.container}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color={Colors.blackText} />
+                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                         <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
                 </View>
@@ -284,6 +288,7 @@ const ChatComponent = ({ navigation, route }) => {
                     <TextInput
                         style={styles.input}
                         placeholder="Type your message..."
+                        placeholderTextColor={withAlpha(colors.textPrimary, '60')}
                         value={inputText}
                         onChangeText={setInputText}
                         multiline
@@ -298,21 +303,23 @@ const ChatComponent = ({ navigation, route }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     keyboardAvoider: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
     },
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
     },
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.blackText + '50',
+        borderBottomColor: withAlpha(colors.textPrimary, '20'),
+        backgroundColor: colors.surface,
     },
     backButton: {
         marginRight: 10,
@@ -321,7 +328,8 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
+        marginLeft: 6,
     },
     messagesList: {
         flex: 1,
@@ -329,60 +337,69 @@ const styles = StyleSheet.create({
     messagesContainer: {
         paddingHorizontal: 20,
         paddingTop: 20,
-        paddingBottom: 20,
+        paddingBottom: 24,
+        backgroundColor: colors.background,
     },
     messageBubble: {
-        borderRadius: 8,
-        padding: 10,
-        marginBottom: 10,
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
         maxWidth: '75%',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: withAlpha(colors.textPrimary, '10'),
     },
     userMessage: {
-        backgroundColor: Colors.lightGreen,
+        backgroundColor: withAlpha(colors.primary, '28'),
+        borderColor: withAlpha(colors.primary, '40'),
         alignSelf: 'flex-end',
     },
     receiverMessage: {
-        backgroundColor: Colors.blackText + '50',
         alignSelf: 'flex-start',
     },
     messageText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
     },
     messageTimestamp: {
         fontSize: Fonts.f12,
-        color: Colors.blackText,
-        marginTop: 5,
+        color: colors.textSecondary,
+        marginTop: 6,
         textAlign: 'right',
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 12,
         borderTopWidth: 1,
-        borderTopColor: Colors.blackText + '50',
+        borderTopColor: withAlpha(colors.textPrimary, '15'),
+        backgroundColor: colors.surface,
     },
     input: {
         flex: 1,
         borderWidth: 1,
-        borderColor: Colors.blackText + '50',
+        borderColor: withAlpha(colors.textPrimary, '25'),
         borderRadius: 20,
-        padding: 10,
-        marginRight: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         fontSize: Fonts.f14,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         minHeight: 40,
         maxHeight: 120,
+        color: colors.textPrimary,
     },
     sendButton: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: colors.primary,
         borderRadius: 20,
         paddingVertical: 10,
-        paddingHorizontal: 15,
+        paddingHorizontal: 16,
     },
     sendButtonText: {
-        color: Colors.white,
+        color: colors.primaryForeground,
         fontSize: Fonts.f14,
+        fontWeight: '600',
     },
 });
 

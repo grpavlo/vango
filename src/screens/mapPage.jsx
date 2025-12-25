@@ -3,7 +3,6 @@ import {useCallback, useEffect, useMemo, useState} from "react";
 import {Ionicons, MaterialCommunityIcons} from "@expo/vector-icons";
 import {ThemeProvider, useDesignSystem} from "../context/ThemeContext";
 import * as SecureStore from "expo-secure-store";
-import * as Location from "expo-location";
 
 import BottomNavigationMenu from "../components/BottomNavigationMenu";
 import GoogleMapComponent from "../components/GoogleMapComponent";
@@ -337,205 +336,196 @@ const MapPageContent = ({navigation}) => {
     useEffect(() => {
         const fetchRoute = async () => {
             setIsLoadingRoute(true);
+            setErrorMessage("");
             try {
                 const idRouteStorage = await SecureStore.getItemAsync('idRoute');
 
-                // Отримання геолокації користувача
-                try {
-                    const userLocation = await Location.getCurrentPositionAsync({});
-                    const userLat = userLocation.coords.latitude;
-                    const userLng = userLocation.coords.longitude;
-                    setOrigin({latitude: userLat, longitude: userLng});
+                if (!idRouteStorage) {
+                    setErrorMessage("First you need to start the route.");
+                    return;
+                }
+                setIdRoute(idRouteStorage);
 
-                    if (!idRouteStorage) {
-                        setErrorMessage("First you need to start the route.");
-                        return;
+                const accessToken = await SecureStore.getItemAsync('accessToken');
+                if (!accessToken) {
+                    setErrorMessage('Authentication token is missing. Please log in again.');
+                    return;
+                }
+
+                const response = await fetch(serverUrlApi + `routes/${idRouteStorage}`, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
                     }
-                    setIdRoute(idRouteStorage);
+                });
 
-                    const accessToken = await SecureStore.getItemAsync('accessToken');
-                    if (!accessToken) {
-                        setErrorMessage('Authentication token is missing. Please log in again.');
-                        return;
+                if (response.status === 200) {
+                    const data = await response.json();
+                    setRouteName(data.name);
+
+                    let completedVisits = data.completedVisits || [];
+                    let visits = data.visits || [];
+
+                    const estimatedDurationLabel = formatDurationLabel(data.estimatedDuration);
+                    const startTimeLabel = data.startDate ? formatRouteStartTime(data.startDate) : "";
+                    const distanceLabel = data.estimatedDistance
+                        ? `${convertMetersToMiles(data.estimatedDistance)} mi`
+                        : "";
+
+                    let foundUnload = visits.find((v) => v.isDefaultUnload);
+                    if (!foundUnload) {
+                        foundUnload = completedVisits.find((v) => v.isDefaultUnload);
                     }
 
-                    const response = await fetch(serverUrlApi + `routes/${idRouteStorage}`, {
-                        method: 'GET',
-                        headers: {
-                            'accept': 'application/json',
-                            'Authorization': `Bearer ${accessToken}`
+                    if (foundUnload) {
+                        visits = visits.filter((v) => !v.isDefaultUnload);
+                        completedVisits = completedVisits.filter((v) => !v.isDefaultUnload);
+                        setUnloadPoint(foundUnload);
+                    }
+
+                    const transformVisit = (visit, index, isCompleted) => {
+                        if (!visit?.locationPoint) {
+                            return null;
                         }
+
+                        const hours = formatHours(visit.startTime, visit.endTime);
+                        const flagColor = flagColorMap[visit.flag] || null;
+                        const priorityLabel = typeof visit.priority === 'string'
+                            ? visit.priority
+                            : visit.priority
+                                ? 'STAT'
+                                : null;
+                        const phoneNumber = visit.phone
+                            || visit.phoneNumber
+                            || visit.contactPhone
+                            || visit.contact?.phone
+                            || visit.contact?.phoneNumber
+                            || visit.facility?.phone
+                            || visit.facility?.primaryPhone
+                            || null;
+
+                        return {
+                            ...visit,
+                            latitude: visit.locationPoint.latitude,
+                            longitude: visit.locationPoint.longitude,
+                            id: visit.id,
+                            checkpointName: visit.checkpointName,
+                            address: buildVisitAddress(visit) || visit.address,
+                            dropOff: visit.dropOff,
+                            name: visit.checkpointName,
+                            type: visit.dropOff ? 'unloading' : 'loading',
+                            flagColor,
+                            stat: priorityLabel,
+                            hours,
+                            phone: phoneNumber,
+                            isCompleted,
+                            markerColor: isCompleted ? 'blue' : 'red',
+                            color: isCompleted ? 'blue' : 'red',
+                            order: getVisitOrder(visit, index),
+                        };
+                    };
+
+                    const completedPointsRaw = completedVisits
+                        .map((visit, index) => transformVisit(visit, index, true))
+                        .filter(Boolean);
+                    const upcomingPointsRaw = visits
+                        .map((visit, index) => transformVisit(visit, index, false))
+                        .filter(Boolean);
+
+                    const combinedPoints = [...completedPointsRaw, ...upcomingPointsRaw];
+
+                    const sortedWaypoints = combinedPoints
+                        .slice()
+                        .sort((a, b) => {
+                            const orderA = Number(a.order) || 0;
+                            const orderB = Number(b.order) || 0;
+                            return orderA - orderB;
+                        })
+                        .map((point, index) => ({
+                            ...point,
+                            sequence: index + 1,
+                        }));
+
+                    const completedCount = sortedWaypoints.filter((point) => point.isCompleted).length;
+                    const totalStops = sortedWaypoints.length;
+                    const statusLabel = data.started ? (data.finished ? "Completed" : "In Progress") : "Scheduled";
+
+                    setRouteSummary({
+                        statusLabel,
+                        startTimeLabel,
+                        durationLabel: estimatedDurationLabel,
+                        stopsLabel: totalStops ? `${completedCount}/${totalStops} stops` : "",
+                        distanceLabel,
+                        completedStops: completedCount,
+                        totalStops,
                     });
 
-                    if (response.status === 200) {
-                        const data = await response.json();
-                        setRouteName(data.name);
+                    const coordinatePoints = sortedWaypoints
+                        .map((point) => ({
+                            latitude: Number(point.latitude),
+                            longitude: Number(point.longitude),
+                        }))
+                        .filter((point) => (
+                            Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+                        ));
 
-                        let completedVisits = data.completedVisits || [];
-                        let visits = data.visits || [];
+                    setOrigin(coordinatePoints[0] || null);
+                    setRouteCoordinates(coordinatePoints);
+                    setRouteRegion(createRouteRegionFromPoints(coordinatePoints));
 
-                        const estimatedDurationLabel = formatDurationLabel(data.estimatedDuration);
-                        const startTimeLabel = data.startDate ? formatRouteStartTime(data.startDate) : "";
-                        const distanceLabel = data.estimatedDistance
-                            ? `${convertMetersToMiles(data.estimatedDistance)} mi`
-                            : "";
+                    setWaypoints(sortedWaypoints);
+                    const defaultCheckpoint = sortedWaypoints.find((point) => !point.isCompleted) || sortedWaypoints[sortedWaypoints.length - 1] || null;
+                    setSelectedCheckpoint(defaultCheckpoint);
+                    setShowStopsList(false);
 
-                        // Шукаємо точку з isDefaultUnload
-                        let foundUnload = visits.find((v) => v.isDefaultUnload);
-                        if (!foundUnload) {
-                            foundUnload = completedVisits.find((v) => v.isDefaultUnload);
-                        }
-
-                        // Прибираємо цю точку з обох списків, щоб не враховувати її у маршруті
-                        if (foundUnload) {
-                            visits = visits.filter((v) => !v.isDefaultUnload);
-                            completedVisits = completedVisits.filter((v) => !v.isDefaultUnload);
-                            setUnloadPoint(foundUnload);
-                        }
-
-                        const transformVisit = (visit, index, isCompleted) => {
-                            if (!visit?.locationPoint) {
-                                return null;
-                            }
-
-                            const hours = formatHours(visit.startTime, visit.endTime);
-                            const flagColor = flagColorMap[visit.flag] || null;
-                            const priorityLabel = typeof visit.priority === 'string'
-                                ? visit.priority
-                                : visit.priority
-                                    ? 'STAT'
-                                    : null;
-                            const phoneNumber = visit.phone
-                                || visit.phoneNumber
-                                || visit.contactPhone
-                                || visit.contact?.phone
-                                || visit.contact?.phoneNumber
-                                || visit.facility?.phone
-                                || visit.facility?.primaryPhone
-                                || null;
-
-                            return {
-                                ...visit,
-                                latitude: visit.locationPoint.latitude,
-                                longitude: visit.locationPoint.longitude,
-                                id: visit.id,
-                                checkpointName: visit.checkpointName,
-                                address: buildVisitAddress(visit) || visit.address,
-                                dropOff: visit.dropOff,
-                                name: visit.checkpointName,
-                                type: visit.dropOff ? 'unloading' : 'loading',
-                                flagColor,
-                                stat: priorityLabel,
-                                hours,
-                                phone: phoneNumber,
-                                isCompleted,
-                                markerColor: isCompleted ? 'blue' : 'red',
-                                color: isCompleted ? 'blue' : 'red',
-                                order: getVisitOrder(visit, index),
-                            };
-                        };
-
-                        const completedPointsRaw = completedVisits
-                            .map((visit, index) => transformVisit(visit, index, true))
-                            .filter(Boolean);
-                        const upcomingPointsRaw = visits
-                            .map((visit, index) => transformVisit(visit, index, false))
-                            .filter(Boolean);
-
-                        const combinedPoints = [...completedPointsRaw, ...upcomingPointsRaw];
-
-                        const sortedWaypoints = combinedPoints
-                            .slice()
-                            .sort((a, b) => {
-                                const orderA = Number(a.order) || 0;
-                                const orderB = Number(b.order) || 0;
-                                return orderA - orderB;
-                            })
-                            .map((point, index) => ({
-                                ...point,
-                                sequence: index + 1,
-                            }));
-
-                        const completedCount = sortedWaypoints.filter((point) => point.isCompleted).length;
-                        const totalStops = sortedWaypoints.length;
-                        const statusLabel = data.started ? (data.finished ? "Completed" : "In Progress") : "Scheduled";
-
-                        setRouteSummary({
-                            statusLabel,
-                            startTimeLabel,
-                            durationLabel: estimatedDurationLabel,
-                            stopsLabel: totalStops ? `${completedCount}/${totalStops} stops` : "",
-                            distanceLabel,
-                            completedStops: completedCount,
-                            totalStops,
-                        });
-
-                        const coordinatePoints = sortedWaypoints
-                            .map((point) => ({
-                                latitude: Number(point.latitude),
-                                longitude: Number(point.longitude),
-                            }))
-                            .filter((point) => (
-                                Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
-                            ));
-
-                        setRouteCoordinates(coordinatePoints);
-                        setRouteRegion(createRouteRegionFromPoints(coordinatePoints));
-
-                        setWaypoints(sortedWaypoints);
-                        const defaultCheckpoint = sortedWaypoints.find((point) => !point.isCompleted) || sortedWaypoints[sortedWaypoints.length - 1] || null;
-                        setSelectedCheckpoint(defaultCheckpoint);
-                        setShowStopsList(false);
-
-                        // Якщо немає взагалі точок після фільтрації
-                        if (visits.length === 0) {
-                            setErrorMessage('No visits available (or they are all done) to determine the route.');
-                            return;
-                        }
-
-                        // Формуємо координати для запиту (origin -> [visits] -> end)
-                        const waypointCoords = visits
-                            .map((visit) => `${visit.locationPoint.latitude},${visit.locationPoint.longitude}`)
-                            .join('|');
-
-                        const start = `${userLat},${userLng}`;
-                        const lastVisit = visits[visits.length - 1];
-                        if (!lastVisit) {
-                            setErrorMessage('No visits available to determine the end location.');
-                            return;
-                        }
-                        const end = `${lastVisit.locationPoint.latitude},${lastVisit.locationPoint.longitude}`;
-
-                        const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${start}&destination=${end}&waypoints=optimize:false|${waypointCoords}&key=${GOOGLE_API_KEY}`;
-
-                        const directionsResponse = await fetch(directionsUrl);
-                        if (!directionsResponse) {
-                            setErrorMessage('Failed to fetch directions.');
-                            return;
-                        }
-
-                        const result = await directionsResponse.json();
-                        if (result.status === 'OK') {
-                            const route = result.routes[0];
-                            const polyline = route.overview_polyline.points;
-                            setEncodedRoute(polyline);
-
-                        } else {
-                            console.log('Directions API error:', result.status);
-                            setEncodedRoute(null);
-                        }
-                    } else if (response.status === 401) {
-                        setErrorMessage('Unauthorized access. Please log in again.');
-                    } else if (response.status === 404) {
-                        setErrorMessage('Route not found.');
-                    } else {
-                        setErrorMessage('Failed to fetch route data.');
+                    if (coordinatePoints.length === 0) {
+                        setErrorMessage('No visits available (or they are all done) to determine the route.');
+                        setEncodedRoute(null);
+                        return;
                     }
-                } catch (error) {
-                    console.log("Error getting user location:", error);
+
+                    if (coordinatePoints.length === 1) {
+                        setEncodedRoute(null);
+                        return;
+                    }
+
+                    const startPoint = coordinatePoints[0];
+                    const endPoint = coordinatePoints[coordinatePoints.length - 1];
+                    const waypointCoords = coordinatePoints
+                        .slice(1, -1)
+                        .map((point) => `${point.latitude},${point.longitude}`)
+                        .join('|');
+
+                    const directionsUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${startPoint.latitude},${startPoint.longitude}&destination=${endPoint.latitude},${endPoint.longitude}` +
+                        (waypointCoords ? `&waypoints=optimize:false|${waypointCoords}` : '') +
+                        `&key=${GOOGLE_API_KEY}`;
+
+                    const directionsResponse = await fetch(directionsUrl);
+                    if (!directionsResponse) {
+                        setErrorMessage('Failed to fetch directions.');
+                        return;
+                    }
+
+                    const result = await directionsResponse.json();
+                    if (result.status === 'OK') {
+                        const route = result.routes[0];
+                        const polyline = route.overview_polyline.points;
+                        setEncodedRoute(polyline);
+
+                    } else {
+                        console.log('Directions API error:', result.status);
+                        setEncodedRoute(null);
+                    }
+                } else if (response.status === 401) {
+                    setErrorMessage('Unauthorized access. Please log in again.');
+                } else if (response.status === 404) {
+                    setErrorMessage('Route not found.');
+                } else {
+                    setErrorMessage('Failed to fetch route data.');
                 }
             } catch (error) {
-                console.error(error);
+                console.error('Error loading route:', error);
             } finally {
                 setIsLoadingRoute(false);
             }
@@ -829,6 +819,7 @@ const MapPageContent = ({navigation}) => {
                         onOptimizeRoute={handleSmartRoute}
                         routeRegion={routeRegion}
                         routeCoordinates={routeCoordinates}
+                        showUserLocation={false}
                     />
                 ) : null}
 

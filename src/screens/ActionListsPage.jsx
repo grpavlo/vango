@@ -424,6 +424,14 @@ const ActionListsPageContent = ({ navigation }) => {
         navigation.navigate("ReceiveSamplesFromDriversPage");
     }, [navigation]);
 
+    const handleNavigateToDropOff = useCallback(() => {
+        navigation.navigate("DropOffToLabPage");
+    }, [navigation]);
+
+    const handleNavigateToShip = useCallback(() => {
+        navigation.navigate("ShipPage");
+    }, [navigation]);
+
     const handleComingSoon = useCallback(() => {
         showAlert({
             title: "Coming Soon",
@@ -751,17 +759,17 @@ const ActionListsPageContent = ({ navigation }) => {
                 label: "Drop Off to Lab",
                 icon: "flask-outline",
                 accent: "primary",
-                onPress: handleComingSoon
+                onPress: handleNavigateToDropOff
             },
             {
                 key: "ship",
                 label: "Ship",
                 icon: "cube-outline",
                 accent: "primary",
-                onPress: handleComingSoon
+                onPress: handleNavigateToShip
             }
         ],
-        [handleNavigateToReceiveFromDrivers, handleComingSoon]
+        [handleNavigateToReceiveFromDrivers, handleNavigateToDropOff, handleNavigateToShip]
     );
 
     const quickActionsSupport = useMemo(

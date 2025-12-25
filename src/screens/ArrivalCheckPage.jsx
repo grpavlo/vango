@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
@@ -8,6 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 import { serverUrlApi } from '../const/api';
 import { ThemeProvider, useDesignSystem } from '../context/ThemeContext';
 import { useAppAlert } from '../hooks/useAppAlert';
+import { VISIT_ARRIVAL_CHECK_TYPE } from '../utils/visitApi';
 
 const BUTTON_GREEN = '#22C55E';
 const BUTTON_ORANGE = '#EA580C';
@@ -33,6 +34,17 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     const [officeCheckVisible, setOfficeCheckVisible] = useState(false);
     const [samplesModalVisible, setSamplesModalVisible] = useState(false);
     const [otherIssuesModalVisible, setOtherIssuesModalVisible] = useState(false);
+    const decisionFlagsRef = useRef([]);
+
+    const setBaseFlag = useCallback((flag) => {
+        decisionFlagsRef.current = flag ? [flag] : [];
+    }, []);
+
+    const addFlag = useCallback((flag) => {
+        const next = new Set(decisionFlagsRef.current || []);
+        next.add(flag);
+        decisionFlagsRef.current = Array.from(next);
+    }, []);
 
     const derivedLastFlag = data?.last ?? last ?? false;
     const dispatchPhone =
@@ -148,6 +160,11 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             return;
         }
 
+        setBaseFlag(VISIT_ARRIVAL_CHECK_TYPE.PickupSamples);
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.OfficeIsOpen);
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.TheyHaveSamples);
+        const flags = decisionFlagsRef.current;
+
         navigation.push('CheckpointViewPage', {
             idCheckpoint,
             idRoute,
@@ -155,8 +172,10 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             showPickUp: true,
             dispatchPhone,
             officePhone,
+            arrivalFlags: flags,
         });
     }, [
+        addFlag,
         idCheckpoint,
         idRoute,
         isDropOff,
@@ -167,6 +186,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         runAction,
         dispatchPhone,
         officePhone,
+        setBaseFlag,
     ]);
 
     const openOfficeCheck = useCallback(() => {
@@ -188,6 +208,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             return;
         }
 
+        setBaseFlag(VISIT_ARRIVAL_CHECK_TYPE.EmptyBox);
         openOfficeCheck();
     }, [
         isProcessing,
@@ -195,6 +216,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         runAction,
         navigateToConfirmUpload,
         openOfficeCheck,
+        setBaseFlag,
     ]);
 
     const handleUnableToFind = useCallback(() => {
@@ -207,6 +229,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             return;
         }
 
+        setBaseFlag(VISIT_ARRIVAL_CHECK_TYPE.UnableFindBox);
         openOfficeCheck();
     }, [
         isProcessing,
@@ -214,14 +237,17 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         runAction,
         navigateToConfirmUpload,
         openOfficeCheck,
+        setBaseFlag,
     ]);
 
     const handleOfficeOpen = useCallback(() => {
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.OfficeIsOpen);
         setOfficeCheckVisible(false);
         setSamplesModalVisible(true);
-    }, []);
+    }, [addFlag]);
 
     const navigateToClosedOffice = useCallback(() => {
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.OfficeIsClosed);
         closeModals();
         navigation.navigate('ClosedOfficeFormPage', {
             idRoute,
@@ -229,8 +255,10 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             routeName,
             dispatchPhone,
             officePhone,
+            arrivalFlags: decisionFlagsRef.current,
         });
     }, [
+        addFlag,
         closeModals,
         navigation,
         idRoute,
@@ -241,6 +269,8 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     ]);
 
     const handleSamplesYes = useCallback(() => {
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.TheyHaveSamples);
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.PickupSamples);
         closeModals();
         navigation.navigate('CheckpointViewPage', {
             idCheckpoint,
@@ -249,8 +279,10 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             showPickUp: true,
             dispatchPhone,
             officePhone,
+            arrivalFlags: decisionFlagsRef.current,
         });
     }, [
+        addFlag,
         closeModals,
         navigation,
         idCheckpoint,
@@ -261,6 +293,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
     ]);
 
     const handleSamplesNo = useCallback(() => {
+        addFlag(VISIT_ARRIVAL_CHECK_TYPE.TheyDoNotHaveSamples);
         closeModals();
         navigation.navigate('NoSamplesFormPage', {
             idRoute,
@@ -268,8 +301,10 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             routeName,
             dispatchPhone,
             officePhone,
+            arrivalFlags: decisionFlagsRef.current,
         });
     }, [
+        addFlag,
         closeModals,
         navigation,
         idRoute,
@@ -287,8 +322,9 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
         if (isProcessing) {
             return;
         }
+        setBaseFlag(VISIT_ARRIVAL_CHECK_TYPE.OtherIssues);
         setOtherIssuesModalVisible(true);
-    }, [isProcessing]);
+    }, [isProcessing, setBaseFlag]);
 
     const handleOtherIssuesConfirm = useCallback(() => {
         closeOtherIssuesModal();
@@ -298,6 +334,7 @@ const ArrivalCheckPageContent = ({ navigation, route }) => {
             routeName,
             dispatchPhone,
             officePhone,
+            arrivalFlags: decisionFlagsRef.current,
         });
     }, [
         closeOtherIssuesModal,

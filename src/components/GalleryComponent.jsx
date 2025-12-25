@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     StyleSheet,
     View,
@@ -11,12 +11,16 @@ import {
     PanResponder,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
+import { useDesignSystem } from "../context/ThemeContext";
 
 const { width } = Dimensions.get('window');
 
 const GalleryComponent = ({ photos, onRemovePhoto, isVisible, onClose, initialId }) => {
     const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(-1);
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         setSelectedPhotoIndex(initialId);
@@ -72,10 +76,10 @@ const GalleryComponent = ({ photos, onRemovePhoto, isVisible, onClose, initialId
                     {/* Header */}
                     <View style={styles.header}>
                         <TouchableOpacity onPress={onClose}>
-                            <MaterialCommunityIcons name="arrow-left" size={28} color={Colors.blackText} />
+                            <MaterialCommunityIcons name="arrow-left" size={28} color={colors.textPrimary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleRemovePhoto} style={styles.trashButton}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={28} color={Colors.mainRed} />
+                            <MaterialCommunityIcons name="trash-can-outline" size={28} color={colors.destructive} />
                         </TouchableOpacity>
                     </View>
 
@@ -104,11 +108,11 @@ const GalleryComponent = ({ photos, onRemovePhoto, isVisible, onClose, initialId
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
-        padding:20
+        backgroundColor: colors.background,
+        padding: 20
     },
     header: {
         flexDirection: 'row',
@@ -140,7 +144,7 @@ const styles = StyleSheet.create({
     },
     selectedThumbnailContainer: {
         borderWidth: 2,
-        borderColor: Colors.mainBlue,
+        borderColor: colors.primary,
         borderRadius: 8,
     },
     thumbnail: {
@@ -151,7 +155,7 @@ const styles = StyleSheet.create({
     thumbnailLabel: {
         marginTop: 5,
         fontSize: Fonts.f12,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         textAlign: 'center',
     },
 });

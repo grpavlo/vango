@@ -1,15 +1,16 @@
-import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import {Ionicons} from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import BottomNavigationMenu from '../components/BottomNavigationMenu';
 import UniversalModal from '../components/UniversalModal';
-import {Colors, Fonts} from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
 import CheckpointItem from "../components/CheckpointItem";
 import * as SecureStore from 'expo-secure-store';
-import {formatDuration} from "../function/function";
-import {useRouteStore} from "../store/useRouteStore";
-import {useInfoCheckpoint} from "../store/infoCheckpoint";
-import {serverUrlApi} from "../const/api";
+import { formatDuration } from "../function/function";
+import { useRouteStore } from "../store/useRouteStore";
+import { useInfoCheckpoint } from "../store/infoCheckpoint";
+import { serverUrlApi } from "../const/api";
+import { useDesignSystem } from "../context/ThemeContext";
 
 function formatDateString(dateString) {
     const date = new Date(dateString);
@@ -20,8 +21,8 @@ function formatDateString(dateString) {
     return `${dayName}, ${month}/${day}/${year}`;
 }
 
-const RouteCheckpointsPageSelect = ({navigation, route}) => {
-    const {idRoute, idCheckpoint} = route.params || {idRoute: null};
+const RouteCheckpointsPageSelect = ({ navigation, route }) => {
+    const { idRoute, idCheckpoint } = route.params || { idRoute: null };
     const [modalVisible, setModalVisible] = useState(false);
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -44,6 +45,9 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
     const routeChangeReason = useRouteStore((state) => state.routeChangeReason);
     const setData = useInfoCheckpoint((state) => state.setData);
     const data = useInfoCheckpoint((state) => state.data);
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         async function setIdRoute() {
@@ -237,14 +241,14 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
     }, [routeChangeReason]);
 
     return (
-        <View style={{flex: 1}}>
+        <View style={styles.screen}>
             <View style={styles.container}>
                 <View style={styles.headerRow}>
                     <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => navigation.navigate('RoutesPage')}
                     >
-                        <Ionicons name="chevron-back" size={24} color={Colors.blackText}/>
+                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary}/>
                         <Text style={styles.backText}> Back</Text>
                     </TouchableOpacity>
 
@@ -269,7 +273,7 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
                 </View>
 
                 {loading ? (
-                    <ActivityIndicator size="large" color={Colors.mainBlue}/>
+                    <ActivityIndicator size="large" color={colors.primary}/>
                 ) : (
                     <>
                         {errorMessage ? (
@@ -289,13 +293,8 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
                                 </View>
 
                                 {unloadCheckpoint && (
-                                    <View style={{ marginBottom: 20 }}>
-                                        <Text style={{
-                                            color: Colors.mainBlue,
-                                            fontSize: Fonts.f14,
-                                            fontWeight: 'bold',
-                                            marginBottom: 8
-                                        }}>
+                                    <View style={styles.unloadSection}>
+                                        <Text style={styles.unloadSectionTitle}>
                                             Default Unload Point:
                                         </Text>
                                         <CheckpointItem
@@ -401,10 +400,14 @@ const RouteCheckpointsPageSelect = ({navigation, route}) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         padding: 20,
         paddingBottom: 0,
     },
@@ -420,43 +423,45 @@ const styles = StyleSheet.create({
     },
     backText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textPrimary,
     },
     routeDescriptionButton: {
-        backgroundColor: Colors.mainBlue + '20',
-        paddingVertical: 5,
-        paddingHorizontal: 10,
+        backgroundColor: withAlpha(colors.primary, '20'),
+        paddingVertical: 6,
+        paddingHorizontal: 12,
         borderRadius: 8,
     },
     routeDescriptionButtonFinish: {
-        backgroundColor: Colors.mainRed + '20',
-        paddingVertical: 5,
-        paddingHorizontal: 10,
+        backgroundColor: withAlpha(colors.destructive, '20'),
+        paddingVertical: 6,
+        paddingHorizontal: 12,
         borderRadius: 8,
     },
     routeDescriptionText: {
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontSize: Fonts.f16,
+        fontWeight: '600',
     },
     routeDescriptionTextFinish: {
-        color: Colors.mainBlue,
+        color: colors.destructive,
         fontSize: Fonts.f12,
+        fontWeight: '600',
     },
     errorText: {
-        color: Colors.mainRed,
+        color: colors.destructive,
         fontSize: Fonts.f14,
         marginBottom: 10,
         textAlign: 'center',
     },
     title: {
         fontSize: Fonts.f20,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     titleRed: {
         fontSize: Fonts.f20,
-        color: Colors.mainRed,
+        color: colors.destructive,
         fontWeight: 'bold',
         marginBottom: 10,
     },
@@ -465,12 +470,14 @@ const styles = StyleSheet.create({
     },
     routeDetails: {
         fontSize: Fonts.f12,
-        color: Colors.blackText,
+        color: colors.textSecondary,
+        marginBottom: 6,
     },
     checkpointsList: {
         flexGrow: 1,
         paddingLeft: 12,
         paddingRight: 10,
+        paddingBottom: 24,
     },
     flatList: {
         marginLeft: -20,
@@ -481,7 +488,15 @@ const styles = StyleSheet.create({
     },
     completedText: {
         fontSize: Fonts.f14,
-        color: Colors.mainGreen,
+        color: colors.primary,
+        fontWeight: 'bold',
+    },
+    unloadSection: {
+        marginBottom: 20,
+    },
+    unloadSectionTitle: {
+        color: colors.primary,
+        fontSize: Fonts.f14,
         fontWeight: 'bold',
     },
 });

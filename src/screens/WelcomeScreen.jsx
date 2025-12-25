@@ -1,13 +1,17 @@
 // WelcomeScreen.jsx
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens } from '../utils/tokens';
 import Button from "../components/Button";
 import i18n from '../../i18n';
 import BottomSheetSelect from "../components/SelectListCustom";
 import * as SecureStore from 'expo-secure-store';
+import { useDesignSystem } from "../context/ThemeContext";
 
 export default function WelcomeScreen({ navigation }) {
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const saveLanguage = async (token) => {
         try {
@@ -28,29 +32,29 @@ export default function WelcomeScreen({ navigation }) {
         const getToken = async () => {
             try {
                 const token = await SecureStore.getItemAsync('Language');
-                if(token){
-                    setSelectedItem(JSON.parse(token))
+                if (token) {
+                    setSelectedItem(JSON.parse(token));
                 }
             } catch (e) {
-                console.error('Не вдалося отримати токен', e);
+                console.error('Failed to load saved language', e);
                 return null;
             }
         };
-        getToken()
+        getToken();
     }, []);
 
     const handleSelect = (item) => {
         setSelectedItem(item);
-        saveLanguage(item)
+        saveLanguage(item);
     };
 
     return (
-        <View style={[styles.container]}>
+        <View style={styles.container}>
             <View style={styles.headerContainer}>
                 <Text style={styles.mainTitle}>ROUTE</Text>
                 <Text style={styles.mainTitle}>LOGS</Text>
                 {/*<Text style={styles.mainTitle}>LAB</Text>*/}
-                 <Text style={styles.subtitle}>{i18n.t('lets_get_started')}</Text>
+                <Text style={styles.subtitle}>{i18n.t('lets_get_started')}</Text>
             </View>
 
             <View style={styles.signInContainer}>
@@ -66,56 +70,54 @@ export default function WelcomeScreen({ navigation }) {
                     placeholder=""
                     selectedValue={selectedItem?.value}
                 />
-
             </View>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 24,
+        paddingVertical: 48,
         justifyContent: 'space-between',
     },
     headerContainer: {
         alignItems: 'flex-start',
-        marginBottom: 20,
     },
     mainTitle: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         fontFamily: 'PlusJakartaSans-Bold',
         textAlign: 'left',
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         fontFamily: 'PlusJakartaSans-Regular',
         marginTop: 8,
     },
     signInContainer: {
         alignItems: 'flex-start',
-        marginBottom: 30,
+        marginTop: 40,
     },
     sectionTitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textPrimary,
         fontWeight: 'bold',
         fontFamily: 'PlusJakartaSans-SemiBold',
-        marginBottom: 8,
+        marginBottom: 12,
         textAlign: 'center',
     },
     languageContainer: {
         alignItems: 'flex-start',
-        marginBottom: 40,
     },
     selected: {
         marginTop: 16,
         fontSize: 16,
-        color: 'green',
+        color: colors.primary,
         textAlign: 'center',
     },
 });

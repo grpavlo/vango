@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -10,10 +10,11 @@ import {
     KeyboardAvoidingView
 } from 'react-native';
 import Button from '../components/Button';
-import { Colors, Fonts } from '../utils/tokens';
+import { Fonts, createColorsFromTokens, withAlpha } from '../utils/tokens';
 import SuccessPage from "./SuccessPage";
-import {serverUrlApi} from "../const/api";
+import { serverUrlApi } from "../const/api";
 import { useAppAlert } from '../hooks/useAppAlert';
+import { useDesignSystem } from "../context/ThemeContext";
 
 const VerificationCodePage = ({ route, navigation }) => {
     const { clientSecretKey } = route.params || { clientSecretKey: null }; // Retrieve clientSecretKey from navigation params
@@ -22,6 +23,9 @@ const VerificationCodePage = ({ route, navigation }) => {
     const inputs = useRef([]);
     const [isLoading, setIsLoading] = useState(false);
     const { showAlert } = useAppAlert();
+    const { tokens } = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const handleChangeText = (value, index) => {
         const newCode = [...code];
@@ -134,7 +138,7 @@ const VerificationCodePage = ({ route, navigation }) => {
             </View>
 
             {isLoading ? (
-                <ActivityIndicator size="large" color={Colors.mainBlue} />
+                <ActivityIndicator size="large" color={colors.primary} />
             ) : (
                 <View style={styles.buttonContainer}>
                     <Button title="Confirm" onPress={handleConfirm} style={styles.confirmButton} />
@@ -147,23 +151,23 @@ const VerificationCodePage = ({ route, navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: Colors.white,
+        backgroundColor: colors.background,
         paddingHorizontal: 20,
     },
     title: {
         fontSize: Fonts.f42,
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     subtitle: {
         fontSize: Fonts.f16,
-        color: Colors.blackText,
+        color: colors.textSecondary,
         marginBottom: 20,
         textAlign: 'center',
     },
@@ -177,12 +181,12 @@ const styles = StyleSheet.create({
         height: 60,
         width: 60,
         borderWidth: 1,
-        borderColor: Colors.blackText + '30',
+        borderColor: withAlpha(colors.textPrimary, '30'),
         borderRadius: 8,
         textAlign: 'center',
         fontSize: Fonts.f23,
-        color: Colors.blackText,
-        backgroundColor: Colors.white,
+        color: colors.textPrimary,
+        backgroundColor: colors.surface,
     },
     buttonContainer: {
         flexDirection: 'row',
@@ -199,11 +203,12 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderWidth: 1,
-        borderColor: Colors.mainBlue,
+        borderColor: colors.primary,
         borderRadius: 8,
+        backgroundColor: withAlpha(colors.primary, '12'),
     },
     cancelButtonText: {
-        color: Colors.mainBlue,
+        color: colors.primary,
         fontSize: Fonts.f16,
     },
 });

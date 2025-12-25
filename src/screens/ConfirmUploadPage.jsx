@@ -274,15 +274,16 @@
 //
 // export default ConfirmUploadPage;
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {Fontisto, Ionicons} from '@expo/vector-icons';
 
 // Імпорт ваших констант
 import {serverUrlApi} from '../const/api';
-import {Colors, Fonts} from '../utils/tokens';
+import {Fonts, createColorsFromTokens, withAlpha} from '../utils/tokens';
 import { useAppAlert } from '../hooks/useAppAlert';
+import {useDesignSystem} from "../context/ThemeContext";
 
 export default function ConfirmUploadPage({route, navigation}) {
     const {idRoute, idCheckpoint} = route.params;
@@ -292,6 +293,9 @@ export default function ConfirmUploadPage({route, navigation}) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const { showAlert } = useAppAlert();
+    const {tokens} = useDesignSystem();
+    const colors = useMemo(() => createColorsFromTokens(tokens), [tokens]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         fetchRoutesWithSamples();
@@ -440,8 +444,8 @@ export default function ConfirmUploadPage({route, navigation}) {
 
                         <TouchableOpacity
                             onPress={() =>handleSamplePress(item, sample)}
-
-                            key={sample.id}  style={styles.sampleItem}>
+                            key={sample.id}
+                            style={[styles.sampleItem, isSelected && styles.sampleItemSelected]}>
                             <View style={{flex: 1}}>
                                 <Text style={styles.sampleTitle}>
                                     {sample.cargoName} / {sample.checkpointName}
@@ -458,7 +462,7 @@ export default function ConfirmUploadPage({route, navigation}) {
                                 <Fontisto
                                     name={isSelected ? 'checkbox-active' : 'checkbox-passive'}
                                     size={20}
-                                    color={Colors.mainBlue}
+                                    color={colors.primary}
                                     style={{marginLeft: 8}}
                                 />
 
@@ -493,11 +497,11 @@ export default function ConfirmUploadPage({route, navigation}) {
     const selectedCount = selectedSamples.length;
 
     return (
-        <View style={{flex: 1, backgroundColor: '#fff'}}>
+        <View style={styles.screen}>
             {/* Заголовок і "Select all" */}
             <View style={styles.topContainer}>
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={Colors.blackText}/>
+                    <Ionicons name="chevron-back" size={24} color={colors.textPrimary}/>
                     <Text style={styles.backText}>Back</Text>
                 </TouchableOpacity>
 
@@ -511,7 +515,7 @@ export default function ConfirmUploadPage({route, navigation}) {
                     <Fontisto
                         name={isAllSelected() ? 'checkbox-active' : 'checkbox-passive'}
                         size={20}
-                        color={Colors.mainBlue}
+                        color={colors.primary}
                         style={{marginLeft: 8}}
                     />
                 </TouchableOpacity>
@@ -521,7 +525,7 @@ export default function ConfirmUploadPage({route, navigation}) {
                 data={routes}
                 keyExtractor={(item) => item.id}
                 renderItem={renderRouteItem}
-                contentContainerStyle={{paddingBottom: 100}}
+                contentContainerStyle={styles.listContent}
                 style={styles.list}
             />
 
@@ -544,11 +548,11 @@ export default function ConfirmUploadPage({route, navigation}) {
 }
 
 // СТИЛІ
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     topContainer: {
         paddingTop: 50,
         paddingHorizontal: 16,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     backButton: {
         flexDirection: 'row',
@@ -556,16 +560,16 @@ const styles = StyleSheet.create({
     },
     backText: {
         marginLeft: 4,
-        color: Colors.blackText,
+        color: colors.textPrimary,
     },
     headerText: {
         fontSize: Fonts.f23,
         fontWeight: '600',
         marginTop: 16,
-        color: Colors.mainBlue,
+        color: colors.textPrimary,
     },
     headerCount: {
-        color: Colors.mainYellow,
+        color: colors.primary,
     },
     selectAllContainer: {
         flexDirection: 'row',
@@ -575,43 +579,55 @@ const styles = StyleSheet.create({
     },
     selectAllText: {
         fontSize: Fonts.f14,
-        color: Colors.blackText,
+        color: colors.textSecondary,
     },
     list: {
         paddingHorizontal: 16,
+    },
+    listContent: {
+        paddingBottom: 120,
     },
     routeContainer: {
         marginBottom: 24,
         padding: 12,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
+        borderColor: colors.border,
+        borderRadius: 12,
+        backgroundColor: colors.surface,
     },
     routeDate: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#444',
+        color: colors.textSecondary,
         marginBottom: 4,
     },
     routeName: {
         fontSize: 16,
-        fontWeight: '400',
-        marginBottom: 8,
+        fontWeight: '500',
+        color: colors.textPrimary,
+        marginBottom: 12,
     },
     sampleItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.mainBlue + '10',
-        padding: 8,
-        borderRadius: 6,
-        marginBottom: 6,
+        backgroundColor: withAlpha(colors.primary, '12'),
+        padding: 10,
+        borderRadius: 10,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: withAlpha(colors.primary, '24'),
+    },
+    sampleItemSelected: {
+        backgroundColor: withAlpha(colors.primary, '24'),
+        borderColor: colors.primary,
     },
     sampleTitle: {
         fontSize: Fonts.f12,
-        fontWeight: '400',
+        fontWeight: '600',
+        color: colors.textPrimary,
     },
     sampleAddress: {
-        color: '#666',
+        color: colors.textSecondary,
         marginTop: 2,
         fontSize: Fonts.f12,
     },
@@ -619,33 +635,36 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.background,
     },
     retryButton: {
         marginTop: 10,
-        padding: 10,
-        backgroundColor: Colors.mainBlue,
-        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        backgroundColor: colors.primary,
+        borderRadius: 10,
     },
     retryText: {
-        color: '#fff',
+        color: colors.primaryForeground,
+        fontWeight: '600',
     },
     footerContainer: {
         position: 'absolute',
         bottom: 0,
         width: '100%',
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         borderTopWidth: 1,
-        borderTopColor: '#ddd',
+        borderTopColor: colors.border,
     },
     confirmButton: {
-        backgroundColor: Colors.mainBlue,
+        backgroundColor: colors.primary,
         paddingVertical: 16,
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: 'center',
     },
     confirmButtonText: {
-        color: '#fff',
+        color: colors.primaryForeground,
         fontSize: Fonts.f16,
         fontWeight: '600',
     },
