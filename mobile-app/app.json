@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "mobile",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "expo": {
+    "updates": { "enabled": false },
+    "assetBundlePatterns": ["**/*"]
+  },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
+        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ],
+        "LSApplicationQueriesSchemes": ["comgooglemaps", "waze"]
+      },
+      "bundleIdentifier": "com.pashagr.mobile"
+    },
+    "android": {
+     "config": {
+        "googleMaps": { "apiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs" }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.pashagr.mobile",
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["NOTIFICATIONS"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "googlePlacesApiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs",
+      "eas": {
+        "projectId": "13e10178-3db7-42e7-811c-796768a59e41"
+      }
+    },
+    "owner": "pashagr"
+  }
+}
