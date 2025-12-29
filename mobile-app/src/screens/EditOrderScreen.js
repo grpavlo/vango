@@ -291,7 +291,13 @@ export default function EditOrderScreen({ route, navigation }) {
           <View style={{ position: "relative", zIndex: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <AppInput
-                style={{ flex: 1 }}
+                style={{
+                  flex: 1,
+                  height: pickupQuery && pickupQuery.length > 60 ? 112 : 56,
+                  textAlignVertical: pickupQuery && pickupQuery.length > 60 ? 'top' : 'center',
+                  paddingTop: pickupQuery && pickupQuery.length > 60 ? 10 : 0,
+                }}
+                multiline
                 value={pickupQuery}
                 onChangeText={(t) => {
                   setPickupQuery(t);
@@ -372,7 +378,13 @@ export default function EditOrderScreen({ route, navigation }) {
           <View style={{ position: "relative", zIndex: 9 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <AppInput
-                style={{ flex: 1 }}
+                style={{
+                  flex: 1,
+                  height: dropoffQuery && dropoffQuery.length > 60 ? 112 : 56,
+                  textAlignVertical: dropoffQuery && dropoffQuery.length > 60 ? 'top' : 'center',
+                  paddingTop: dropoffQuery && dropoffQuery.length > 60 ? 10 : 0,
+                }}
+                multiline
                 value={dropoffQuery}
                 onChangeText={(t) => {
                   setDropoffQuery(t);

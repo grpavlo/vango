@@ -340,6 +340,27 @@ export default function AddressSearchInput({
   const [anchorLayout, setAnchorLayout] = useState(null);
   const windowSize = useWindowDimensions();
   const [forcedSelection, setForcedSelection] = useState(null);
+  const MIN_INPUT_HEIGHT = 56;
+  const MAX_INPUT_HEIGHT = 112; // allow up to two lines
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
+  const handleContentSizeChange = useCallback((e) => {
+    const measured = e?.nativeEvent?.contentSize?.height ?? MIN_INPUT_HEIGHT;
+    // small threshold: single-line text should be <= ~28px
+    if (measured <= 28) {
+      setInputHeight(MIN_INPUT_HEIGHT);
+      return;
+    }
+    const h = measured + 12; // padding so text doesn't clip
+    const newH = Math.max(MIN_INPUT_HEIGHT, Math.min(MAX_INPUT_HEIGHT, h));
+    setInputHeight(newH);
+  }, []);
+
+  // Fallback for platforms where contentSize may be unreliable (e.g., pasted long text)
+  useEffect(() => {
+    if (!value) { setInputHeight(MIN_INPUT_HEIGHT); return; }
+    if (value.length > 60) { setInputHeight(MAX_INPUT_HEIGHT); }
+    else { setInputHeight(MIN_INPUT_HEIGHT); }
+  }, [value]);
 
   const jumpCaretToStart = useCallback(() => {
     if (selectionFrameRef.current) {
@@ -515,6 +536,7 @@ export default function AddressSearchInput({
     if (timer.current) clearTimeout(timer.current);
     onChangeText?.('');
     setSuggestions([]);
+    setInputHeight(MIN_INPUT_HEIGHT);
     focusInput();
   }, [focusInput, onChangeText]);
 
@@ -690,10 +712,19 @@ export default function AddressSearchInput({
             onBlur={handleInputBlur}
             blurOnSubmit={false}
             selection={forcedSelection ?? undefined}
+            multiline
+            onContentSizeChange={handleContentSizeChange}
             style={[
               style,
               styles.inputFlex,
               value ? styles.inputWithClear : null,
+              {
+                height: inputHeight,
+                // center single-line text, top-align multi-line with padding
+                textAlignVertical: inputHeight > MIN_INPUT_HEIGHT ? 'top' : 'center',
+                paddingTop: inputHeight > MIN_INPUT_HEIGHT ? 10 : 0,
+                paddingBottom: inputHeight > MIN_INPUT_HEIGHT ? 8 : 0,
+              },
             ]}
           />
           {!!value && (

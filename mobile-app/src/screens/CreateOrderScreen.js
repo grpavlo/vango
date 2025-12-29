@@ -402,26 +402,28 @@ export default function CreateOrderScreen({ navigation }) {
       <AppText style={styles.labelStandalone}>Об'ємна вага, кг</AppText>
       <AppInput value={volWeight} editable={false} />
       */}
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 8,
-              marginLeft: 24,
-            }}
-          >
-            <CheckBox
-              value={loadHelp}
-              onChange={setLoadHelp}
-              label="Завантаження"
-            />
-            <CheckBox
-              value={unloadHelp}
-              onChange={setUnloadHelp}
-              label="Розвантаження"
-            />
+<View>
+            <AppText style={styles.labelStandalone}>Додаткові послуги</AppText>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                marginTop: 8,
+                marginLeft: 24,
+              }}
+            >
+              <CheckBox
+                value={loadHelp}
+                onChange={setLoadHelp}
+                label="Завантаження"
+              />
+              <CheckBox
+                value={unloadHelp}
+                onChange={setUnloadHelp}
+                label="Розвантаження"
+              />
+            </View>
           </View>
 
           <AppText style={styles.labelStandalone}>Оплата</AppText>

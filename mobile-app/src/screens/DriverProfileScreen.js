@@ -141,7 +141,7 @@ export default function DriverProfileScreen({ navigation, route }) {
             activeOpacity={0.85}
           >
             <Ionicons name="call" size={20} color="#fff" />
-            <Text style={styles.callButtonText}>Звтелефонувати</Text>
+            <Text style={styles.callButtonText}>Зателефонувати</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
