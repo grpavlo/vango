@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "5772c7d7-2a0e-4851-981c-2505a487e86a"
+      }
+    },
+    "android": {
+      "package": "com.kapelyna.vango"
+    }
+  }
+}

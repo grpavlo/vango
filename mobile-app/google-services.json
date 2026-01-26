@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "431244885203",
+    "project_id": "vango-dev-43727",
+    "storage_bucket": "vango-dev-43727.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:431244885203:android:ce4522da14fbd575fee826",
+        "android_client_info": {
+          "package_name": "com.pashagr.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaC6vhLCwip-OtaRL4-G1hRo5pcULjna8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
