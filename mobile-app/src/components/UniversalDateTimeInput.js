@@ -83,11 +83,22 @@ export default function UniversalDateTimeInput({
 function format(d, mode) {
   if (!d) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  const dateStr = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-  const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const utc2 = toUtcPlus2(d);
+  const dateStr = `${pad(utc2.getUTCDate())}.${pad(
+    utc2.getUTCMonth() + 1
+  )}.${utc2.getUTCFullYear()}`;
+  const timeStr = `${pad(utc2.getUTCHours())}:${pad(utc2.getUTCMinutes())}`;
   if (mode === 'date') return dateStr;
   if (mode === 'time') return timeStr;
   return `${dateStr} ${timeStr}`;
+}
+
+function toUtcPlus2(date) {
+  if (!date) return new Date(NaN);
+  const d = date instanceof Date ? date : new Date(date);
+  const utcTime = d.getTime();
+  // Працюємо в фіксованому поясі UTC+2, незалежно від поясу пристрою
+  return new Date(utcTime + 2 * 60 * 60 * 1000);
 }
 
 const styles = StyleSheet.create({

@@ -118,11 +118,11 @@ function statusColor(status) {
 
 function formatTime(dateStr) {
 
-  const d = new Date(dateStr);
+  const d = toUtcPlus2(dateStr);
 
   const pad = (n) => (n < 10 ? `0${n}` : n);
 
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 
 }
 
@@ -130,11 +130,47 @@ function formatTime(dateStr) {
 
 function formatDate(dateStr) {
 
-  const d = new Date(dateStr);
+  const d = toUtcPlus2(dateStr);
 
   const pad = (n) => (n < 10 ? `0${n}` : n);
 
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+    d.getUTCDate()
+  )}`;
+
+}
+
+function toUtcPlus2(value) {
+
+  if (!value) return new Date(NaN);
+
+  const d = value instanceof Date ? value : new Date(value);
+
+  const utcTime = d.getTime();
+
+  // Фіксований пояс UTC+2 для всього застосунку
+
+  return new Date(utcTime + 2 * 60 * 60 * 1000);
+
+}
+
+function formatDateTimeUtc2(value) {
+
+  const d = toUtcPlus2(value);
+
+  if (Number.isNaN(d.getTime())) return '';
+
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+
+  const date = `${pad(d.getUTCDate())}.${pad(
+
+    d.getUTCMonth() + 1
+
+  )}.${d.getUTCFullYear()}`;
+
+  const time = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+
+  return `${date} ${time}`;
 
 }
 
@@ -522,7 +558,11 @@ export default function OrderDetailScreen({ route, navigation }) {
 
     try {
 
+      // Водій може встановлювати фінальну ціну ТІЛЬКИ якщо agreedPrice === true
+
       const payload =
+
+        order.agreedPrice &&
 
         finalPrice !== '' && !Number.isNaN(Number(finalPrice))
 
@@ -564,7 +604,11 @@ export default function OrderDetailScreen({ route, navigation }) {
 
     try {
 
+      // Водій може встановлювати фінальну ціну ТІЛЬКИ якщо agreedPrice === true
+
       const payload =
+
+        order.agreedPrice &&
 
         finalPrice !== '' && !Number.isNaN(Number(finalPrice))
 
@@ -1111,7 +1155,9 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       <View style={styles.statusCard}>
 
-        <Text style={styles.statusDate}>{new Date(order.createdAt).toLocaleString()}</Text>
+        <Text style={styles.statusDate}>
+          {formatDateTimeUtc2(order.createdAt)}
+        </Text>
 
         <View style={styles.statusRowCard}>
 
@@ -1522,7 +1568,8 @@ export default function OrderDetailScreen({ route, navigation }) {
             <AppText style={{ fontWeight: 'bold', marginRight: 8 }}>
               Фінальна ціна:
             </AppText>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingHorizontal: 8 }}>
+            {order.agreedPrice ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingHorizontal: 8 }}>
 
               <AppInput
 
@@ -1553,7 +1600,16 @@ export default function OrderDetailScreen({ route, navigation }) {
 
               </TouchableOpacity>
 
-            </View>
+              </View>
+            ) : (
+              <AppText style={{ flex: 1, paddingHorizontal: 8 }}>
+                {order.finalPrice
+                  ? `${Math.round(Number(order.finalPrice))} грн`
+                  : order.price
+                  ? `${Math.round(Number(order.price))} грн`
+                  : "—"}
+              </AppText>
+            )}
 
           </View>
 

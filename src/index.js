@@ -12,6 +12,7 @@ const favoriteRoutes = require('./routes/favoriteRoutes');
 const driverProfileRoutes = require('./routes/driverProfileRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
+const { OrderStatus } = require('./models/order');
 const { Op } = require('sequelize');
 
 
@@ -38,8 +39,35 @@ function scheduleCleanup() {
     const cutoff = new Date();
     // Set to the start of the current day
     cutoff.setHours(0, 0, 0, 0);
-    // Delete orders where load date is before today
-    await Order.destroy({ where: { loadFrom: { [Op.lt]: cutoff } } });
+    // Delete orders where load date is before today, but keep:
+    // - COMPLETED orders (for history)
+    // - Orders with driverId (taken by driver)
+    // - Orders with confirmed statuses (ACCEPTED, IN_PROGRESS, DELIVERED, PENDING)
+    await Order.destroy({ 
+      where: { 
+        [Op.and]: [
+          { loadFrom: { [Op.lt]: cutoff } },
+          {
+            // Exclude orders that should be kept
+            [Op.not]: {
+              [Op.or]: [
+                // Keep COMPLETED orders
+                { status: OrderStatus.COMPLETED },
+                // Keep orders taken by driver
+                { driverId: { [Op.ne]: null } },
+                // Keep orders with confirmed statuses
+                { status: { [Op.in]: [
+                  OrderStatus.ACCEPTED,
+                  OrderStatus.IN_PROGRESS,
+                  OrderStatus.DELIVERED,
+                  OrderStatus.PENDING
+                ]}}
+              ]
+            }
+          }
+        ]
+      } 
+    });
   }
   const now = new Date();
   const next = new Date(now);

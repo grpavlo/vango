@@ -10,6 +10,7 @@ export async function getPushToken() {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
+      sound: 'default',          // ← додаємо звук
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
     });

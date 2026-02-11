@@ -19,7 +19,11 @@ import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowAlert: true }),
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,   // ← вмикаємо звук
+    shouldSetBadge: false,
+  }),
 });
 
 const Stack = createNativeStackNavigator();

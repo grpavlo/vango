@@ -490,7 +490,7 @@ export default function MyOrdersScreen({ navigation, route }) {
           </View>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Дата створення: </Text>
-            {formatDate(new Date(item.createdAt))}
+            {formatDateUtc2(item.createdAt)}
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Ціна:</Text>
@@ -524,41 +524,53 @@ export default function MyOrdersScreen({ navigation, route }) {
             <View style={styles.finalPriceRow}>
               <Text style={styles.finalPriceLabel}>Фінальна ціна:</Text>
               {role === "DRIVER" ? (
-                <>
-                  <AppInput
-                    style={styles.finalPriceInput}
-                    keyboardType="numeric"
-                    value={
-                      editedFinal[item.id] ??
-                      (item.finalPrice ? String(Math.round(item.finalPrice)) : "")
-                    }
-                    onChangeText={(v) =>
-                      setEditedFinal((prev) => ({
-                        ...prev,
-                        [item.id]: v.replace(/[^\d]/g, ""),
-                      }))
-                    }
-                    placeholder="Вкажіть суму"
-                  />
+                // Водій може редагувати фінальну ціну ТІЛЬКИ якщо agreedPrice === true
+                item.agreedPrice ? (
+                  <>
+                    <AppInput
+                      style={styles.finalPriceInput}
+                      keyboardType="numeric"
+                      value={
+                        editedFinal[item.id] ??
+                        (item.finalPrice ? String(Math.round(item.finalPrice)) : "")
+                      }
+                      onChangeText={(v) =>
+                        setEditedFinal((prev) => ({
+                          ...prev,
+                          [item.id]: v.replace(/[^\d]/g, ""),
+                        }))
+                      }
+                      placeholder="Вкажіть суму"
+                    />
 
-                  <TouchableOpacity
-                    onPress={async () => {
-                      const val = editedFinal[item.id];
-                      if (!val) return;
-                      await apiFetch(`/orders/${item.id}/final-price`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({
-                          finalPrice: String(Math.round(Number(val))),
-                        }),
-                      });
-                      load();
-                    }}
-                    accessibilityLabel="Зберегти фінальну ціну"
-                  >
-                    <Ionicons name="save" size={22} color={colors.green} />
-                  </TouchableOpacity>
-                </>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const val = editedFinal[item.id];
+                        if (!val) return;
+                        await apiFetch(`/orders/${item.id}/final-price`, {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({
+                            finalPrice: String(Math.round(Number(val))),
+                          }),
+                        });
+                        load();
+                      }}
+                      accessibilityLabel="Зберегти фінальну ціну"
+                    >
+                      <Ionicons name="save" size={22} color={colors.green} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  // Показуємо фінальну ціну, але без можливості редагування
+                  <Text style={styles.finalPriceValue}>
+                    {item.finalPrice
+                      ? `${Math.round(Number(item.finalPrice))} грн`
+                      : item.price
+                      ? `${Math.round(Number(item.price))} грн`
+                      : "—"}
+                  </Text>
+                )
               ) : (
                 <Text style={styles.finalPriceValue}>
                   {item.finalPrice
@@ -840,7 +852,11 @@ const styles = StyleSheet.create({
   mapChipText: { marginLeft: 6, fontWeight: "600", color: "#111827" },
 });
 
-function formatDate(d) {
+function formatDateUtc2(value) {
+  if (!value) return '';
+  const d0 = value instanceof Date ? value : new Date(value);
+  const utcTime = d0.getTime();
+  const d = new Date(utcTime + 2 * 60 * 60 * 1000);
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}`;
 }

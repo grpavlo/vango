@@ -76,8 +76,21 @@ export default function AllOrdersScreen({ navigation }) {
   const canUseDropoffRadius = hasRadius && hasDropoff;
   const hasCorridor = Boolean(originPoint && dropoffPoint);
   const shouldUseRadiusQuery = canUsePickupRadius && !hasCorridor;
+
+  // Текстові фільтри по містах (з урахуванням вибору з карти)
+  const pickupCityFilter = (pickupPoint?.city || pickupCity || "").trim();
+  const dropoffCityFilter = (dropoffPoint?.city || dropoffCity || "").trim();
+
+  // Однакове місто завантаження/розвантаження (наприклад, Київ–Київ у фільтрі)
+  const sameCityFilter =
+    pickupCityFilter &&
+    dropoffCityFilter &&
+    pickupCityFilter.toLowerCase() === dropoffCityFilter.toLowerCase();
+
   const shouldFilterByPickupCity =
-    !!pickupCity && !shouldUseRadiusQuery && !hasCorridor;
+    !!pickupCityFilter && !shouldUseRadiusQuery && !hasCorridor;
+  const shouldFilterByDropoffCity =
+    !!dropoffCityFilter && !shouldUseRadiusQuery && !hasCorridor;
 
   const corridorCorners = useMemo(() => {
     if (!originPoint || !dropoffPoint) return null;
@@ -176,8 +189,18 @@ export default function AllOrdersScreen({ navigation }) {
       setLoading(true);
       const params = new URLSearchParams();
       if (date) params.append("date", formatDate(date));
-      if (shouldFilterByPickupCity) {
-        params.append("pickupCity", pickupPoint?.city || pickupCity);
+      // Якщо місто завантаження та розвантаження однакові - додаємо обидва параметри
+      if (sameCityFilter && pickupCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
+        params.append("pickupCity", pickupCityFilter);
+        params.append("dropoffCity", dropoffCityFilter);
+      } else {
+        // Якщо міста різні або не задані - додаємо окремо
+        if (shouldFilterByPickupCity && pickupCityFilter) {
+          params.append("pickupCity", pickupCityFilter);
+        }
+        if (shouldFilterByDropoffCity && dropoffCityFilter) {
+          params.append("dropoffCity", dropoffCityFilter);
+        }
       }
       if (shouldUseRadiusQuery && originPoint) {
         params.append("lat", originPoint.latitude.toString());
@@ -226,6 +249,16 @@ export default function AllOrdersScreen({ navigation }) {
       const canUseDropoffR = canUseDropoffRadius;
 
       list = list.filter((o) => {
+        // Якщо місто завантаження та розвантаження однакові в фільтрі
+        // (наприклад, Київ–Київ) і немає коридору / радіуса:
+        // показуємо ТІЛЬКИ замовлення, де обидва міста співпадають
+        if (sameCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
+          const city = pickupCityFilter.toLowerCase();
+          const orderPickup = (o.pickupCity || "").toLowerCase();
+          const orderDropoff = (o.dropoffCity || "").toLowerCase();
+          return orderPickup.includes(city) && orderDropoff.includes(city);
+        }
+
         const P1 =
           o.pickupLat && o.pickupLon
             ? { lat: Number(o.pickupLat), lon: Number(o.pickupLon) }
@@ -243,10 +276,26 @@ export default function AllOrdersScreen({ navigation }) {
         const inDropoffRadius =
           canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-        // якщо увімкнена хоч одна геометрія – показуємо, якщо pickup входить у ХОЧ ОДНУ
-        if (hasCorridor || canUsePickupR || canUseDropoffR) {
-          return inCorridor || inPickupRadius || inDropoffRadius;
+        // Випадок з коридором (різні міста завантаження/розвантаження):
+        // показуємо, якщо
+        //   - місто завантаження співпадає з текстовим фільтром АБО
+        //   - точка завантаження входить у прямокутник-коридор.
+        if (hasCorridor) {
+          let matchesPickupCity = true;
+          if (pickupCityFilter) {
+            const pc = pickupCityFilter.toLowerCase();
+            const orderPickup = (o.pickupCity || "").toLowerCase();
+            matchesPickupCity = orderPickup.includes(pc);
+          }
+          return matchesPickupCity || inCorridor;
         }
+
+        // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
+        if (canUsePickupR || canUseDropoffR) {
+          return inPickupRadius || inDropoffRadius;
+        }
+
+        // Без геометрії – залишаємо замовлення
         return true;
       });
 
@@ -312,16 +361,33 @@ export default function AllOrdersScreen({ navigation }) {
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date))
       return false;
 
+    // Якщо місто завантаження та розвантаження однакові в фільтрі
+    // (наприклад, Київ–Київ) і немає коридору / радіуса:
+    // показуємо ТІЛЬКИ замовлення, де обидва міста співпадають
+    if (sameCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
+      const city = pickupCityFilter.toLowerCase();
+      const orderPickup = (o.pickupCity || "").toLowerCase();
+      const orderDropoff = (o.dropoffCity || "").toLowerCase();
+      return orderPickup.includes(city) && orderDropoff.includes(city);
+    }
+
     const rKm = radiusKm;
     const canUsePickupR = canUsePickupRadius;
     const canUseDropoffR = canUseDropoffRadius;
 
     if (shouldFilterByPickupCity) {
-      if (
-        pickupCity &&
-        !(o.pickupCity || "").toLowerCase().includes(pickupCity.toLowerCase())
-      ) {
-        return false;
+      const pc = pickupCityFilter.toLowerCase();
+      if (pc) {
+        const orderPickup = (o.pickupCity || "").toLowerCase();
+        if (!orderPickup.includes(pc)) return false;
+      }
+    }
+
+    if (shouldFilterByDropoffCity) {
+      const dc = dropoffCityFilter.toLowerCase();
+      if (dc) {
+        const orderDropoff = (o.dropoffCity || "").toLowerCase();
+        if (!orderDropoff.includes(dc)) return false;
       }
     }
 
@@ -354,10 +420,26 @@ export default function AllOrdersScreen({ navigation }) {
     const inDropoffRadius =
       canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-    if (hasCorridor || canUsePickupR || canUseDropoffR) {
-      return inCorridor || inPickupRadius || inDropoffRadius;
+    // Випадок з коридором (різні міста завантаження/розвантаження):
+    // показуємо, якщо
+    //   - місто завантаження співпадає з текстовим фільтром АБО
+    //   - точка завантаження входить у прямокутник-коридор.
+    if (hasCorridor) {
+      let matchesPickupCity = true;
+      if (pickupCityFilter) {
+        const pc = pickupCityFilter.toLowerCase();
+        const orderPickup = (o.pickupCity || "").toLowerCase();
+        matchesPickupCity = orderPickup.includes(pc);
+      }
+      return matchesPickupCity || inCorridor;
     }
 
+    // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
+    if (canUsePickupR || canUseDropoffR) {
+      return inPickupRadius || inDropoffRadius;
+    }
+
+    // Без геометрії – залишаємо замовлення
     return true;
   }
 
@@ -366,8 +448,18 @@ export default function AllOrdersScreen({ navigation }) {
     if (wsRef.current) wsRef.current.close();
     const params = new URLSearchParams();
     if (date) params.append("date", formatDate(date));
-    if (shouldFilterByPickupCity) {
-      params.append("pickupCity", pickupPoint?.city || pickupCity);
+    // Якщо місто завантаження та розвантаження однакові - додаємо обидва параметри
+    if (sameCityFilter && pickupCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
+      params.append("pickupCity", pickupCityFilter);
+      params.append("dropoffCity", dropoffCityFilter);
+    } else {
+      // Якщо міста різні або не задані - додаємо окремо
+      if (shouldFilterByPickupCity && pickupCityFilter) {
+        params.append("pickupCity", pickupCityFilter);
+      }
+      if (shouldFilterByDropoffCity && dropoffCityFilter) {
+        params.append("dropoffCity", dropoffCityFilter);
+      }
     }
     if (shouldUseRadiusQuery && originPoint) {
       params.append("lat", originPoint.latitude.toString());

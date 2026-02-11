@@ -76,6 +76,20 @@ const appendPriceHistory = (
 
 };
 
+// Будуємо діапазон дат у UTC за текстовим параметром `date` (DD.MM або DD.MM.YYYY),
+// щоб фільтр не залежав від локального часового поясу сервера.
+function buildUtcDayRange(dateStr) {
+  const { parseDate } = require("../utils/date");
+  const parsed = parseDate(dateStr);
+  if (!parsed) return null;
+  const y = parsed.getFullYear();
+  const m = parsed.getMonth();
+  const d = parsed.getDate();
+  const start = new Date(Date.UTC(y, m, d));
+  const end = new Date(Date.UTC(y, m, d + 1));
+  return { start, end };
+}
+
 
 
 const userIncludeWithProfile = (alias) => ({
@@ -289,14 +303,10 @@ async function listAvailableOrders(req, res) {
   ];
 
   if (date) {
-    const { parseDate } = require("../utils/date");
-    const parsed = parseDate(date);
-    if (parsed) {
-      const start = new Date(parsed);
-      const end = new Date(parsed);
-      end.setDate(end.getDate() + 1);
-      where.loadFrom = { [Op.gte]: start };
-      where.loadTo = { [Op.lt]: end };
+    const range = buildUtcDayRange(date);
+    if (range) {
+      where.loadFrom = { [Op.gte]: range.start };
+      where.loadTo = { [Op.lt]: range.end };
     }
   } else {
     // Якщо дата не передана, показуємо тільки майбутні замовлення
@@ -507,9 +517,17 @@ async function reserveOrder(req, res) {
 
 
 
-    // 👇 водій може запропонувати фінальну ціну під час резерву
+    // 👇 водій може запропонувати фінальну ціну під час резерву ТІЛЬКИ якщо agreedPrice === true
 
     if (req.body && req.body.finalPrice != null) {
+
+      // Перевірка: водій може встановлювати фінальну ціну тільки якщо замовлення з договірною ціною
+
+      if (!order.agreedPrice) {
+
+        return res.status(400).send("Не можна встановлювати фінальну ціну для замовлення без договірної ціни");
+
+      }
 
       const normalized = roundPriceValue(req.body.finalPrice);
 
@@ -839,9 +857,17 @@ async function acceptOrder(req, res) {
 
 
 
-    // 👇 водій може виставити/уточнити фінальну ціну при взятті
+    // 👇 водій може виставити/уточнити фінальну ціну при взятті ТІЛЬКИ якщо agreedPrice === true
 
     if (req.body && req.body.finalPrice != null) {
+
+      // Перевірка: водій може встановлювати фінальну ціну тільки якщо замовлення з договірною ціною
+
+      if (!order.agreedPrice) {
+
+        return res.status(400).send("Не можна встановлювати фінальну ціну для замовлення без договірної ціни");
+
+      }
 
       const normalized = roundPriceValue(req.body.finalPrice);
 

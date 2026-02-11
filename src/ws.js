@@ -8,6 +8,20 @@ const { Op } = require('sequelize');
 
 let wssInstance;
 
+// Діапазон дня в UTC з текстового параметра `date`, щоб фільтр по даті
+// не залежав від часовго поясу сервера.
+function buildUtcDayRange(dateStr) {
+  const { parseDate } = require('./utils/date');
+  const parsed = parseDate(dateStr);
+  if (!parsed) return null;
+  const y = parsed.getFullYear();
+  const m = parsed.getMonth();
+  const d = parsed.getDate();
+  const start = new Date(Date.UTC(y, m, d));
+  const end = new Date(Date.UTC(y, m, d + 1));
+  return { start, end };
+}
+
 function buildWhere(query, userId, ignoreReserve = false) {
   const where = {
     [Op.or]: [
@@ -32,14 +46,10 @@ function buildWhere(query, userId, ignoreReserve = false) {
     ];
     
     if (query.date) {
-      const { parseDate } = require('./utils/date');
-      const parsed = parseDate(query.date);
-      if (parsed) {
-        const start = new Date(parsed);
-        const end = new Date(parsed);
-        end.setDate(end.getDate() + 1);
-        where.loadFrom = { [Op.gte]: start };
-        where.loadTo = { [Op.lt]: end };
+      const range = buildUtcDayRange(query.date);
+      if (range) {
+        where.loadFrom = { [Op.gte]: range.start };
+        where.loadTo = { [Op.lt]: range.end };
       }
     } else {
       // Якщо дата не передана, показуємо тільки майбутні замовлення
@@ -50,14 +60,10 @@ function buildWhere(query, userId, ignoreReserve = false) {
   } else {
     // Якщо ignoreReserve = true, все одно потрібно фільтрувати за датою
     if (query.date) {
-      const { parseDate } = require('./utils/date');
-      const parsed = parseDate(query.date);
-      if (parsed) {
-        const start = new Date(parsed);
-        const end = new Date(parsed);
-        end.setDate(end.getDate() + 1);
-        where.loadFrom = { [Op.gte]: start };
-        where.loadTo = { [Op.lt]: end };
+      const range = buildUtcDayRange(query.date);
+      if (range) {
+        where.loadFrom = { [Op.gte]: range.start };
+        where.loadTo = { [Op.lt]: range.end };
       }
     } else {
       where.loadFrom = { [Op.gte]: now };
