@@ -7,7 +7,7 @@ export default function RoleScreen() {
   const { selectRole } = useAuth();
 
   async function choose(r) {
-    await selectRole(r);
+    await selectRole(r, true); // перший вибір ролі після реєстрації — показати профіль
   }
 
   return (

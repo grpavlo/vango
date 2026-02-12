@@ -1569,7 +1569,7 @@ export default function OrderDetailScreen({ route, navigation }) {
               Фінальна ціна:
             </AppText>
             {order.agreedPrice ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingHorizontal: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingHorizontal: 8 }}>
 
               <AppInput
 
@@ -1600,7 +1600,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
               </TouchableOpacity>
 
-              </View>
+            </View>
             ) : (
               <AppText style={{ flex: 1, paddingHorizontal: 8 }}>
                 {order.finalPrice

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, Image, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../AuthContext";
 import RoleSwitch from "../components/RoleSwitch";
 import AppText from "../components/AppText";
-import { apiFetch } from "../api";
+import { apiFetch, HOST_URL } from "../api";
 import ListItem from "../components/ListItem";
 import { colors } from "../components/Colors";
 import ProfileCardSkeleton from "../components/ProfileCardSkeleton";
@@ -20,9 +20,13 @@ export default function SettingsScreen({ navigation }) {
       if (!token) return;
       try {
         setLoadingProfile(true);
-        const me = await apiFetch("/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [me, driverProfile] = await Promise.all([
+          apiFetch("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+          apiFetch("/driver-profile/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        ]);
+        if (driverProfile?.selfiePhoto && !me?.selfiePhoto) {
+          me.selfiePhoto = driverProfile.selfiePhoto;
+        }
         setUser(me);
       } catch {
       } finally {
@@ -35,11 +39,15 @@ export default function SettingsScreen({ navigation }) {
   async function handleChange(r) {
     if (r !== role) {
       setLoadingProfile(true);
-      await selectRole(r);
+      await selectRole(r, false); // перемикання ролі — не показувати профіль
       try {
-        const me = await apiFetch("/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [me, driverProfile] = await Promise.all([
+          apiFetch("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+          apiFetch("/driver-profile/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        ]);
+        if (driverProfile?.selfiePhoto && !me?.selfiePhoto) {
+          me.selfiePhoto = driverProfile.selfiePhoto;
+        }
         setUser(me);
       } catch {}
       setLoadingProfile(false);
@@ -52,6 +60,16 @@ export default function SettingsScreen({ navigation }) {
     .slice(0, 2)
     .join("");
 
+  // Показуємо лише ім'я: пріоритет user.firstName → другий елемент з "Прізвище Ім'я По-батькові" → перше слово
+  const displayName = user?.firstName
+    || (user?.name?.trim().split(/\s+/)[1]) // український формат: прізвище ім'я по-батькові
+    || user?.name?.split(/\s+/)[0]
+    || user?.name;
+
+  const avatarPhotoUri = user?.selfiePhoto
+    ? (user.selfiePhoto.startsWith("http") ? user.selfiePhoto : `${HOST_URL}${user.selfiePhoto}`)
+    : null;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {loadingProfile ? (
@@ -60,15 +78,37 @@ export default function SettingsScreen({ navigation }) {
         user && (
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
-              <AppText style={styles.avatarText}>{initials}</AppText>
+              {avatarPhotoUri ? (
+                <Image
+                  source={{ uri: avatarPhotoUri }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <AppText style={styles.avatarText}>{initials}</AppText>
+              )}
             </View>
-            <AppText style={styles.name}>{user.name}</AppText>
+            <AppText style={styles.name}>{displayName}</AppText>
             <AppText style={styles.phone}>{user.phone}</AppText>
             {role === "DRIVER" && (
               <ListItem
-                title="Редагувати профіль"
+                title="Редагувати профіль водія"
                 onPress={() => navigation.navigate("ProfileScreen", { user })}
                 icon="pencil"
+              />
+            )}
+            {(role === "CUSTOMER" || !role) && (
+              <ListItem
+                title={role === "CUSTOMER" ? "Редагувати профіль" : "Профіль замовника"}
+                onPress={() => navigation.navigate("CustomerProfileScreen", { user })}
+                icon="pencil"
+              />
+            )}
+            {!role && (
+              <ListItem
+                title="Профіль водія"
+                onPress={() => navigation.navigate("ProfileScreen", { user })}
+                icon="car"
               />
             )}
 
@@ -145,6 +185,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   avatarText: {
     color: "#fff",

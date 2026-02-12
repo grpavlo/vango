@@ -9,13 +9,14 @@ const AuthContext = createContext({});
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [role, setRole] = useState(null);
+  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const forceLogout = useCallback(async () => {
     await AsyncStorage.multiRemove(['token', 'role']);
     setToken(null);
     setRole(null);
-    navigate('Login');
+    navigate('Login'); // PhoneAuthScreen
   }, []);
 
   // Register global unauthorized handler early to catch 401s during initial load
@@ -111,7 +112,7 @@ export function AuthProvider({ children }) {
     await forceLogout();
   }, [forceLogout]);
 
-  const selectRole = async (r) => {
+  const selectRole = async (r, fromRegistration = false) => {
     if (!token) return;
     try {
       await apiFetch('/auth/role', {
@@ -124,10 +125,17 @@ export function AuthProvider({ children }) {
     }
     await AsyncStorage.setItem('role', r);
     setRole(r);
+    if (fromRegistration) {
+      setNeedsProfileSetup(true);
+    }
   };
 
+  const clearNeedsProfileSetup = useCallback(() => {
+    setNeedsProfileSetup(false);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ token, role, loading, login, logout, selectRole }}>
+    <AuthContext.Provider value={{ token, role, needsProfileSetup, loading, login, logout, selectRole, clearNeedsProfileSetup }}>
       {children}
     </AuthContext.Provider>
   );

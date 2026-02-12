@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Wrapper to ensure we consistently use Google provider across the app.
 // Adds a floating "locate" button that centers the map on the user's location.
-const AppMap = forwardRef(({ children, style, showMyLocationButton = true, ...rest }, ref) => {
+const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLocationCentered, ...rest }, ref) => {
   const mapRef = useRef(null);
   useImperativeHandle(ref, () => mapRef.current);
   const [loading, setLoading] = useState(false);
@@ -108,6 +108,9 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, ...re
       AsyncStorage.setItem('userLocation', JSON.stringify(coords)).catch(() => {});
       console.log('refreshLocationAndAnimate got coords', coords);
       animateToCoords(coords.latitude, coords.longitude);
+      if (typeof onLocationCentered === 'function') {
+        onLocationCentered(coords);
+      }
       return coords;
     } catch (e) {
       console.warn('refreshLocationAndAnimate error', e);
@@ -126,6 +129,9 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, ...re
     if (cached) {
       console.log('Using cached coords', cached);
       animateToCoords(cached.latitude, cached.longitude);
+      if (typeof onLocationCentered === 'function') {
+        onLocationCentered(cached);
+      }
       // refresh in background; if fresh coords differ significantly, animate again
       refreshLocationAndAnimate(false).then((fresh) => {
         if (fresh) {
@@ -133,6 +139,9 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, ...re
           const dlon = Math.abs(fresh.longitude - cached.longitude);
           if (dlat > 0.0001 || dlon > 0.0001) {
             animateToCoords(fresh.latitude, fresh.longitude);
+            if (typeof onLocationCentered === 'function') {
+              onLocationCentered(fresh);
+            }
           }
         }
       });

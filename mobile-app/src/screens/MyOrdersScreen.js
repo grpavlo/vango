@@ -526,42 +526,42 @@ export default function MyOrdersScreen({ navigation, route }) {
               {role === "DRIVER" ? (
                 // Водій може редагувати фінальну ціну ТІЛЬКИ якщо agreedPrice === true
                 item.agreedPrice ? (
-                  <>
-                    <AppInput
-                      style={styles.finalPriceInput}
-                      keyboardType="numeric"
-                      value={
-                        editedFinal[item.id] ??
-                        (item.finalPrice ? String(Math.round(item.finalPrice)) : "")
-                      }
-                      onChangeText={(v) =>
-                        setEditedFinal((prev) => ({
-                          ...prev,
-                          [item.id]: v.replace(/[^\d]/g, ""),
-                        }))
-                      }
-                      placeholder="Вкажіть суму"
-                    />
+                <>
+                  <AppInput
+                    style={styles.finalPriceInput}
+                    keyboardType="numeric"
+                    value={
+                      editedFinal[item.id] ??
+                      (item.finalPrice ? String(Math.round(item.finalPrice)) : "")
+                    }
+                    onChangeText={(v) =>
+                      setEditedFinal((prev) => ({
+                        ...prev,
+                        [item.id]: v.replace(/[^\d]/g, ""),
+                      }))
+                    }
+                    placeholder="Вкажіть суму"
+                  />
 
-                    <TouchableOpacity
-                      onPress={async () => {
-                        const val = editedFinal[item.id];
-                        if (!val) return;
-                        await apiFetch(`/orders/${item.id}/final-price`, {
-                          method: "POST",
-                          headers: { Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({
-                            finalPrice: String(Math.round(Number(val))),
-                          }),
-                        });
-                        load();
-                      }}
-                      accessibilityLabel="Зберегти фінальну ціну"
-                    >
-                      <Ionicons name="save" size={22} color={colors.green} />
-                    </TouchableOpacity>
-                  </>
-                ) : (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const val = editedFinal[item.id];
+                      if (!val) return;
+                      await apiFetch(`/orders/${item.id}/final-price`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                          finalPrice: String(Math.round(Number(val))),
+                        }),
+                      });
+                      load();
+                    }}
+                    accessibilityLabel="Зберегти фінальну ціну"
+                  >
+                    <Ionicons name="save" size={22} color={colors.green} />
+                  </TouchableOpacity>
+                </>
+              ) : (
                   // Показуємо фінальну ціну, але без можливості редагування
                   <Text style={styles.finalPriceValue}>
                     {item.finalPrice

@@ -33,4 +33,6 @@ const driverProfileFiles = upload.fields([
   { name: "selfiePhoto", maxCount: 1 },
 ]);
 
-module.exports = { upload, driverProfileFiles };
+const profileSelfieOnly = upload.single("selfiePhoto");
+
+module.exports = { upload, driverProfileFiles, profileSelfieOnly };

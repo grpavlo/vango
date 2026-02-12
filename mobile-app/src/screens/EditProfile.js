@@ -69,54 +69,71 @@ export default function EditProfile({ navigation, route }) {
     return `${HOST_URL}${path}`;
   }
 
-  // Підтягнути наявний профіль (якщо є)
+  // Підтягнути наявний профіль (якщо є). Пріоритет: User (customer profile) → driver profile
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiFetch("/driver-profile/me", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (data) {
-          setFullName(data.fullName ?? user?.name ?? "");
-          setPhone(data.user?.phone ?? user?.phone ?? "");
+        const [meRes, driverRes] = await Promise.all([
+          apiFetch("/auth/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => null),
+          apiFetch("/driver-profile/me", {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => null),
+        ]);
 
-          setNoInn(Boolean(data.noInn));
-          setInn(data.inn ?? "");
+        const data = driverRes;
+        const me = meRes;
 
-          setPassportSeries(data.passportSeries ?? "");
-          setPassportNumber(data.passportNumber ?? "");
-
-          setDriverLicenseSeries(data.driverLicenseSeries ?? "");
-          setDriverLicenseNumber(data.driverLicenseNumber ?? "");
-
-          setVehicleTechSeries(data.vehicleTechSeries ?? "");
-          setVehicleTechNumber(data.vehicleTechNumber ?? "");
-
-          setCarMake(data.carMake ?? "");
-          setCarModel(data.carModel ?? "");
-          setCarYear(data.carYear ? String(data.carYear) : "");
-          setCarPlate(data.carPlate ?? "");
-          setCarLengthMm(data.carLengthMm ? String(data.carLengthMm) : "");
-          setCarWidthMm(data.carWidthMm ? String(data.carWidthMm) : "");
-          setCarHeightMm(data.carHeightMm ? String(data.carHeightMm) : "");
-
-          // ���� (���� ��� ������� URL)
-          setInnDocPhoto(fullUrl(data.innDocPhoto) || null);
-          setPassportPhotoMain(fullUrl(data.passportPhotoMain) || null);
-          setPassportPhotoRegistration(
-            fullUrl(data.passportPhotoRegistration) || null
-          );
-          setDriverLicensePhoto(fullUrl(data.driverLicensePhoto) || null);
-          setVehicleTechPhoto(fullUrl(data.vehicleTechPhoto) || null);
-          setCarPhotoFrontRight(fullUrl(data.carPhotoFrontRight) || null);
-          setCarPhotoRearLeft(fullUrl(data.carPhotoRearLeft) || null);
-          setCarPhotoInterior(fullUrl(data.carPhotoInterior) || null);
-          setSelfiePhoto(fullUrl(data.selfiePhoto) || null);
-        } else if (user) {
-          if (user?.name) setFullName(user.name);
-          if (user?.phone) setPhone(user.phone);
+        // ПІБ: пріоритет User.firstName+lastName+patronymic → driver fullName → user.name
+        let fullNameVal = "";
+        if (me?.firstName || me?.lastName || me?.patronymic) {
+          fullNameVal = [me.lastName, me.firstName, me.patronymic]
+            .filter(Boolean)
+            .join(" ");
         }
+        if (!fullNameVal && data?.fullName) fullNameVal = data.fullName;
+        if (!fullNameVal && (user?.name || me?.name)) fullNameVal = user?.name || me?.name;
+        setFullName(fullNameVal);
+
+        setPhone(data?.user?.phone ?? me?.phone ?? user?.phone ?? "");
+
+        setNoInn(Boolean(data?.noInn));
+        setInn(data?.inn ?? "");
+
+        setPassportSeries(data?.passportSeries ?? "");
+        setPassportNumber(data?.passportNumber ?? "");
+
+        setDriverLicenseSeries(data?.driverLicenseSeries ?? "");
+        setDriverLicenseNumber(data?.driverLicenseNumber ?? "");
+
+        setVehicleTechSeries(data?.vehicleTechSeries ?? "");
+        setVehicleTechNumber(data?.vehicleTechNumber ?? "");
+
+        setCarMake(data?.carMake ?? "");
+        setCarModel(data?.carModel ?? "");
+        setCarYear(data?.carYear ? String(data.carYear) : "");
+        setCarPlate(data?.carPlate ?? "");
+        setCarLengthMm(data?.carLengthMm ? String(data.carLengthMm) : "");
+        setCarWidthMm(data?.carWidthMm ? String(data.carWidthMm) : "");
+        setCarHeightMm(data?.carHeightMm ? String(data.carHeightMm) : "");
+
+        // Фото
+        setInnDocPhoto(fullUrl(data?.innDocPhoto) || null);
+        setPassportPhotoMain(fullUrl(data?.passportPhotoMain) || null);
+        setPassportPhotoRegistration(
+          fullUrl(data?.passportPhotoRegistration) || null
+        );
+        setDriverLicensePhoto(fullUrl(data?.driverLicensePhoto) || null);
+        setVehicleTechPhoto(fullUrl(data?.vehicleTechPhoto) || null);
+        setCarPhotoFrontRight(fullUrl(data?.carPhotoFrontRight) || null);
+        setCarPhotoRearLeft(fullUrl(data?.carPhotoRearLeft) || null);
+        setCarPhotoInterior(fullUrl(data?.carPhotoInterior) || null);
+        // Селфі: пріоритет User.selfiePhoto → driver selfiePhoto
+        setSelfiePhoto(
+          fullUrl(me?.selfiePhoto) || fullUrl(data?.selfiePhoto) || null
+        );
       } catch (e) {
         // ок, якщо ще не створено
       }

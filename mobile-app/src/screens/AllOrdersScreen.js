@@ -46,6 +46,8 @@ export default function AllOrdersScreen({ navigation }) {
   const mapRef = useRef(null);
   const [highlightedId, setHighlightedId] = useState(null);
   const highlightTimer = useRef(null);
+  const filtersRef = useRef(null);
+  const fetchIdRef = useRef(0);
 
   const CORRIDOR_HALF_WIDTH_KM = 50; // тут змінюєш ширину коридору
 
@@ -173,7 +175,7 @@ export default function AllOrdersScreen({ navigation }) {
     fetchOrders();
     const unsubscribe = navigation.addListener("focus", fetchOrders);
     return unsubscribe;
-  }, [detected, navigation]);
+  }, [detected, navigation, pickupPoint, dropoffPoint]);
 
   useEffect(() => {
     if (!detected) return;
@@ -184,28 +186,55 @@ export default function AllOrdersScreen({ navigation }) {
     };
   }, [detected, token, location, pickupPoint, dropoffPoint]);
 
-  async function fetchOrders() {
+  useEffect(() => {
+    filtersRef.current = { passesFilters, hasCorridor };
+  });
+
+  async function fetchOrders(overrideRadiusQuery = null) {
+    const currentFetchId = ++fetchIdRef.current;
+    const useRadiusOverride =
+      overrideRadiusQuery &&
+      overrideRadiusQuery.lat != null &&
+      overrideRadiusQuery.lon != null &&
+      overrideRadiusQuery.radius != null;
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (date) params.append("date", formatDate(date));
-      // Якщо місто завантаження та розвантаження однакові - додаємо обидва параметри
-      if (sameCityFilter && pickupCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
-        params.append("pickupCity", pickupCityFilter);
-        params.append("dropoffCity", dropoffCityFilter);
+      const hasOriginForRadius = !useRadiusOverride && originPoint && hasRadius;
+      const hasDropoffForRadius = !useRadiusOverride && dropoffPointRad && hasRadius;
+      const useRadiusOnBackend = !hasCorridor && (hasOriginForRadius || hasDropoffForRadius);
+
+      if (useRadiusOverride) {
+        params.append("lat", overrideRadiusQuery.lat.toString());
+        params.append("lon", overrideRadiusQuery.lon.toString());
+        params.append("radius", overrideRadiusQuery.radius.toString());
       } else {
-        // Якщо міста різні або не задані - додаємо окремо
-        if (shouldFilterByPickupCity && pickupCityFilter) {
-          params.append("pickupCity", pickupCityFilter);
+        if (useRadiusOnBackend) {
+          if (hasOriginForRadius) {
+            params.append("lat", originPoint.latitude.toString());
+            params.append("lon", originPoint.longitude.toString());
+            params.append("radius", radiusKm.toString());
+          }
+          if (hasDropoffForRadius) {
+            params.append("dropoffLat", dropoffPointRad.latitude.toString());
+            params.append("dropoffLon", dropoffPointRad.longitude.toString());
+            params.append("dropoffRadius", radiusKm.toString());
+          }
         }
-        if (shouldFilterByDropoffCity && dropoffCityFilter) {
-          params.append("dropoffCity", dropoffCityFilter);
+        if (!useRadiusOnBackend && !hasCorridor) {
+          if (sameCityFilter && pickupCityFilter) {
+            params.append("pickupCity", pickupCityFilter);
+            params.append("dropoffCity", dropoffCityFilter);
+          } else {
+            if (shouldFilterByPickupCity && pickupCityFilter) {
+              params.append("pickupCity", pickupCityFilter);
+            }
+            if (shouldFilterByDropoffCity && dropoffCityFilter) {
+              params.append("dropoffCity", dropoffCityFilter);
+            }
+          }
         }
-      }
-      if (shouldUseRadiusQuery && originPoint) {
-        params.append("lat", originPoint.latitude.toString());
-        params.append("lon", originPoint.longitude.toString());
-        params.append("radius", radiusKm.toString());
       }
       // const origin = pickupPoint
       //   ? {
@@ -232,7 +261,17 @@ export default function AllOrdersScreen({ navigation }) {
       });
       let list = data.available;
 
-      const hasCorridor = !!(originPoint && dropoffPoint);
+      const effectiveHasCorridor = useRadiusOverride ? false : !!(originPoint && dropoffPoint);
+      const effectiveOrigin = useRadiusOverride
+        ? { latitude: overrideRadiusQuery.lat, longitude: overrideRadiusQuery.lon }
+        : originPoint;
+      const effectiveRadiusKm = useRadiusOverride
+        ? parseFloat(overrideRadiusQuery.radius)
+        : radiusKm;
+      const effectiveCanUsePickupR = useRadiusOverride || canUsePickupRadius;
+      const effectiveCanUseDropoffR = useRadiusOverride ? false : canUseDropoffRadius;
+
+      const hasCorridor = effectiveHasCorridor;
       const A = hasCorridor
         ? {
             lat: Number(originPoint.latitude),
@@ -244,11 +283,23 @@ export default function AllOrdersScreen({ navigation }) {
         : null;
       const D = CORRIDOR_HALF_WIDTH_KM;
 
-      const rKm = radiusKm;
-      const canUsePickupR = canUsePickupRadius;
-      const canUseDropoffR = canUseDropoffRadius;
+      const rKm = effectiveRadiusKm;
+      const canUsePickupR = effectiveCanUsePickupR;
+      const canUseDropoffR = effectiveCanUseDropoffR;
+
+      if (currentFetchId !== fetchIdRef.current) return;
 
       list = list.filter((o) => {
+        if (useRadiusOverride) {
+          const P1 =
+            o.pickupLat && o.pickupLon
+              ? { lat: Number(o.pickupLat), lon: Number(o.pickupLon) }
+              : null;
+          return P1 && inRadiusKm(P1, effectiveOrigin, rKm);
+        }
+        if (useRadiusOnBackend) {
+          return true;
+        }
         // Якщо місто завантаження та розвантаження однакові в фільтрі
         // (наприклад, Київ–Київ) і немає коридору / радіуса:
         // показуємо ТІЛЬКИ замовлення, де обидва міста співпадають
@@ -276,10 +327,7 @@ export default function AllOrdersScreen({ navigation }) {
         const inDropoffRadius =
           canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-        // Випадок з коридором (різні міста завантаження/розвантаження):
-        // показуємо, якщо
-        //   - місто завантаження співпадає з текстовим фільтром АБО
-        //   - точка завантаження входить у прямокутник-коридор.
+        // Випадок з коридором: показуємо замовлення в радіусі від точок АБО в коридорі
         if (hasCorridor) {
           let matchesPickupCity = true;
           if (pickupCityFilter) {
@@ -287,7 +335,7 @@ export default function AllOrdersScreen({ navigation }) {
             const orderPickup = (o.pickupCity || "").toLowerCase();
             matchesPickupCity = orderPickup.includes(pc);
           }
-          return matchesPickupCity || inCorridor;
+          return matchesPickupCity || inCorridor || inPickupRadius || inDropoffRadius;
         }
 
         // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
@@ -299,6 +347,7 @@ export default function AllOrdersScreen({ navigation }) {
         return true;
       });
 
+      if (currentFetchId !== fetchIdRef.current) return;
       setOrders(list);
 
       // if (!(pickupPoint && dropoffPoint) && radius && origin) {
@@ -420,10 +469,7 @@ export default function AllOrdersScreen({ navigation }) {
     const inDropoffRadius =
       canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-    // Випадок з коридором (різні міста завантаження/розвантаження):
-    // показуємо, якщо
-    //   - місто завантаження співпадає з текстовим фільтром АБО
-    //   - точка завантаження входить у прямокутник-коридор.
+    // Випадок з коридором: показуємо замовлення в радіусі від точок АБО в коридорі
     if (hasCorridor) {
       let matchesPickupCity = true;
       if (pickupCityFilter) {
@@ -431,7 +477,7 @@ export default function AllOrdersScreen({ navigation }) {
         const orderPickup = (o.pickupCity || "").toLowerCase();
         matchesPickupCity = orderPickup.includes(pc);
       }
-      return matchesPickupCity || inCorridor;
+      return matchesPickupCity || inCorridor || inPickupRadius || inDropoffRadius;
     }
 
     // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
@@ -489,14 +535,24 @@ export default function AllOrdersScreen({ navigation }) {
     ws.onmessage = (ev) => {
       try {
         const order = JSON.parse(ev.data);
+        const { passesFilters: passes, hasCorridor: inCorridor } = filtersRef.current || {};
         setOrders((prev) => {
           if (order.deleted) {
             return prev.filter((o) => o.id !== order.id);
           }
-          if (!passesFilters(order)) {
-            return prev.filter((o) => o.id !== order.id);
+          if (inCorridor) {
+            if (order.status !== "CREATED" && prev.some((o) => o.id === order.id)) {
+              return prev.filter((o) => o.id !== order.id);
+            }
+            return prev;
           }
           const idx = prev.findIndex((o) => o.id === order.id);
+          if (passes && !passes(order)) {
+            if (idx >= 0 && order.status !== "CREATED") {
+              return prev.filter((o) => o.id !== order.id);
+            }
+            return prev;
+          }
           if (idx >= 0) {
             const copy = [...prev];
             copy[idx] = order;
@@ -660,6 +716,19 @@ export default function AllOrdersScreen({ navigation }) {
         style={{ flex: 1 }}
         initialRegion={region}
         showsUserLocation
+        onLocationCentered={(coords) => {
+          setLocation(coords);
+          setPickupPoint(null);
+          setDropoffPoint(null);
+          setPickupCity("");
+          setDropoffCity("");
+          setRadius("30");
+          fetchOrders({
+            lat: coords.latitude,
+            lon: coords.longitude,
+            radius: "30",
+          });
+        }}
       >
         {hasOrigin && hasRadius && (
           <Circle

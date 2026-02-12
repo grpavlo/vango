@@ -253,12 +253,21 @@ function buildCompactAddress(city, address) {
   return city || address || '';
 }
 
-function cleanSecondaryText(value = '') {
+// Формуємо другий рядок (район + область), без дублювання міста та країни
+function cleanSecondaryText(value = '', mainCity = '') {
   if (!value) return '';
+  const mainNorm = normalizeName(mainCity || '');
   return value
     .split(',')
-    .map((part) => removeRegionTokens(part).trim())
+    .map((part) => part.trim())
     .filter(Boolean)
+    // Прибираємо країну
+    .filter((part) => !COUNTRY_REGEX.test(part))
+    // Прибираємо повтор міста, якщо збігається з першим рядком
+    .filter((part) => {
+      if (!mainNorm) return true;
+      return normalizeName(part) !== mainNorm;
+    })
     .join(', ');
 }
 
@@ -743,9 +752,12 @@ export default function AddressSearchInput({
             onPress={() => {
               onOpenMap?.();
               const onSelectId = registerCallback((p) => {
+                const LOG = '[AddressSearchInput]';
+                console.log(LOG, 'Map callback викликано, p.text:', p?.text ?? '(немає)');
                 onSelect?.(p);
-                onChangeText?.(p.text || value);
-                jumpCaretToStart();
+                const textToSet = p?.text || value;
+                console.log(LOG, 'onChangeText з:', textToSet || '(порожньо)');
+                onChangeText?.(textToSet);
               });
               const onCloseId = registerCallback(onCloseMap);
               navigation.navigate('MapSelect', {

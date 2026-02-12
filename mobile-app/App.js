@@ -6,14 +6,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Host } from 'react-native-portalize';
 import { ToastProvider } from './src/components/Toast';
 import { AuthProvider, useAuth } from './src/AuthContext';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
+import PhoneAuthScreen from './src/screens/PhoneAuthScreen';
 import RoleScreen from './src/screens/RoleScreen';
+import RoleProfileWrapper from './src/screens/RoleProfileWrapper';
 import MainTabs from './src/screens/MainTabs';
 import MapSelectScreen from './src/screens/MapSelectScreen';
 import OrderDetailScreen from './src/screens/OrderDetailScreen';
 import EditOrderScreen from './src/screens/EditOrderScreen';
 import EditProfile from './src/screens/EditProfile';
+import EditCustomerProfileScreen from './src/screens/EditCustomerProfileScreen';
 import DriverProfileScreen from './src/screens/DriverProfileScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ Notifications.setNotificationHandler({
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
-  const { token, role, loading } = useAuth();
+  const { token, role, needsProfileSetup, loading } = useAuth();
 
   if (loading) {
     return (
@@ -42,12 +43,11 @@ function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {token == null ? (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-        </>
+        <Stack.Screen name="Login" component={PhoneAuthScreen} />
       ) : role == null ? (
         <Stack.Screen name="Role" component={RoleScreen} />
+      ) : needsProfileSetup ? (
+        <Stack.Screen name="RoleProfile" component={RoleProfileWrapper} />
       ) : (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
@@ -55,6 +55,7 @@ function RootNavigator() {
           <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
           <Stack.Screen name="EditOrder" component={EditOrderScreen} />
           <Stack.Screen name="ProfileScreen" component={EditProfile} />
+          <Stack.Screen name="CustomerProfileScreen" component={EditCustomerProfileScreen} />
           <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
         </>
       )}

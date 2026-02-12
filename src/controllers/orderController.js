@@ -264,7 +264,7 @@ async function createOrder(req, res) {
 
 async function listAvailableOrders(req, res) {
 
-  const { city, pickupCity, dropoffCity, date, lat, lon, radius } = req.query;
+  const { city, pickupCity, dropoffCity, date, lat, lon, radius, dropoffLat, dropoffLon, dropoffRadius, corridorWidth } = req.query;
 
   const { Op } = require("sequelize");
 
@@ -282,11 +282,24 @@ async function listAvailableOrders(req, res) {
 
   };
 
-  const cityFilter = pickupCity || city;
+  const hasRadiusQuery = lat != null && lon != null && radius != null && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon)) && parseFloat(radius) > 0;
+  const hasDropoffRadiusQuery = dropoffLat != null && dropoffLon != null && dropoffRadius != null && !isNaN(parseFloat(dropoffLat)) && !isNaN(parseFloat(dropoffLon)) && parseFloat(dropoffRadius) > 0;
+  const platA = parseFloat(lat);
+  const plonA = parseFloat(lon);
+  const platB = parseFloat(dropoffLat);
+  const plonB = parseFloat(dropoffLon);
+  const dKm = corridorWidth ? parseFloat(corridorWidth) : 50;
+  const hasCorridorQuery = !isNaN(platA) && !isNaN(plonA) && !isNaN(platB) && !isNaN(plonB);
 
-  if (cityFilter) where.pickupCity = cityFilter;
+  const useGeometryFilter = hasRadiusQuery || hasDropoffRadiusQuery || hasCorridorQuery;
 
-  if (dropoffCity) where.dropoffCity = dropoffCity;
+  if (!useGeometryFilter) {
+    const cityFilter = pickupCity || city;
+    if (cityFilter) where.pickupCity = cityFilter;
+  }
+  if (!useGeometryFilter && dropoffCity) {
+    where.dropoffCity = dropoffCity;
+  }
 
 
 
@@ -320,46 +333,63 @@ async function listAvailableOrders(req, res) {
 
 
   const centerLat = parseFloat(lat);
-
   const centerLon = parseFloat(lon);
-
   const searchRadius = radius ? parseFloat(radius) : null;
+  const dLat = parseFloat(dropoffLat);
+  const dLon = parseFloat(dropoffLon);
+  const dRadius = dropoffRadius ? parseFloat(dropoffRadius) : null;
 
-
-
-  function inRadius(order) {
-
-    if (!searchRadius || isNaN(centerLat) || isNaN(centerLon)) return true;
-
-    if (!order.pickupLat || !order.pickupLon) return false;
-
-    const R = 6371; // km
-
-    const dLat = ((order.pickupLat - centerLat) * Math.PI) / 180;
-
-    const dLon = ((order.pickupLon - centerLon) * Math.PI) / 180;
-
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
     const a =
-
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-
-      Math.cos(centerLat * (Math.PI / 180)) *
-
-        Math.cos(order.pickupLat * (Math.PI / 180)) *
-
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
         Math.sin(dLon / 2) *
-
         Math.sin(dLon / 2);
-
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    const distance = R * c;
-
-    return distance <= searchRadius;
-
+    return R * c;
   }
 
+  function toXY(lat, lon, lat0) {
+    const kLat = 111.0;
+    const kLon = 111.0 * Math.cos((lat0 * Math.PI) / 180);
+    return { x: lon * kLon, y: lat * kLat };
+  }
 
+  function isInsideCorridor(P, A, B, dKm) {
+    const lat0 = (A.lat + B.lat) / 2;
+    const a = toXY(A.lat, A.lon, lat0);
+    const b = toXY(B.lat, B.lon, lat0);
+    const p = toXY(P.lat, P.lon, lat0);
+    const vx = b.x - a.x, vy = b.y - a.y;
+    const L = Math.hypot(vx, vy) || 1;
+    const ux = vx / L, uy = vy / L;
+    const nx = -uy, ny = ux;
+    const t = (p.x - a.x) * ux + (p.y - a.y) * uy;
+    const s = (p.x - a.x) * nx + (p.y - a.y) * ny;
+    return t >= 0 && t <= L && Math.abs(s) <= dKm;
+  }
+
+  function inRadius(order) {
+    if (hasRadiusQuery && searchRadius && !isNaN(centerLat) && !isNaN(centerLon) && order.pickupLat && order.pickupLon) {
+      const dist = haversineKm(centerLat, centerLon, order.pickupLat, order.pickupLon);
+      if (dist <= searchRadius) return true;
+    }
+    if (hasDropoffRadiusQuery && dRadius && !isNaN(dLat) && !isNaN(dLon) && order.dropoffLat && order.dropoffLon) {
+      const dist = haversineKm(dLat, dLon, order.dropoffLat, order.dropoffLon);
+      if (dist <= dRadius) return true;
+    }
+    if (hasCorridorQuery && order.pickupLat && order.pickupLon) {
+      const P = { lat: order.pickupLat, lon: order.pickupLon };
+      const A = { lat: platA, lon: plonA };
+      const B = { lat: platB, lon: plonB };
+      if (isInsideCorridor(P, A, B, dKm)) return true;
+    }
+    return !hasRadiusQuery && !hasDropoffRadiusQuery && !hasCorridorQuery;
+  }
 
   const filtered = orders.filter(inRadius);
 

@@ -165,6 +165,20 @@ exports.upsertMe = async (req, res) => {
       await profile.save();
     }
 
+    // Синхронізація з User: firstName, lastName, patronymic, selfiePhoto
+    const user = req.user;
+    if (patch.fullName) {
+      const parts = String(patch.fullName).trim().split(/\s+/).filter(Boolean);
+      user.firstName = parts[1] || null;
+      user.lastName = parts[0] || null;
+      user.patronymic = parts.length > 2 ? parts.slice(2).join(" ") : null;
+      user.name = patch.fullName;
+    }
+    if (patch.selfiePhoto) {
+      user.selfiePhoto = patch.selfiePhoto;
+    }
+    await user.save();
+
     // повернемо свіже значення з користувачем
     const fresh = await DriverProfile.findOne({
       where: { userId: req.user.id },
