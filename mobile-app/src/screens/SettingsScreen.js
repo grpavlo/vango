@@ -89,7 +89,12 @@ export default function SettingsScreen({ navigation }) {
               )}
             </View>
             <AppText style={styles.name}>{displayName}</AppText>
-            <AppText style={styles.phone}>{user.phone}</AppText>
+            <View style={{ marginBottom: 16 }}>
+              <AppText style={styles.phone}>{user.phone}</AppText>
+              {/* {user.email && (
+                <AppText style={styles.email}>{user.email}</AppText>
+              )} */}
+            </View>
             {role === "DRIVER" && (
               <ListItem
                 title="Редагувати профіль водія"
@@ -204,7 +209,11 @@ const styles = StyleSheet.create({
   phone: {
     color: colors.gray500,
     marginTop: 4,
-    marginBottom: 16,
+  },
+  email: {
+    color: colors.gray500,
+    fontSize: 14,
+    marginTop: 4,
   },
   roleCard: {
     backgroundColor: colors.primary100,

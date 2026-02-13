@@ -103,13 +103,33 @@ async function login(req, res) {
 }
 
 async function profile(req, res) {
-  res.json(req.user);
+  const u = req.user;
+  res.json({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    role: u.role,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    patronymic: u.patronymic,
+    selfiePhoto: u.selfiePhoto,
+    city: u.city,
+    rating: u.rating,
+    blocked: u.blocked,
+    pushConsent: u.pushConsent,
+  });
+}
+
+function isValidEmail(email) {
+  return email && typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 async function updateProfile(req, res) {
   const body = req.body || {};
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
 
   if (!name) {
     return res.status(400).send('Вкажіть ПІБ');
@@ -123,9 +143,20 @@ async function updateProfile(req, res) {
     return res.status(400).send('Некоректний номер телефону');
   }
 
+  if (email && !isValidEmail(email)) {
+    return res.status(400).send('Некоректна електронна адреса');
+  }
+  if (email) {
+    const existing = await User.findOne({ where: { email } });
+    if (existing && existing.id !== req.user.id) {
+      return res.status(400).send('Ця електронна адреса вже використовується');
+    }
+  }
+
   try {
     req.user.name = name;
     req.user.phone = phone;
+    if (email) req.user.email = email;
     await req.user.save();
     res.json({
       id: req.user.id,
@@ -145,6 +176,7 @@ async function updateCustomerProfile(req, res) {
   const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : '';
   const patronymic = typeof body.patronymic === 'string' ? body.patronymic.trim() : '';
   const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
 
   const fullName = [lastName, firstName, patronymic].filter(Boolean).join(' ');
   if (!fullName && !req.user.name) {
@@ -157,6 +189,15 @@ async function updateCustomerProfile(req, res) {
   if (digits.length < 10) {
     return res.status(400).send('Некоректний номер телефону');
   }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).send('Некоректна електронна адреса');
+  }
+  if (email) {
+    const existing = await User.findOne({ where: { email } });
+    if (existing && existing.id !== req.user.id) {
+      return res.status(400).send('Ця електронна адреса вже використовується');
+    }
+  }
 
   try {
     const user = req.user;
@@ -167,6 +208,7 @@ async function updateCustomerProfile(req, res) {
       user.patronymic = patronymic || null;
     }
     user.phone = phone;
+    if (email) user.email = email;
     if (req.file?.path) {
       user.selfiePhoto = pathToUrl(req.file.path);
     }

@@ -31,6 +31,7 @@ export default function EditProfile({ navigation, route }) {
   // Текстові поля
   const [fullName, setFullName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
+  const [email, setEmail] = useState("");
   const [noInn, setNoInn] = useState(false);
   const [inn, setInn] = useState("");
 
@@ -98,6 +99,8 @@ export default function EditProfile({ navigation, route }) {
         setFullName(fullNameVal);
 
         setPhone(data?.user?.phone ?? me?.phone ?? user?.phone ?? "");
+
+        setEmail(String(me?.email ?? data?.user?.email ?? user?.email ?? "").trim());
 
         setNoInn(Boolean(data?.noInn));
         setInn(data?.inn ?? "");
@@ -291,7 +294,11 @@ export default function EditProfile({ navigation, route }) {
       await apiFetch("/auth/profile", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: trimmedFullName, phone: trimmedPhone }),
+        body: JSON.stringify({
+          name: trimmedFullName,
+          phone: trimmedPhone,
+          ...(email.trim() && { email: email.trim() }),
+        }),
       });
 
       toast.show("Анкету збережено");
@@ -342,6 +349,15 @@ export default function EditProfile({ navigation, route }) {
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
+                returnKeyType="next"
+              />
+              <AppInput
+                label="Електронна адреса"
+                placeholder="example@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 returnKeyType="next"
               />
 

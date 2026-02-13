@@ -76,6 +76,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
   const [lastName, setLastName] = useState("");
   const [patronymic, setPatronymic] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [selfiePhoto, setSelfiePhoto] = useState(null);
 
   useEffect(() => {
@@ -90,6 +91,8 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
         }).catch(() => null);
 
         setPhone(me?.phone ?? user?.phone ?? "");
+
+        setEmail(String(me?.email ?? driverData?.user?.email ?? user?.email ?? "").trim());
 
         if (me?.firstName || me?.lastName || me?.patronymic) {
           setFirstName(me.firstName ?? "");
@@ -154,6 +157,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
       fd.append("lastName", trimmedLastName);
       fd.append("patronymic", trimmedPatronymic);
       fd.append("phone", trimmedPhone);
+      if (email.trim()) fd.append("email", email.trim());
       appendFile(fd, "selfiePhoto", selfiePhoto);
 
       await apiFetch("/auth/customer-profile", {
@@ -223,6 +227,14 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
+              />
+              <AppInput
+                label="Електронна адреса"
+                placeholder="example@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
 
               <AppText style={styles.sectionTitle}>Селфі</AppText>
