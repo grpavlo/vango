@@ -16,7 +16,12 @@ const { OrderStatus } = require('./models/order');
 const { Op } = require('sequelize');
 
 
-dotenv.config();
+const envFile =
+  process.env.NODE_ENV === 'production'
+    ? '.envprod'
+    : '.env';
+
+dotenv.config({ path: envFile });
 
 const app = express();
 app.use(express.json());
