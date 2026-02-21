@@ -22,6 +22,7 @@ import { colors } from "../components/Colors";
 import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
+import { formatUaPhoneInput, isCompleteUaPhone } from "../phoneMask";
 
 export default function EditProfile({ navigation, route }) {
   const user = route.params?.user;
@@ -30,7 +31,7 @@ export default function EditProfile({ navigation, route }) {
 
   // Текстові поля
   const [fullName, setFullName] = useState(user?.name || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  const [phone, setPhone] = useState(formatUaPhoneInput(user?.phone || ""));
   const [email, setEmail] = useState("");
   const [noInn, setNoInn] = useState(false);
   const [inn, setInn] = useState("");
@@ -98,7 +99,7 @@ export default function EditProfile({ navigation, route }) {
         if (!fullNameVal && (user?.name || me?.name)) fullNameVal = user?.name || me?.name;
         setFullName(fullNameVal);
 
-        setPhone(data?.user?.phone ?? me?.phone ?? user?.phone ?? "");
+        setPhone(formatUaPhoneInput(data?.user?.phone ?? me?.phone ?? user?.phone ?? ""));
 
         setEmail(String(me?.email ?? data?.user?.email ?? user?.email ?? "").trim());
 
@@ -201,8 +202,7 @@ export default function EditProfile({ navigation, route }) {
 
       if (!requireValue(trimmedFullName, "Вкажіть ПІБ")) return;
       if (!requireValue(trimmedPhone, "Вкажіть номер телефону")) return;
-      const phoneDigits = trimmedPhone.replace(/\D/g, "");
-      if (!requireValue(phoneDigits.length >= 10, "Некоректний номер телефону"))
+      if (!requireValue(isCompleteUaPhone(trimmedPhone), "Некоректний номер телефону"))
         return;
 
       if (!noInn && !requireValue(trimmedInn, "Вкажіть ІПН або поставте відмітку"))
@@ -305,7 +305,7 @@ export default function EditProfile({ navigation, route }) {
       navigation.goBack();
     } catch (err) {
       console.log(err);
-      Alert.alert("Помилка", "Не вдалося зберегти анкету");
+      Alert.alert("Помилка", err?.message || "Не вдалося зберегти анкету");
     }
   }
   const hasFooter = AppButton.length > 0;
@@ -345,10 +345,11 @@ export default function EditProfile({ navigation, route }) {
               />
               <AppInput
                 label="Номер телефону"
-                placeholder="380..."
+                placeholder="+380XXXXXXXXX"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
                 keyboardType="phone-pad"
+                maxLength={13}
                 returnKeyType="next"
               />
               <AppInput
@@ -394,7 +395,8 @@ export default function EditProfile({ navigation, route }) {
                   label="Фото з паспорта (розділ про відсутність ІПН)"
                   photos={innDocPhoto ? [innDocPhoto] : []}
                   onChange={(arr) => setInnDocPhoto(arr?.[0] || null)}
-                />
+                maxCount={1}
+              />
               )}
 
               {/* Паспорт */}
@@ -422,6 +424,7 @@ export default function EditProfile({ navigation, route }) {
               <PhotoPicker
                 photos={passportPhotoMain ? [passportPhotoMain] : []}
                 onChange={(arr) => setPassportPhotoMain(arr?.[0] || "")}
+                maxCount={1}
               />
               <AppText style={styles.secondaryText}>Фото з пропискою</AppText>
               <PhotoPicker
@@ -432,6 +435,7 @@ export default function EditProfile({ navigation, route }) {
                 onChange={(arr) =>
                   setPassportPhotoRegistration(arr?.[0] || null)
                 }
+                maxCount={1}
               />
 
               {/* Водійське */}
@@ -460,6 +464,7 @@ export default function EditProfile({ navigation, route }) {
                 label="Фото посвідчення"
                 photos={driverLicensePhoto ? [driverLicensePhoto] : []}
                 onChange={(arr) => setDriverLicensePhoto(arr?.[0] || null)}
+                maxCount={1}
               />
 
               {/* Техпаспорт */}
@@ -485,6 +490,7 @@ export default function EditProfile({ navigation, route }) {
                 label="Фото техпаспорта"
                 photos={vehicleTechPhoto ? [vehicleTechPhoto] : []}
                 onChange={(arr) => setVehicleTechPhoto(arr?.[0] || null)}
+                maxCount={1}
               />
 
               {/* Авто */}
@@ -557,12 +563,14 @@ export default function EditProfile({ navigation, route }) {
                 label="Передній правий кут"
                 photos={carPhotoFrontRight ? [carPhotoFrontRight] : []}
                 onChange={(arr) => setCarPhotoFrontRight(arr?.[0] || null)}
+                maxCount={1}
               />
               <AppText style={styles.secondaryText}>Задній лівий кут</AppText>
               <PhotoPicker
                 label="Задній лівий кут"
                 photos={carPhotoRearLeft ? [carPhotoRearLeft] : []}
                 onChange={(arr) => setCarPhotoRearLeft(arr?.[0] || null)}
+                maxCount={1}
               />
 
               <AppText style={styles.secondaryText}>Кузов всередині</AppText>
@@ -570,12 +578,14 @@ export default function EditProfile({ navigation, route }) {
                 label="Кузов всередині"
                 photos={carPhotoInterior ? [carPhotoInterior] : []}
                 onChange={(arr) => setCarPhotoInterior(arr?.[0] || null)}
+                maxCount={1}
               />
               <AppText style={styles.sectionTitle}>Селфі</AppText>
               <PhotoPicker
                 label="Селфі"
                 photos={selfiePhoto ? [selfiePhoto] : []}
                 onChange={(arr) => setSelfiePhoto(arr?.[0] || null)}
+                maxCount={1}
               />
 
               <View style={{ height: 12 }} />

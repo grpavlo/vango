@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Image, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../AuthContext";
 import RoleSwitch from "../components/RoleSwitch";
@@ -35,6 +36,36 @@ export default function SettingsScreen({ navigation }) {
     }
     load();
   }, [token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadOnFocus() {
+        if (!token) return;
+        try {
+          setLoadingProfile(true);
+          const [me, driverProfile] = await Promise.all([
+            apiFetch("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+            apiFetch("/driver-profile/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+          ]);
+          if (!isActive) return;
+          if (driverProfile?.selfiePhoto && !me?.selfiePhoto) {
+            me.selfiePhoto = driverProfile.selfiePhoto;
+          }
+          setUser(me);
+        } catch {
+        } finally {
+          if (isActive) setLoadingProfile(false);
+        }
+      }
+
+      loadOnFocus();
+      return () => {
+        isActive = false;
+      };
+    }, [token])
+  );
 
   async function handleChange(r) {
     if (r !== role) {

@@ -14,7 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "./Colors";
 
-export default function PhotoPicker({ photos, onChange }) {
+export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
   // нормалізуємо у масив рядків-URL
   const list = Array.isArray(photos)
     ? photos.filter(Boolean)
@@ -24,8 +24,14 @@ export default function PhotoPicker({ photos, onChange }) {
   const [previewIndex, setPreviewIndex] = useState(null);
   const toast = useToast();
 
+  const makeNextPhotos = (newUri) => {
+    if (!newUri) return list;
+    if (maxCount === 1) return [newUri];
+    return [...list, newUri].slice(0, maxCount);
+  };
+
   async function pickFromLibrary() {
-    if (photos && photos.length >= 10) {
+    if (maxCount > 1 && list.length >= maxCount) {
       toast.show("Максимум 10 фотографій");
       return;
     }
@@ -38,11 +44,11 @@ export default function PhotoPicker({ photos, onChange }) {
       mediaTypes: ["images"],
       quality: 0.5,
     });
-    if (!res.canceled) onChange([...(list || []), res.assets[0].uri]);
+    if (!res.canceled) onChange(makeNextPhotos(res.assets[0].uri));
   }
 
   async function takePhoto() {
-    if (photos && photos.length >= 10) {
+    if (maxCount > 1 && list.length >= maxCount) {
       toast.show("Максимум 10 фотографій");
       return;
     }
@@ -54,7 +60,7 @@ export default function PhotoPicker({ photos, onChange }) {
     const res = await ImagePicker.launchCameraAsync({
       quality: 0.5,
     });
-    if (!res.canceled) onChange([...(list || []), res.assets[0].uri]);
+    if (!res.canceled) onChange(makeNextPhotos(res.assets[0].uri));
   }
 
   return (
@@ -100,7 +106,7 @@ export default function PhotoPicker({ photos, onChange }) {
             <TouchableOpacity
               style={styles.delete}
               onPress={() => {
-                const newPhotos = photos.filter(
+                const newPhotos = list.filter(
                   (_, idx) => idx !== previewIndex
                 );
                 onChange(newPhotos);

@@ -12,15 +12,30 @@ function pathToUrl(p) {
   return p ? p.replace(/^.*[\\/]uploads[\\/]/, '/uploads/') : null;
 }
 
+function sanitizeSmsAppHash(hash) {
+  if (typeof hash !== 'string') return '';
+  const trimmed = hash.trim();
+  if (!trimmed) return '';
+  return /^[A-Za-z0-9+/_-]{11}$/.test(trimmed) ? trimmed : '';
+}
+
+function buildLoginCodeSms(code, appHash) {
+  const baseText = `${code} - код для входу в VanGo. Дійсний 5 хв.`;
+  if (!appHash) return baseText;
+  return `<#> ${baseText}\n${appHash}`;
+}
+
 async function sendPhoneCode(req, res) {
   const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const appHash = sanitizeSmsAppHash(req.body?.appHash);
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) {
     return res.status(400).send('Вкажіть коректний номер телефону');
   }
   const code = generateCode();
   setCode(phone, code);
-  const result = await sendSms(phone, `${code} - код для входу в VanGo. Дійсний 5 хв.`);
+  const smsText = buildLoginCodeSms(code, appHash);
+  const result = await sendSms(phone, smsText);
   if (!result.ok) {
     return res.status(500).send(result.error || 'Не вдалося відправити SMS');
   }

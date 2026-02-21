@@ -1,21 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, AppState } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, AppState, Platform } from 'react-native';
 import AppText from '../components/AppText';
 
 let Clipboard = null;
 try {
   Clipboard = require('expo-clipboard');
 } catch {
-  // Native module ExpoClipboard not available (потрібна перебудова після npx expo install expo-clipboard)
+  // Native module ExpoClipboard not available.
 }
+
+let OtpVerify = null;
+try {
+  const otpModule = require('react-native-otp-verify');
+  OtpVerify = otpModule?.default || otpModule;
+} catch {
+  // Native module react-native-otp-verify not available until native rebuild.
+}
+
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../AuthContext';
+import { formatUaPhoneInput, isCompleteUaPhone } from '../phoneMask';
 
-function extractCodeFromClipboard(text) {
+function extractCodeFromText(text) {
   const match = text?.match(/\b(\d{6})\b/);
   return match ? match[1] : null;
 }
@@ -23,22 +33,53 @@ function extractCodeFromClipboard(text) {
 export default function PhoneAuthScreen({ navigation }) {
   const toast = useToast();
   const { login } = useAuth();
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(formatUaPhoneInput(''));
   const [code, setCode] = useState('');
   const [step, setStep] = useState('phone'); // 'phone' | 'code'
   const [loading, setLoading] = useState(false);
+  const [androidSmsHash, setAndroidSmsHash] = useState(null);
   const codeRef = useRef('');
 
-  function formatPhoneInput(text) {
-    const digits = text.replace(/\D/g, '').slice(0, 12);
-    if (digits.length <= 2) return digits ? `+${digits}` : '';
-    if (digits.startsWith('38')) return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
-    return `+38 ${digits}`;
-  }
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !OtpVerify?.getHash) return;
+    let mounted = true;
+
+    async function loadSmsHash() {
+      try {
+        const hashes = await OtpVerify.getHash();
+        const hash = Array.isArray(hashes) ? hashes[0] : null;
+        if (mounted && typeof hash === 'string' && hash.trim()) {
+          setAndroidSmsHash(hash.trim());
+        }
+      } catch {
+        // Fallback to default SMS format when hash is unavailable.
+      }
+    }
+
+    loadSmsHash();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function handleSendCode() {
     const digits = phone.replace(/\D/g, '');
-    if (digits.length < 10) {
+    let smsHash = androidSmsHash;
+
+    if (!smsHash && Platform.OS === 'android' && OtpVerify?.getHash) {
+      try {
+        const hashes = await OtpVerify.getHash();
+        const freshHash = Array.isArray(hashes) ? hashes[0] : null;
+        if (typeof freshHash === 'string' && freshHash.trim()) {
+          smsHash = freshHash.trim();
+          setAndroidSmsHash(smsHash);
+        }
+      } catch {
+        // Continue without hash if unavailable.
+      }
+    }
+
+    if (!isCompleteUaPhone(phone)) {
       toast.show('Введіть коректний номер телефону');
       return;
     }
@@ -46,7 +87,10 @@ export default function PhoneAuthScreen({ navigation }) {
     try {
       await apiFetch('/auth/send-code', {
         method: 'POST',
-        body: JSON.stringify({ phone: digits.startsWith('38') ? digits : '38' + digits }),
+        body: JSON.stringify({
+          phone: digits,
+          ...(smsHash ? { appHash: smsHash } : {}),
+        }),
       });
       setStep('code');
       setCode('');
@@ -64,8 +108,7 @@ export default function PhoneAuthScreen({ navigation }) {
       toast.show('Введіть 6-значний код');
       return;
     }
-    const phoneDigits = phone.replace(/\D/g, '');
-    const phoneStr = phoneDigits.startsWith('38') ? phoneDigits : '38' + phoneDigits;
+    const phoneStr = phone.replace(/\D/g, '');
     setLoading(true);
     try {
       const data = await apiFetch('/auth/verify-code', {
@@ -87,7 +130,7 @@ export default function PhoneAuthScreen({ navigation }) {
     if (!Clipboard) return;
     try {
       const text = await Clipboard.getStringAsync();
-      const extracted = extractCodeFromClipboard(text);
+      const extracted = extractCodeFromText(text);
       if (extracted) {
         setCode(extracted);
         toast.show('Код вставлено');
@@ -102,13 +145,46 @@ export default function PhoneAuthScreen({ navigation }) {
   codeRef.current = code;
 
   useEffect(() => {
+    if (step !== 'code' || Platform.OS !== 'android' || !OtpVerify?.getOtp || !OtpVerify?.addListener) {
+      return;
+    }
+
+    let mounted = true;
+
+    async function startOtpListener() {
+      try {
+        await OtpVerify.getOtp();
+        OtpVerify.addListener((message) => {
+          if (!mounted || codeRef.current?.length === 6) return;
+          const extracted = extractCodeFromText(message);
+          if (extracted) {
+            setCode(extracted);
+            toast.show('Код автоматично зчитано з SMS');
+          }
+        });
+      } catch {
+        // OTP listener is optional; keep manual/clipboard fallback.
+      }
+    }
+
+    startOtpListener();
+
+    return () => {
+      mounted = false;
+      try {
+        OtpVerify.removeListener();
+      } catch {}
+    };
+  }, [step]);
+
+  useEffect(() => {
     if (step !== 'code' || !Clipboard) return;
     let mounted = true;
     async function checkClipboard() {
       try {
         if (codeRef.current?.length === 6) return;
         const text = await Clipboard.getStringAsync();
-        const extracted = extractCodeFromClipboard(text);
+        const extracted = extractCodeFromText(text);
         if (mounted && extracted) {
           setCode(extracted);
           toast.show('Код вставлено з буфера');
@@ -133,9 +209,10 @@ export default function PhoneAuthScreen({ navigation }) {
           <AppText style={styles.label}>Номер телефону</AppText>
           <AppInput
             value={phone}
-            onChangeText={(t) => setPhone(formatPhoneInput(t))}
-            placeholder="+38 0XX XXX XX XX"
+            onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
+            placeholder="+380XXXXXXXXX"
             keyboardType="phone-pad"
+            maxLength={13}
           />
           <AppButton
             title={loading ? 'Надсилання...' : 'Отримати код'}
@@ -153,7 +230,8 @@ export default function PhoneAuthScreen({ navigation }) {
             keyboardType="number-pad"
             maxLength={6}
             textContentType="oneTimeCode"
-            autoComplete="sms-otp"
+            autoComplete={Platform.select({ ios: 'one-time-code', default: 'sms-otp' })}
+            importantForAutofill="yes"
           />
           {clipboardAvailable && (
             <TouchableOpacity style={styles.pasteLink} onPress={pasteFromClipboard}>

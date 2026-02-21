@@ -1,14 +1,30 @@
 // src/controllers/driverProfileController.js
 "use strict";
 
-const path = require("path");
+const db = require("../config/db");
 const DriverProfile = require("../models/driverProfile");
 const User = require("../models/user");
+const {
+  collectUploadedUrls,
+  cleanupUploadUrls,
+} = require("../utils/uploadFiles");
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-const toBool = (v) => v === true || v === "true" || v === "1" || v === 1 || v === "on";
+const toBool = (v) =>
+  v === true || v === "true" || v === "1" || v === 1 || v === "on";
 const toInt = (v) => (v === "" || v == null ? null : Number.parseInt(v, 10));
 const pathToUrl = (p) => (p ? p.replace(/^.*[\\/]uploads[\\/]/, "/uploads/") : null);
+
+const DRIVER_PROFILE_FILE_FIELDS = [
+  "innDocPhoto",
+  "passportPhotoMain",
+  "passportPhotoRegistration",
+  "driverLicensePhoto",
+  "vehicleTechPhoto",
+  "carPhotoFrontRight",
+  "carPhotoRearLeft",
+  "carPhotoInterior",
+  "selfiePhoto",
+];
 
 const hasValue = (value) => {
   if (value === undefined || value === null) return false;
@@ -68,7 +84,6 @@ function validateDriverProfile(snapshot) {
   }
 }
 
-// залишає у patch тільки дозволені ключі
 function pick(obj, keys) {
   const out = {};
   keys.forEach((k) => {
@@ -77,7 +92,6 @@ function pick(obj, keys) {
   return out;
 }
 
-// Мапінг полів, які приймаємо з тіла + типізація
 function makePatch(body) {
   const patch = pick(body, [
     "fullName",
@@ -95,42 +109,48 @@ function makePatch(body) {
 
   if (body.noInn !== undefined) patch.noInn = toBool(body.noInn);
 
-  // числа
   if (body.carYear !== undefined) patch.carYear = toInt(body.carYear);
   if (body.carLengthMm !== undefined) patch.carLengthMm = toInt(body.carLengthMm);
   if (body.carWidthMm !== undefined) patch.carWidthMm = toInt(body.carWidthMm);
   if (body.carHeightMm !== undefined) patch.carHeightMm = toInt(body.carHeightMm);
 
-  // якщо noInn=false — чистимо inn
   if (patch.noInn === true) patch.inn = null;
   return patch;
 }
 
-// Записуємо шляхи завантажених файлів у поля профілю
 function applyFiles(patch, files) {
   if (!files) return;
 
-  const map = [
-    "innDocPhoto",
-    "passportPhotoMain",
-    "passportPhotoRegistration",
-    "driverLicensePhoto",
-    "vehicleTechPhoto",
-    "carPhotoFrontRight",
-    "carPhotoRearLeft",
-    "carPhotoInterior",
-    "selfiePhoto",
-  ];
-
-  for (const key of map) {
-    const f = files[key]?.[0];
-    if (f?.path) patch[key] = pathToUrl(f.path);
+  for (const key of DRIVER_PROFILE_FILE_FIELDS) {
+    const file = files[key]?.[0];
+    if (file?.path) patch[key] = pathToUrl(file.path);
   }
 }
 
-// ─── controllers ──────────────────────────────────────────────────────────────
+function getReplacedPhotoUrls({ previousProfile, previousUser, patch, files }) {
+  const replaced = new Set();
+  for (const key of DRIVER_PROFILE_FILE_FIELDS) {
+    const uploaded = files?.[key]?.[0];
+    if (!uploaded?.path) continue;
 
-// GET /driver-profile/me
+    const newUrl = patch[key];
+    if (!newUrl) continue;
+
+    const oldFromProfile = previousProfile?.[key];
+    if (oldFromProfile && oldFromProfile !== newUrl) {
+      replaced.add(oldFromProfile);
+    }
+
+    if (key === "selfiePhoto") {
+      const oldFromUser = previousUser?.selfiePhoto;
+      if (oldFromUser && oldFromUser !== newUrl) {
+        replaced.add(oldFromUser);
+      }
+    }
+  }
+  return [...replaced];
+}
+
 exports.getMe = async (req, res) => {
   try {
     const profile = await DriverProfile.findOne({
@@ -144,48 +164,82 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// POST/PUT /driver-profile/me  (upsert)
 exports.upsertMe = async (req, res) => {
+  const uploadedUrls = collectUploadedUrls(req.files);
+  let shouldCleanupUploaded = true;
+  let replacedUrls = [];
+
   try {
-    // (не нав’язуюсь, але зазвичай профіль редагує саме DRIVER/BOTH — це краще контролювати в authorize([...]))
-    const body = req.body || {};
-    const patch = makePatch(body);
-    applyFiles(patch, req.files);
+    await db.transaction(async (transaction) => {
+      const body = req.body || {};
+      const patch = makePatch(body);
+      applyFiles(patch, req.files);
 
-    let profile = await DriverProfile.findOne({ where: { userId: req.user.id } });
-    const snapshot = buildSnapshot(profile, patch);
-    validateDriverProfile(snapshot);
+      const user = await User.findByPk(req.user.id, { transaction });
+      if (!user) {
+        const error = new Error("Користувача не знайдено");
+        error.statusCode = 404;
+        throw error;
+      }
 
-    if (!profile) {
-      profile = await DriverProfile.create({ userId: req.user.id, ...patch });
-    } else {
-      Object.entries(patch).forEach(([k, v]) => {
-        if (v !== undefined) profile[k] = v;
+      if (!patch.selfiePhoto && user.selfiePhoto) {
+        patch.selfiePhoto = user.selfiePhoto;
+      }
+
+      let profile = await DriverProfile.findOne({
+        where: { userId: user.id },
+        transaction,
       });
-      await profile.save();
-    }
+      const previousProfile = profile ? profile.get({ plain: true }) : null;
+      const previousUser = user.get({ plain: true });
 
-    // Синхронізація з User: firstName, lastName, patronymic, selfiePhoto
-    const user = req.user;
-    if (patch.fullName) {
-      const parts = String(patch.fullName).trim().split(/\s+/).filter(Boolean);
-      user.firstName = parts[1] || null;
-      user.lastName = parts[0] || null;
-      user.patronymic = parts.length > 2 ? parts.slice(2).join(" ") : null;
-      user.name = patch.fullName;
-    }
-    if (patch.selfiePhoto) {
-      user.selfiePhoto = patch.selfiePhoto;
-    }
-    await user.save();
+      replacedUrls = getReplacedPhotoUrls({
+        previousProfile,
+        previousUser,
+        patch,
+        files: req.files,
+      });
 
-    // повернемо свіже значення з користувачем
+      const snapshot = buildSnapshot(profile, patch);
+      validateDriverProfile(snapshot);
+
+      if (!profile) {
+        profile = await DriverProfile.create(
+          { userId: user.id, ...patch },
+          { transaction }
+        );
+      } else {
+        Object.entries(patch).forEach(([k, v]) => {
+          if (v !== undefined) profile[k] = v;
+        });
+        await profile.save({ transaction });
+      }
+
+      if (patch.fullName) {
+        const parts = String(patch.fullName).trim().split(/\s+/).filter(Boolean);
+        user.firstName = parts[1] || null;
+        user.lastName = parts[0] || null;
+        user.patronymic = parts.length > 2 ? parts.slice(2).join(" ") : null;
+        user.name = patch.fullName;
+      }
+      if (patch.selfiePhoto) {
+        user.selfiePhoto = patch.selfiePhoto;
+      }
+      await user.save({ transaction });
+    });
+
+    shouldCleanupUploaded = false;
+    await cleanupUploadUrls(replacedUrls);
+
     const fresh = await DriverProfile.findOne({
       where: { userId: req.user.id },
       include: [{ model: User, as: "user", attributes: ["id", "email", "role"] }],
     });
     return res.json(fresh);
   } catch (e) {
+    if (shouldCleanupUploaded) {
+      await cleanupUploadUrls(uploadedUrls);
+    }
     console.error("[driverProfile.upsertMe]", e);
     if (e.statusCode) {
       return res.status(e.statusCode).send(e.message);

@@ -15,13 +15,12 @@ const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
 const { Op } = require('sequelize');
 
+const PORT = process.env.NODE_ENV === 'production'
+    ? Number(process.env.PORT_PROD ?? 3000)
+    : Number(process.env.PORT ?? 3000)
 
-const envFile =
-  process.env.NODE_ENV === 'production'
-    ? '.envprod'
-    : '.env';
 
-dotenv.config({ path: envFile });
+dotenv.config({ path: '.env' });
 
 const app = express();
 app.use(express.json());
@@ -35,9 +34,6 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use("/api", driverProfileRoutes);
 
-
-
-const PORT = process.env.PORT || 3000;
 
 function scheduleCleanup() {
   async function cleanup() {

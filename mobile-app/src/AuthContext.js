@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, setUnauthorizedHandler } from './api';
 import { getPushToken } from './notifications';
-import { navigate } from './navigationRef';
 
 const AuthContext = createContext({});
 
@@ -16,7 +15,7 @@ export function AuthProvider({ children }) {
     await AsyncStorage.multiRemove(['token', 'role']);
     setToken(null);
     setRole(null);
-    navigate('Login'); // PhoneAuthScreen
+    setNeedsProfileSetup(false);
   }, []);
 
   // Register global unauthorized handler early to catch 401s during initial load

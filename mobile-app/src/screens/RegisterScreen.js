@@ -15,6 +15,7 @@ import AppButton from '../components/AppButton';
 import { colors } from '../components/Colors';
 import { apiFetch } from '../api';
 import { useToast } from '../components/Toast';
+import { formatUaPhoneInput, isCompleteUaPhone } from '../phoneMask';
 
 export default function RegisterScreen({ navigation }) {
   const toast = useToast();
@@ -22,7 +23,7 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [city, setCity] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(formatUaPhoneInput(''));
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function RegisterScreen({ navigation }) {
       setEmail('');
       setPassword('');
       setCity('');
-      setPhone('');
+      setPhone(formatUaPhoneInput(''));
       setError(null);
     });
     return unsubscribe;
@@ -43,10 +44,14 @@ export default function RegisterScreen({ navigation }) {
 
       return;
     }
+    if (!isCompleteUaPhone(phone)) {
+      toast.show('Вкажіть номер у форматі +380XXXXXXXXX');
+      return;
+    }
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name, email, password, city, phone }),
+        body: JSON.stringify({ name, email, password, city, phone: phone.trim() }),
       });
       toast.show('Реєстрація успішна');
       navigation.goBack();
@@ -81,7 +86,13 @@ export default function RegisterScreen({ navigation }) {
         placeholder="********"
       />
       <AppText style={styles.label}>Телефон</AppText>
-      <AppInput value={phone} onChangeText={setPhone} placeholder="380..." keyboardType="phone-pad" />
+      <AppInput
+        value={phone}
+        onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
+        placeholder="+380XXXXXXXXX"
+        keyboardType="phone-pad"
+        maxLength={13}
+      />
       <AppText style={styles.label}>Місто</AppText>
       <AppInput value={city} onChangeText={setCity} placeholder="Київ" />
           {error && <AppText style={styles.error}>{error}</AppText>}

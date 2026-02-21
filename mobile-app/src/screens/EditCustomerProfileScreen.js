@@ -20,6 +20,7 @@ import { colors } from "../components/Colors";
 import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
+import { formatUaPhoneInput, isCompleteUaPhone } from "../phoneMask";
 
 function fullUrl(path) {
   if (!path) return null;
@@ -75,7 +76,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [patronymic, setPatronymic] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(formatUaPhoneInput(""));
   const [email, setEmail] = useState("");
   const [selfiePhoto, setSelfiePhoto] = useState(null);
 
@@ -90,7 +91,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
           headers: { Authorization: `Bearer ${token}` },
         }).catch(() => null);
 
-        setPhone(me?.phone ?? user?.phone ?? "");
+        setPhone(formatUaPhoneInput(me?.phone ?? user?.phone ?? ""));
 
         setEmail(String(me?.email ?? driverData?.user?.email ?? user?.email ?? "").trim());
 
@@ -115,7 +116,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
         setSelfiePhoto(selfieSrc || null);
       } catch (e) {
         if (user) {
-          setPhone(user.phone ?? "");
+          setPhone(formatUaPhoneInput(user.phone ?? ""));
           if (user.name) {
             const parsed = parseFullName(user.name);
             setFirstName(parsed.firstName);
@@ -145,8 +146,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
       toast.show("Вкажіть номер телефону");
       return;
     }
-    const phoneDigits = trimmedPhone.replace(/\D/g, "");
-    if (phoneDigits.length < 10) {
+    if (!isCompleteUaPhone(trimmedPhone)) {
       toast.show("Некоректний номер телефону");
       return;
     }
@@ -223,10 +223,11 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
               <AppText style={styles.sectionTitle}>Контакти</AppText>
               <AppInput
                 label="Номер телефону"
-                placeholder="380..."
+                placeholder="+380XXXXXXXXX"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
                 keyboardType="phone-pad"
+                maxLength={13}
               />
               <AppInput
                 label="Електронна адреса"
@@ -242,6 +243,7 @@ export default function EditCustomerProfileScreen({ navigation, route }) {
                 label="Ваше фото"
                 photos={selfiePhoto ? [selfiePhoto] : []}
                 onChange={(arr) => setSelfiePhoto(arr?.[0] || null)}
+                maxCount={1}
               />
 
               <View style={{ height: 24 }} />
