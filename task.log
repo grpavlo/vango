@@ -1,0 +1,106 @@
+
+> vango@1.0.0 prod
+> cross-env NODE_ENV=production node src/index.js
+
+(sequelize) Warning: PostgresSQL does not support 'INTEGER' with LENGTH, UNSIGNED or ZEROFILL. Plain 'INTEGER' will be used instead. 
+>> Check: http://www.postgresql.org/docs/9.4/static/datatype.html
+Server running on port 1001
+[SMSFly] Provider response {
+  recipient: '********3382',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+Error
+    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
+    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
+    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
+    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
+    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
+[SMSFly] Provider response {
+  recipient: '********3382',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+Error
+    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
+    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
+    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
+    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
+    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
+[SMSFly] Provider response {
+  recipient: '********9007',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+[SMSFly] Provider response {
+  recipient: '********3382',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+Error
+    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
+    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
+    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
+    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
+    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
+[SMSFly] Provider response {
+  recipient: '********3382',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+Error
+    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
+    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
+    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
+    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
+    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
+[SMSFly] Provider response {
+  recipient: '********9007',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+[SMSFly] Provider response {
+  recipient: '********3382',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+Error
+    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
+    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
+    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
+    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
+    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
+[SMSFly] Provider response {
+  recipient: '********9007',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+[SMSFly] Provider response {
+  recipient: '********9007',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
+^C

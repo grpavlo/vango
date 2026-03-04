@@ -7,6 +7,7 @@ const { JWT_SECRET } = require('../config');
 const DriverProfile = require('../models/driverProfile');
 const { sendSms } = require('../services/turbosms');
 const { generateCode, set: setCode, verifyAndConsume, normalizePhone } = require('../services/authCodes');
+const { Op, fn, col, where } = require('sequelize');
 
 function pathToUrl(p) {
   return p ? p.replace(/^.*[\\/]uploads[\\/]/, '/uploads/') : null;
@@ -23,6 +24,17 @@ function buildLoginCodeSms(code, appHash) {
   const baseText = `${code} - код для входу в VanGo. Дійсний 5 хв.`;
   if (!appHash) return baseText;
   return `<#> ${baseText}\n${appHash}`;
+}
+
+function buildPhoneLookupVariants(phone) {
+  const normalizedPhone = normalizePhone(phone);
+  const variants = new Set([normalizedPhone]);
+
+  if (normalizedPhone.startsWith('380') && normalizedPhone.length === 12) {
+    variants.add(`0${normalizedPhone.slice(3)}`);
+  }
+
+  return [...variants];
 }
 
 async function sendPhoneCode(req, res) {
@@ -55,17 +67,15 @@ async function verifyPhoneCode(req, res) {
   if (!verifyAndConsume(phone, code)) {
     return res.status(400).send('Невірний або прострочений код');
   }
-  const normalizedPhone = normalizePhone(phone);
-  const phoneStr = normalizedPhone.startsWith('38') ? normalizedPhone : '38' + normalizedPhone;
-  const { Op } = require('sequelize');
+  const phoneVariants = buildPhoneLookupVariants(phone);
+  const phoneStr = phoneVariants[0];
   let user = await User.findOne({
     where: {
-      [Op.or]: [
-        { phone: phoneStr },
-        { phone: phoneStr.replace(/^38/, '0') },
-        { phone: phoneStr.replace(/^38/, '') },
-      ],
+      [Op.or]: phoneVariants.map((phoneVariant) =>
+        where(fn('regexp_replace', col('phone'), '[^0-9]', '', 'g'), phoneVariant)
+      ),
     },
+    order: [['id', 'DESC']],
   });
   if (!user) {
     const emailPlaceholder = `user_${phoneStr}@vango.phone`;
