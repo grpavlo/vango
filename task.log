@@ -5,102 +5,40 @@
 (sequelize) Warning: PostgresSQL does not support 'INTEGER' with LENGTH, UNSIGNED or ZEROFILL. Plain 'INTEGER' will be used instead. 
 >> Check: http://www.postgresql.org/docs/9.4/static/datatype.html
 Server running on port 1001
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовлення прийнято',
+  body: 'Водій взяв ваш вантаж',
+  data: { orderId: 37, navigateTo: 'orderDetail' }
+}
+(node:5220) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Push receipts [ { status: 'ok', id: '019cb966-7330-713e-9525-726cb8652292' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовлення відхилено',
+  body: 'Замовник відхилив ваш пропозицію',
+  data: { orderId: 37, navigateTo: 'driverOrders' }
+}
+Push receipts [ { status: 'ok', id: '019cb966-b652-741d-9043-96e487491996' } ]
 [SMSFly] Provider response {
-  recipient: '********3382',
+  recipient: '********0020',
   httpStatus: 200,
   success: 1,
   status: 'ACCEPTD',
   messageId: null
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Sending push {
+  to: 'ExponentPushToken[qSVVD6FkwFW4-oohFAkE3X]',
+  title: 'Замовник підтвердив доставку',
+  body: 'Замовник підтвердив отримання вантажу',
+  data: { orderId: 5, navigateTo: 'driverHistory' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cbe97-d8cf-7138-b343-a1d6a7fddfc6' } ]
+Sending push {
+  to: 'ExponentPushToken[ke5TP5JFKqxPq7TpW6uHlT]',
+  title: 'Замовлення у резерві',
+  body: 'Водій взяв ваше замовлення в резерв',
+  data: { orderId: 38, navigateTo: 'orderDetail' }
 }
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
-}
-^C
+Push receipts [ { status: 'ok', id: '019cbe9b-2196-704f-bf16-52ff4335f598' } ]

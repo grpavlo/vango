@@ -52,3 +52,30 @@ All maps now render with the Google provider. We removed OSM tiles and set `prov
 
 No changes to address search were made (it still uses OpenStreetMap/Nominatim). If you want Google Places Autocomplete, we can add it on request.
 
+## 4) Build Android AAB (Local, without Expo Build)
+
+Use this when you need a Play Store upload file (`.aab`) from the local machine.
+
+Prerequisites:
+- Android SDK installed (Android Studio).
+- Java from Android Studio (`jbr`) or JDK 17/21.
+- Release signing configured in `android/key.properties`.
+
+Run:
+
+```powershell
+cd C:\vango\mobile-app\android
+$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
+$env:PATH="$env:JAVA_HOME\bin;$env:PATH"
+$env:NODE_ENV='production'
+.\gradlew.bat bundleRelease
+```
+
+Output file:
+
+```text
+C:\vango\mobile-app\android\app\build\outputs\bundle\release\app-release.aab
+```
+
+If Google Play rejects an update, increase `versionCode` (and usually `versionName`) before rebuilding.
+

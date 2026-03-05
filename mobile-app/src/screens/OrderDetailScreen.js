@@ -14,6 +14,7 @@ import {
   Linking,
   Platform,
   AppState,
+  Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -225,6 +226,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [confirmTimeLeft, setConfirmTimeLeft] = useState(null);
 
   const [actionHeight, setActionHeight] = useState(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [finalPrice, setFinalPrice] = useState(order?.price ? String(order.price) : '');
   const wsRef = useRef(null);
   const priceInputRef = useRef(null);
@@ -232,6 +234,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const callingRef = useRef(false);
 
   const useNewFlow = FEATURE_FLAGS.NEW_RESPONSE_FLOW;
+  const HALF_FINAL_PRICE_INPUT_HEIGHT = 0;
 
   const contactPhone = useMemo(() => {
     if (useNewFlow && myResponse?.customerPhone) return myResponse.customerPhone;
@@ -292,6 +295,26 @@ export default function OrderDetailScreen({ route, navigation }) {
   useEffect(() => {
     setFinalPrice(order?.price ? String(order.price) : '');
   }, [order?.price]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (event) => {
+      setKeyboardOffset(event?.endCoordinates?.height || 0);
+    };
+    const onHide = () => {
+      setKeyboardOffset(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   function connectWs() {
     if (!token) return;
@@ -1418,7 +1441,13 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       </ScrollView>
 
-        <View style={styles.actionArea} onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}>
+        <View
+          style={[
+            styles.actionArea,
+            { bottom: keyboardOffset > 0 ? HALF_FINAL_PRICE_INPUT_HEIGHT : 0 },
+          ]}
+          onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}
+        >
 
       {!useNewFlow && role === 'DRIVER' && showContact && contactPhone && (
         <View style={styles.driverCard}>

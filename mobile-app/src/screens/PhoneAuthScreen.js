@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, AppState, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, AppState, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import AppText from '../components/AppText';
 
 let Clipboard = null;
@@ -202,57 +203,67 @@ export default function PhoneAuthScreen({ navigation }) {
   }, [step]);
 
   return (
-    <View style={styles.container}>
-      <AppText style={styles.title}>VanGo</AppText>
-      {step === 'phone' ? (
-        <>
-          <AppText style={styles.label}>Номер телефону</AppText>
-          <AppInput
-            value={phone}
-            onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
-            placeholder="+380XXXXXXXXX"
-            keyboardType="phone-pad"
-            maxLength={13}
-          />
-          <AppButton
-            title={loading ? 'Надсилання...' : 'Отримати код'}
-            onPress={handleSendCode}
-            disabled={loading}
-          />
-        </>
-      ) : (
-        <>
-          <AppText style={styles.label}>Код з SMS</AppText>
-          <AppInput
-            value={code}
-            onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
-            placeholder="000000"
-            keyboardType="number-pad"
-            maxLength={6}
-            textContentType="oneTimeCode"
-            autoComplete={Platform.select({ ios: 'one-time-code', default: 'sms-otp' })}
-            importantForAutofill="yes"
-          />
-          {clipboardAvailable && (
-            <TouchableOpacity style={styles.pasteLink} onPress={pasteFromClipboard}>
-              <AppText style={styles.pasteLinkText}>Вставити код з буфера обміну</AppText>
-            </TouchableOpacity>
+     <KeyboardAwareScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      extraScrollHeight={80}
+      enableOnAndroid={true}
+      showsVerticalScrollIndicator={false}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View>
+          <AppText style={styles.title}>VanGo</AppText>
+          {step === 'phone' ? (
+            <>
+              <AppText style={styles.label}>Номер телефону</AppText>
+              <AppInput
+                value={phone}
+                onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
+                placeholder="+380XXXXXXXXX"
+                keyboardType="phone-pad"
+                maxLength={13}
+              />
+              <AppButton
+                title={loading ? 'Надсилання...' : 'Отримати код'}
+                onPress={handleSendCode}
+                disabled={loading}
+              />
+            </>
+          ) : (
+            <>
+              <AppText style={styles.label}>Код з SMS</AppText>
+              <AppInput
+                value={code}
+                onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                keyboardType="number-pad"
+                maxLength={6}
+                textContentType="oneTimeCode"
+                autoComplete={Platform.select({ ios: 'one-time-code', default: 'sms-otp' })}
+                importantForAutofill="yes"
+              />
+              {clipboardAvailable && (
+                <TouchableOpacity style={styles.pasteLink} onPress={pasteFromClipboard}>
+                  <AppText style={styles.pasteLinkText}>Вставити код з буфера обміну</AppText>
+                </TouchableOpacity>
+              )}
+              <AppButton
+                title={loading ? 'Перевірка...' : 'Увійти'}
+                onPress={handleVerify}
+                disabled={loading}
+              />
+              <TouchableOpacity
+                style={styles.backLink}
+                onPress={() => setStep('phone')}
+                disabled={loading}
+              >
+                <AppText style={styles.backLinkText}>Змінити номер</AppText>
+              </TouchableOpacity>
+            </>
           )}
-          <AppButton
-            title={loading ? 'Перевірка...' : 'Увійти'}
-            onPress={handleVerify}
-            disabled={loading}
-          />
-          <TouchableOpacity
-            style={styles.backLink}
-            onPress={() => setStep('phone')}
-            disabled={loading}
-          >
-            <AppText style={styles.backLinkText}>Змінити номер</AppText>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAwareScrollView>
   );
 }
 
