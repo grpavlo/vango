@@ -186,6 +186,8 @@ async function createOrder(req, res) {
 
     }
 
+    const { cargoLength, cargoWidth, cargoHeight, cargoVolume, cargoWeight, distance } = req.body;
+
     const order = await Order.create({
 
       customerId: req.user.id,
@@ -241,6 +243,18 @@ async function createOrder(req, res) {
       price,
 
       agreedPrice: agreedPrice === "true" || agreedPrice === true,
+
+      distance: distance ? parseFloat(distance) : null,
+
+      cargoLength: cargoLength ? parseFloat(cargoLength) : null,
+
+      cargoWidth: cargoWidth ? parseFloat(cargoWidth) : null,
+
+      cargoHeight: cargoHeight ? parseFloat(cargoHeight) : null,
+
+      cargoVolume: cargoVolume ? parseFloat(cargoVolume) : null,
+
+      cargoWeight: cargoWeight ? parseFloat(cargoWeight) : null,
 
       photos: req.files ? req.files.map((f) => `/uploads/${f.filename}`) : [],
 
@@ -393,7 +407,24 @@ async function listAvailableOrders(req, res) {
 
   const filtered = orders.filter(inRadius);
 
-
+  const OrderResponse = require("../models/orderResponse");
+  const { Op: SeqOp } = require("sequelize");
+  const orderIds = filtered.map((o) => o.id);
+  let responseCounts = {};
+  if (orderIds.length > 0) {
+    const counts = await OrderResponse.findAll({
+      attributes: ["orderId", [require("sequelize").fn("COUNT", require("sequelize").col("id")), "cnt"]],
+      where: { orderId: { [SeqOp.in]: orderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] } },
+      group: ["orderId"],
+      raw: true,
+    });
+    counts.forEach((c) => { responseCounts[c.orderId] = parseInt(c.cnt); });
+  }
+  const enriched = filtered.map((o) => {
+    const json = o.toJSON ? o.toJSON() : o;
+    json.responseCount = responseCounts[json.id] || 0;
+    return json;
+  });
 
   const takenOrders = await Order.findAll({
 
@@ -403,7 +434,7 @@ async function listAvailableOrders(req, res) {
 
   });
 
-  res.json({ available: filtered, taken: takenOrders });
+  res.json({ available: enriched, taken: takenOrders });
 
 }
 
@@ -459,6 +490,29 @@ async function listMyOrders(req, res) {
 
   }
 
+  const OrderResponse = require("../models/orderResponse");
+  const { Op: SeqOp } = require("sequelize");
+
+  // For drivers, also include orders they have active responses to
+  if (role === "DRIVER" || role === "BOTH" || !role) {
+    const activeResponses = await OrderResponse.findAll({
+      attributes: ["orderId"],
+      where: {
+        driverId: req.user.id,
+        status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+      },
+      raw: true,
+    });
+    const respondedOrderIds = activeResponses.map((r) => r.orderId);
+    if (respondedOrderIds.length > 0) {
+      if (where[Op.or]) {
+        where[Op.or].push({ id: { [Op.in]: respondedOrderIds } });
+      } else {
+        where = { [Op.or]: [where, { id: { [Op.in]: respondedOrderIds } }] };
+      }
+    }
+  }
+
   const orders = await Order.findAll({
 
     where,
@@ -477,7 +531,43 @@ async function listMyOrders(req, res) {
 
   });
 
-  res.json(orders);
+  const myOrderIds = orders.map((o) => o.id);
+  let myResponseCounts = {};
+  if (myOrderIds.length > 0) {
+    const counts = await OrderResponse.findAll({
+      attributes: ["orderId", [require("sequelize").fn("COUNT", require("sequelize").col("id")), "cnt"]],
+      where: { orderId: { [SeqOp.in]: myOrderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] } },
+      group: ["orderId"],
+      raw: true,
+    });
+    counts.forEach((c) => { myResponseCounts[c.orderId] = parseInt(c.cnt); });
+  }
+
+  // For drivers, attach their personal response status to each order
+  let myResponseStatuses = {};
+  if (role === "DRIVER" || role === "BOTH" || !role) {
+    if (myOrderIds.length > 0) {
+      const myResps = await OrderResponse.findAll({
+        attributes: ["orderId", "status"],
+        where: {
+          driverId: req.user.id,
+          orderId: { [SeqOp.in]: myOrderIds },
+          status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "CONFIRMED"] },
+        },
+        raw: true,
+      });
+      myResps.forEach((r) => { myResponseStatuses[r.orderId] = r.status; });
+    }
+  }
+
+  const enrichedOrders = orders.map((o) => {
+    const json = o.toJSON();
+    json.responseCount = myResponseCounts[json.id] || 0;
+    json.myResponseStatus = myResponseStatuses[json.id] || null;
+    return json;
+  });
+
+  res.json(enrichedOrders);
 
 }
 
@@ -488,6 +578,7 @@ async function getOrder(req, res) {
   const id = req.params.id;
 
   try {
+    const OrderResponse = require("../models/orderResponse");
 
     const order = await Order.findByPk(id, {
 
@@ -511,7 +602,16 @@ async function getOrder(req, res) {
 
     }
 
-    res.json(order);
+    const responseCount = await OrderResponse.count({
+      where: {
+        orderId: id,
+        status: { [require("sequelize").Op.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+      },
+    });
+
+    const json = order.toJSON();
+    json.responseCount = responseCount;
+    res.json(json);
 
   } catch (err) {
 
@@ -1668,33 +1768,357 @@ async function deleteOrder(req, res) {
 
 
 
+// ── OrderResponse (new response flow) ──
+
+const OrderResponse = require("../models/orderResponse");
+const { ResponseStatus } = require("../models/orderResponse");
+
+const MAX_ACTIVE_RESPONSES = 5;
+const CONFIRM_TIMEOUT_MS = 30 * 60 * 1000;
+const DISCUSSING_TIMEOUT_MS = 60 * 60 * 1000;
+
+async function respondToOrder(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId, {
+      include: { model: User, as: "customer" },
+    });
+    if (!order || order.status !== "CREATED") {
+      return res.status(400).send("Замовлення недоступне");
+    }
+
+    const activeCount = await OrderResponse.count({
+      where: {
+        driverId: req.user.id,
+        status: { [require("sequelize").Op.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+      },
+    });
+    if (activeCount >= MAX_ACTIVE_RESPONSES) {
+      return res.status(400).send("Ліміт активних відгуків (MAX). Завершіть поточні обговорення.");
+    }
+
+    const existing = await OrderResponse.findOne({
+      where: { orderId, driverId: req.user.id, status: { [require("sequelize").Op.notIn]: ["DECLINED", "REJECTED", "EXPIRED"] } },
+    });
+    if (existing) {
+      return res.status(400).send("Ви вже відгукнулися на це замовлення");
+    }
+
+    if (req.body && req.body.finalPrice != null && order.agreedPrice) {
+      const normalized = roundPriceValue(req.body.finalPrice);
+      if (normalized !== null) {
+        appendPriceHistory(order, order.finalPrice ?? order.price, normalized, "finalPrice", "DRIVER", req.user.id);
+        order.finalPrice = normalized;
+        await order.save();
+      }
+    }
+
+    const isImmediate = req.body && req.body.immediateConfirm === true;
+    const initialStatus = isImmediate ? ResponseStatus.PENDING_CONFIRM : ResponseStatus.RESPONDED;
+
+    const response = await OrderResponse.create({
+      orderId,
+      driverId: req.user.id,
+      status: initialStatus,
+      respondedAt: new Date(),
+      resultSubmittedAt: isImmediate ? new Date() : null,
+    });
+
+    if (order.customer && order.customer.pushToken && order.customer.pushConsent) {
+      const { sendPush } = require("../utils/push");
+      const driverUser = await User.findByPk(req.user.id);
+      const pushTitle = isImmediate
+        ? "Водій готовий виконати замовлення"
+        : "Новий відгук на замовлення";
+      const pushBody = isImmediate
+        ? `Водій ${driverUser?.name || ""} хоче підтвердити замовлення №${order.id}`
+        : `Водій ${driverUser?.name || ""} зацікавлений у замовленні №${order.id}`;
+      sendPush(
+        order.customer.pushToken,
+        pushTitle,
+        pushBody,
+        { orderId: order.id, navigateTo: "orderDetail" }
+      );
+    }
+
+    broadcastOrder(order);
+
+    res.json({
+      ...response.toJSON(),
+      customerPhone: order.customer ? order.customer.phone : null,
+      customerName: order.customer ? order.customer.name : null,
+    });
+  } catch (err) {
+    console.error("respondToOrder error:", err);
+    res.status(400).send("Не вдалося відгукнутися");
+  }
+}
+
+async function getMyResponse(req, res) {
+  const orderId = req.params.id;
+  try {
+    const response = await OrderResponse.findOne({
+      where: {
+        orderId,
+        driverId: req.user.id,
+        status: { [require("sequelize").Op.notIn]: ["DECLINED", "REJECTED", "EXPIRED"] },
+      },
+    });
+    if (!response) return res.status(404).send("Немає відгуку");
+
+    const order = await Order.findByPk(orderId, {
+      include: { model: User, as: "customer" },
+    });
+
+    res.json({
+      ...response.toJSON(),
+      customerPhone: order?.customer?.phone || null,
+      customerName: order?.customer?.name || null,
+    });
+  } catch (err) {
+    res.status(400).send("Помилка");
+  }
+}
+
+async function responseCallMade(req, res) {
+  const { id: orderId, responseId } = req.params;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
+      return res.status(400).send("Відгук не знайдено");
+    }
+    response.status = ResponseStatus.CALL_MADE;
+    response.callMadeAt = new Date();
+    await response.save();
+
+    const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
+    res.json({
+      ...response.toJSON(),
+      customerPhone: order?.customer?.phone || null,
+      customerName: order?.customer?.name || null,
+    });
+  } catch (err) {
+    res.status(400).send("Помилка");
+  }
+}
+
+async function responseResult(req, res) {
+  const { id: orderId, responseId } = req.params;
+  const { result } = req.body;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
+      return res.status(400).send("Відгук не знайдено");
+    }
+
+    const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
+
+    if (result === "agreed") {
+      response.status = ResponseStatus.PENDING_CONFIRM;
+      response.resultSubmittedAt = new Date();
+      response.expiresAt = new Date(Date.now() + CONFIRM_TIMEOUT_MS);
+      await response.save();
+
+      if (order?.customer?.pushToken && order.customer.pushConsent) {
+        const { sendPush } = require("../utils/push");
+        const driverUser = await User.findByPk(req.user.id);
+        sendPush(
+          order.customer.pushToken,
+          "Водій готовий виконати замовлення",
+          `Водій ${driverUser?.name || ""} готовий виконати замовлення №${order.id}. Підтвердіть.`,
+          { orderId: order.id, navigateTo: "orderDetail" }
+        );
+      }
+    } else if (result === "discussing") {
+      response.status = ResponseStatus.DISCUSSING;
+      response.resultSubmittedAt = new Date();
+      response.expiresAt = new Date(Date.now() + DISCUSSING_TIMEOUT_MS);
+      await response.save();
+    } else if (result === "declined") {
+      response.status = ResponseStatus.DECLINED;
+      response.resultSubmittedAt = new Date();
+      await response.save();
+    } else {
+      return res.status(400).send("Невідомий результат");
+    }
+
+    broadcastOrder(order);
+    res.json({
+      ...response.toJSON(),
+      customerPhone: order?.customer?.phone || null,
+      customerName: order?.customer?.name || null,
+    });
+  } catch (err) {
+    console.error("responseResult error:", err);
+    res.status(400).send("Помилка");
+  }
+}
+
+async function responseConfirm(req, res) {
+  const { id: orderId, responseId } = req.params;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || response.status !== ResponseStatus.PENDING_CONFIRM) {
+      return res.status(400).send("Неможливо підтвердити");
+    }
+
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id) {
+      return res.status(400).send("Немає прав");
+    }
+    if (order.status !== "CREATED") {
+      return res.status(400).send("Замовлення вже зайняте");
+    }
+
+    response.status = ResponseStatus.CONFIRMED;
+    response.confirmedAt = new Date();
+    response.expiresAt = null;
+    await response.save();
+
+    order.driverId = response.driverId;
+    order.status = "ACCEPTED";
+    order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date() }];
+    await order.save();
+
+    const { Op } = require("sequelize");
+    await OrderResponse.update(
+      { status: ResponseStatus.REJECTED },
+      {
+        where: {
+          orderId,
+          id: { [Op.ne]: response.id },
+          status: { [Op.in]: [ResponseStatus.RESPONDED, ResponseStatus.CALL_MADE, ResponseStatus.PENDING_CONFIRM, ResponseStatus.DISCUSSING] },
+        },
+      }
+    );
+
+    const driver = await User.findByPk(response.driverId);
+    if (driver?.pushToken && driver.pushConsent) {
+      const { sendPush } = require("../utils/push");
+      sendPush(
+        driver.pushToken,
+        "Замовник підтвердив!",
+        `Замовлення №${order.id} за вами.`,
+        { orderId: order.id, navigateTo: "orderDetail" }
+      );
+    }
+
+    const rejectedResponses = await OrderResponse.findAll({
+      where: { orderId, status: ResponseStatus.REJECTED, id: { [require("sequelize").Op.ne]: response.id } },
+    });
+    for (const rr of rejectedResponses) {
+      const rejDriver = await User.findByPk(rr.driverId);
+      if (rejDriver?.pushToken && rejDriver.pushConsent) {
+        const { sendPush } = require("../utils/push");
+        sendPush(rejDriver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
+      }
+    }
+
+    const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
+    await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+
+    const updated = await Order.findByPk(orderId, {
+      include: [
+        { model: User, as: "customer" },
+        { model: User, as: "driver" },
+      ],
+    });
+    broadcastOrder(updated);
+    res.json(updated);
+  } catch (err) {
+    console.error("responseConfirm error:", err);
+    res.status(400).send("Помилка підтвердження");
+  }
+}
+
+async function responseReject(req, res) {
+  const { id: orderId, responseId } = req.params;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId)) {
+      return res.status(400).send("Відгук не знайдено");
+    }
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id) {
+      return res.status(400).send("Немає прав");
+    }
+
+    response.status = ResponseStatus.REJECTED;
+    await response.save();
+
+    const driver = await User.findByPk(response.driverId);
+    if (driver?.pushToken && driver.pushConsent) {
+      const { sendPush } = require("../utils/push");
+      sendPush(driver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
+    }
+
+    broadcastOrder(order);
+    res.json(response);
+  } catch (err) {
+    res.status(400).send("Помилка відхилення");
+  }
+}
+
+async function responseWithdraw(req, res) {
+  const { id: orderId, responseId } = req.params;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
+      return res.status(400).send("Відгук не знайдено");
+    }
+    response.status = ResponseStatus.DECLINED;
+    await response.save();
+    res.json({ message: "Відгук відкликано" });
+  } catch (err) {
+    res.status(400).send("Помилка");
+  }
+}
+
+async function getOrderResponses(req, res) {
+  const orderId = req.params.id;
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id) {
+      return res.status(400).send("Немає прав");
+    }
+    const responses = await OrderResponse.findAll({
+      where: { orderId },
+      include: [{ model: User, as: "driver", include: [{ model: DriverProfile, as: "driverProfile" }] }],
+      order: [["respondedAt", "DESC"]],
+    });
+    const result = responses.map((r) => ({
+      ...r.toJSON(),
+      driverName: r.driver?.name || null,
+      driverPhone: r.driver?.phone || null,
+      driverRating: r.driver?.rating || null,
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(400).send("Помилка");
+  }
+}
+
 module.exports = {
-
   createOrder,
-
   listAvailableOrders,
-
   reserveOrder,
-
   cancelReserve,
-
   acceptOrder,
-
   confirmDriver,
-
   rejectDriver,
-
   updateStatus,
-
   listMyOrders,
-
   getOrder,
-
   updateOrder,
-
   deleteOrder,
-
-  updateFinalPrice
-
+  updateFinalPrice,
+  respondToOrder,
+  getMyResponse,
+  responseCallMade,
+  responseResult,
+  responseConfirm,
+  responseReject,
+  responseWithdraw,
+  getOrderResponses,
 };
 

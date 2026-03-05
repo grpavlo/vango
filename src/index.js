@@ -13,6 +13,7 @@ const driverProfileRoutes = require('./routes/driverProfileRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
+require('./models/orderResponse');
 const { Op } = require('sequelize');
 
 const PORT = process.env.NODE_ENV === 'production'

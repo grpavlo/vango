@@ -337,6 +337,7 @@ export default function EditProfile({ navigation, route }) {
               <AppText style={styles.sectionTitle}>ПІБ</AppText>
               <AppInput
                 label="ПІБ"
+                required
                 placeholder="Вкажіть повне ім'я"
                 value={fullName}
                 onChangeText={setFullName}
@@ -345,6 +346,7 @@ export default function EditProfile({ navigation, route }) {
               />
               <AppInput
                 label="Номер телефону"
+                required
                 placeholder="+380XXXXXXXXX"
                 value={phone}
                 onChangeText={(t) => setPhone(formatUaPhoneInput(t))}
@@ -373,6 +375,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={{ marginRight: 8, flex: 1 }}
                   label="ІПН"
+                  required={!noInn}
                   placeholder="XXXXXXXXXX"
                   value={inn}
                   onChangeText={setInn}
@@ -412,6 +415,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Номер"
+                  required
                   placeholder="Номер"
                   value={passportNumber}
                   onChangeText={setPassportNumber}
@@ -453,6 +457,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Номер"
+                  required
                   placeholder="Номер"
                   value={driverLicenseNumber}
                   onChangeText={setDriverLicenseNumber}
@@ -480,6 +485,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Номер"
+                  required
                   placeholder="Номер"
                   value={vehicleTechNumber}
                   onChangeText={setVehicleTechNumber}
@@ -498,6 +504,7 @@ export default function EditProfile({ navigation, route }) {
               {/* <AppText style={styles.secondaryText}>Держномер</AppText> */}
               <AppInput
                 label="Держномер"
+                required
                 placeholder="Держномер"
                 autoCapitalize="characters"
                 value={carPlate}
@@ -507,6 +514,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Марка"
+                  required
                   placeholder="Марка"
                   value={carMake}
                   onChangeText={setCarMake}
@@ -514,6 +522,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Модель"
+                  required
                   placeholder="Модель"
                   value={carModel}
                   onChangeText={setCarModel}
@@ -521,6 +530,7 @@ export default function EditProfile({ navigation, route }) {
               </View>
               <AppInput
                 label="Рік випуску"
+                required
                 placeholder="Рік випуску"
                 value={carYear}
                 onChangeText={setCarYear}
@@ -532,6 +542,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Довжина"
+                  required
                   placeholder="Довжина"
                   value={carLengthMm}
                   onChangeText={setCarLengthMm}
@@ -540,6 +551,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Ширина"
+                  required
                   placeholder="Ширина"
                   value={carWidthMm}
                   onChangeText={setCarWidthMm}
@@ -548,6 +560,7 @@ export default function EditProfile({ navigation, route }) {
                 <AppInput
                   style={styles.col}
                   label="Висота"
+                  required
                   placeholder="Висота"
                   value={carHeightMm}
                   onChangeText={setCarHeightMm}

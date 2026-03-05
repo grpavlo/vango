@@ -1,4 +1,4 @@
-export const HOST_URL = 'https://bagroup.com.ua:1000';
+//export const HOST_URL = 'http://192.168.0.170:9999';
 export const API_URL = `${HOST_URL}/api`;
 
 function maskPhone(phone) {
@@ -111,4 +111,62 @@ export async function apiFetch(path, options = {}) {
     }
     return result;
   }
+}
+
+// ── OrderResponse API (new response flow) ──
+
+export function respondToOrder(orderId, token, payload = {}) {
+  return apiFetch(`/orders/${orderId}/respond`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: Object.keys(payload).length ? JSON.stringify(payload) : undefined,
+  });
+}
+
+export function markCallMade(orderId, responseId, token) {
+  return apiFetch(`/orders/${orderId}/respond/${responseId}/call-made`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function submitCallResult(orderId, responseId, token, result) {
+  return apiFetch(`/orders/${orderId}/respond/${responseId}/result`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ result }),
+  });
+}
+
+export function confirmResponse(orderId, responseId, token) {
+  return apiFetch(`/orders/${orderId}/respond/${responseId}/confirm`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function rejectResponse(orderId, responseId, token) {
+  return apiFetch(`/orders/${orderId}/respond/${responseId}/reject`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function withdrawResponse(orderId, responseId, token) {
+  return apiFetch(`/orders/${orderId}/respond/${responseId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function fetchOrderResponses(orderId, token) {
+  return apiFetch(`/orders/${orderId}/responses`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function fetchMyResponse(orderId, token) {
+  return apiFetch(`/orders/${orderId}/respond/mine`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }

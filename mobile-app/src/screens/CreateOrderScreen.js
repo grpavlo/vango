@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -65,11 +65,12 @@ export default function CreateOrderScreen({ navigation }) {
   const [pickup, setPickup] = useState(null);
   const [dropoffQuery, setDropoffQuery] = useState("");
   const [dropoff, setDropoff] = useState(null);
-  // const [length, setLength] = useState('');
-  // const [width, setWidth] = useState('');
-  // const [height, setHeight] = useState('');
-  // const [weight, setWeight] = useState('');
-  // const [volWeight, setVolWeight] = useState('0');
+  const [cargoLength, setCargoLength] = useState('');
+  const [cargoWidth, setCargoWidth] = useState('');
+  const [cargoHeight, setCargoHeight] = useState('');
+  const [cargoWeight, setCargoWeight] = useState('');
+  const [cargoVolume, setCargoVolume] = useState('0');
+  const [distance, setDistance] = useState(null);
   const [loadHelp, setLoadHelp] = useState(false);
   const [unloadHelp, setUnloadHelp] = useState(false);
   const [payment, setPayment] = useState("cash");
@@ -89,34 +90,35 @@ export default function CreateOrderScreen({ navigation }) {
   const [adjust, setAdjust] = useState(0);
   const [agreedPrice, setAgreedPrice] = useState(false);
 
-  // useEffect(() => {
-  //   async function calcPrice() {
-  //     if (pickup && dropoff) {
-  //       try {
-  //         const res = await fetch(
-  //           `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
-  //         );
-  //         const data = await res.json();
-  //         if (data.routes && data.routes[0]) {
-  //           const km = data.routes[0].distance / 1000;
-  //           const base = km * 50;
-  //           setSystemPrice(base);
-  //         }
-  //       } catch (err) {
-  //         console.log(err);
-  //       }
-  //     }
-  //   }
-  //   calcPrice();
-  // }, [pickup, dropoff]);
+  useEffect(() => {
+    async function calcDistance() {
+      if (pickup && dropoff) {
+        try {
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
+          );
+          const data = await res.json();
+          if (data.routes && data.routes[0]) {
+            const km = Math.round(data.routes[0].distance / 1000);
+            setDistance(km);
+          }
+        } catch (err) {
+          console.log(err);
+        }
+      } else {
+        setDistance(null);
+      }
+    }
+    calcDistance();
+  }, [pickup, dropoff]);
 
-  // useEffect(() => {
-  //   const l = parseFloat(length) || 0;
-  //   const w = parseFloat(width) || 0;
-  //   const h = parseFloat(height) || 0;
-  //   const v = l * w * h * 250;
-  //   setVolWeight(v.toFixed(2));
-  // }, [length, width, height]);
+  useEffect(() => {
+    const l = parseFloat(cargoLength) || 0;
+    const w = parseFloat(cargoWidth) || 0;
+    const h = parseFloat(cargoHeight) || 0;
+    const v = l * w * h;
+    setCargoVolume(v > 0 ? v.toFixed(2) : '0');
+  }, [cargoLength, cargoWidth, cargoHeight]);
 
   function resetForm() {
     const defaults = buildDefaultSchedule();
@@ -169,14 +171,17 @@ export default function CreateOrderScreen({ navigation }) {
         fd.append("city", pickup.city);
       }
       fd.append("cargoType", description);
-      // fd.append('dimensions', `${length}x${width}x${height}`);
-      // fd.append('weight', weight || '0');
+      if (cargoLength) fd.append("cargoLength", cargoLength);
+      if (cargoWidth) fd.append("cargoWidth", cargoWidth);
+      if (cargoHeight) fd.append("cargoHeight", cargoHeight);
+      if (cargoWeight) fd.append("cargoWeight", cargoWeight);
+      if (parseFloat(cargoVolume) > 0) fd.append("cargoVolume", cargoVolume);
+      if (distance !== null) fd.append("distance", distance.toString());
       fd.append("loadFrom", loadFrom.toISOString());
       fd.append("loadTo", loadTo.toISOString());
       fd.append("unloadFrom", unloadFrom.toISOString());
       fd.append("unloadTo", unloadTo.toISOString());
       fd.append("insurance", "false");
-      // fd.append('volWeight', volWeight);
       fd.append("loadHelp", loadHelp ? "true" : "false");
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
@@ -385,23 +390,29 @@ export default function CreateOrderScreen({ navigation }) {
             />
           </View>
 
-          {/*
-      <View style={styles.section}>
-        <Ionicons name="cube" size={20} color={colors.green} />
-        <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <AppInput style={styles.dim} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
-        <AppInput style={styles.dim} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
-        <AppInput style={styles.dim} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
-      </View>
+          <View style={styles.section}>
+            <Ionicons name="cube" size={20} color={colors.green} />
+            <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <AppInput style={styles.dim} value={cargoLength} onChangeText={setCargoLength} keyboardType="numeric" placeholder="Д" />
+            <AppInput style={styles.dim} value={cargoWidth} onChangeText={setCargoWidth} keyboardType="numeric" placeholder="Ш" />
+            <AppInput style={styles.dim} value={cargoHeight} onChangeText={setCargoHeight} keyboardType="numeric" placeholder="В" />
+          </View>
+          {parseFloat(cargoVolume) > 0 && (
+            <AppText style={{ marginTop: 4, color: '#6B7280' }}>
+              Об'єм: {cargoVolume} м³
+            </AppText>
+          )}
 
-      <AppText style={styles.labelStandalone}>Вага, кг</AppText>
-      <AppInput value={weight} onChangeText={setWeight} keyboardType="numeric" />
+          <AppText style={styles.labelStandalone}>Вага, кг</AppText>
+          <AppInput value={cargoWeight} onChangeText={setCargoWeight} keyboardType="numeric" placeholder="Вага вантажу" />
 
-      <AppText style={styles.labelStandalone}>Об'ємна вага, кг</AppText>
-      <AppInput value={volWeight} editable={false} />
-      */}
+          {distance !== null && (
+            <AppText style={{ marginTop: 8, color: '#6B7280' }}>
+              ~{distance} км по дорозі
+            </AppText>
+          )}
 <View>
             <AppText style={styles.labelStandalone}>Додаткові послуги</AppText>
             <View

@@ -5,7 +5,7 @@ import { Marker } from "react-native-maps";
 import AppMap from "./AppMap";
 import { colors } from "./Colors";
 
-export default function OrderCard({ order, onPress, highlighted }) {
+export default function OrderCard({ order, onPress, highlighted, showResponseCount = true }) {
   const pickupCity =
     order.pickupCity ||
     ((order.pickupLocation || "").split(",")[1] || "").trim();
@@ -103,6 +103,14 @@ export default function OrderCard({ order, onPress, highlighted }) {
             />
           )}
         </View>
+        {showResponseCount && order.responseCount > 0 && (
+          <View style={styles.responseCountRow}>
+            <Ionicons name="people-outline" size={16} color="#6B7280" />
+            <Text style={styles.responseCountText}>
+              {order.responseCount} {order.responseCount === 1 ? 'водій обговорює' : 'водіїв обговорюють'}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -131,4 +139,19 @@ const styles = StyleSheet.create({
   route: { fontWeight: "bold", marginTop: 8 },
   info: { marginTop: 2, color: "#333" },
   iconRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  responseCountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  responseCountText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
+  },
 });

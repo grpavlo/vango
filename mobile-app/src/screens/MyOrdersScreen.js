@@ -28,6 +28,8 @@ const statusLabels = {
   DELIVERED: "Замовлення доставлено",
   COMPLETED: "Виконано",
   PENDING: "Очікує підтвердження",
+  PENDING_CONFIRM: "Очікує підтвердження",
+  DISCUSSING: "Ведеться обговорення",
   CANCELLED: "Скасовано",
   REJECTED: "Відмовлено",
 };
@@ -506,6 +508,14 @@ export default function MyOrdersScreen({ navigation, route }) {
               {statusLabels[item.status] || item.status}
             </Text>
           </Text>
+          {role === "CUSTOMER" && item.status === "CREATED" && item.responseCount > 0 && (
+            <View style={styles.responseCountChip}>
+              <Ionicons name="people-outline" size={16} color="#065F46" />
+              <Text style={styles.responseCountText}>
+                {item.responseCount} {item.responseCount === 1 ? 'водій зацікавлений' : 'водіїв зацікавлені'}
+              </Text>
+            </View>
+          )}
           {
             // як у OrderDetailScreen: для Клієнта показуємо, коли замовлення створене і є резерв
             ((item.status === "CREATED" && item.reservedBy) ||
@@ -575,6 +585,8 @@ export default function MyOrdersScreen({ navigation, route }) {
                 <Text style={styles.finalPriceValue}>
                   {item.finalPrice
                     ? `${Math.round(Number(item.finalPrice))} грн`
+                    : item.price
+                    ? `${Math.round(Number(item.price))} грн`
                     : "—"}
                 </Text>
               )}
@@ -621,27 +633,77 @@ export default function MyOrdersScreen({ navigation, route }) {
     );
   }
 
+  const driverHasActiveResponse = (o) =>
+    o.myResponseStatus && ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"].includes(o.myResponseStatus);
+
   const filtered = orders.filter((o) => {
     const reservedActive =
       o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
+    const hasActiveResponses = o.responseCount > 0;
     if (filter === "active") {
       if (role === "DRIVER") {
         return ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(o.status);
       }
       return (
-        ["ACCEPTED", "IN_PROGRESS", "PENDING", "DELIVERED"].includes(
-          o.status
-        ) || reservedActive
+        ["ACCEPTED", "IN_PROGRESS", "PENDING", "PENDING_CONFIRM", "DELIVERED"].includes(o.status) ||
+        reservedActive ||
+        (o.status === "CREATED" && hasActiveResponses)
       );
     }
     if (filter === "posted") {
       if (role === "DRIVER") {
-        return reservedActive || o.status === "PENDING";
+        return reservedActive || driverHasActiveResponse(o) || o.status === "PENDING" || o.status === "PENDING_CONFIRM" || o.status === "DISCUSSING";
       }
-      return o.status === "CREATED" && !o.reservedBy;
+      return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
     }
     return ["COMPLETED"].includes(o.status) || o.status === "CANCELLED";
   });
+
+  const activeCount = orders.filter((o) => {
+    const reservedActive =
+      o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
+    const hasActiveResponses = o.responseCount > 0;
+    if (role === "DRIVER") {
+      return ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(o.status);
+    }
+    return (
+      ["ACCEPTED", "IN_PROGRESS", "PENDING", "PENDING_CONFIRM", "DELIVERED"].includes(o.status) ||
+      reservedActive ||
+      (o.status === "CREATED" && hasActiveResponses)
+    );
+  }).length;
+
+  const postedCount = orders.filter((o) => {
+    const reservedActive =
+      o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
+    const hasActiveResponses = o.responseCount > 0;
+    if (role === "DRIVER") {
+      return reservedActive || driverHasActiveResponse(o) || o.status === "PENDING" || o.status === "PENDING_CONFIRM" || o.status === "DISCUSSING";
+    }
+    return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
+  }).length;
+
+  function renderFilterLabel(label, count, isActive) {
+    return (
+      <View style={styles.filterLabelRow}>
+        <Text style={[styles.filterText, isActive && styles.activeFilterText]}>
+          {label}
+        </Text>
+        {count > 0 && (
+          <View style={[styles.filterBadge, isActive && styles.activeFilterBadge]}>
+            <Text
+              style={[
+                styles.filterBadgeText,
+                isActive && styles.activeFilterBadgeText,
+              ]}
+            >
+              {count}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   if (loading && orders.length === 0) {
     return (
@@ -664,27 +726,17 @@ export default function MyOrdersScreen({ navigation, route }) {
           style={[styles.filterBtn, filter === "active" && styles.activeFilter]}
           onPress={() => setFilter("active")}
         >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "active" && styles.activeFilterText,
-            ]}
-          >
-            В роботі
-          </Text>
+          {renderFilterLabel("В роботі", activeCount, filter === "active")}
         </Pressable>
         <Pressable
           style={[styles.filterBtn, filter === "posted" && styles.activeFilter]}
           onPress={() => setFilter("posted")}
         >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "posted" && styles.activeFilterText,
-            ]}
-          >
-            {role === "DRIVER" ? "На підтвердженні" : "Створено"}
-          </Text>
+          {renderFilterLabel(
+            role === "DRIVER" ? "На підтвердженні" : "Створено",
+            role === "DRIVER" ? postedCount : 0,
+            filter === "posted"
+          )}
         </Pressable>
         <Pressable
           style={[
@@ -693,14 +745,7 @@ export default function MyOrdersScreen({ navigation, route }) {
           ]}
           onPress={() => setFilter("history")}
         >
-          <Text
-            style={[
-              styles.filterText,
-              filter === "history" && styles.activeFilterText,
-            ]}
-          >
-            Історія
-          </Text>
+          {renderFilterLabel("Історія", 0, filter === "history")}
         </Pressable>
       </ScrollView>
       <KeyboardAwareFlatList
@@ -792,11 +837,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     justifyContent: "center",
+    alignItems: "center",
     flexShrink: 0,
   },
   activeFilter: { backgroundColor: colors.green },
   activeFilterText: { color: "#fff" },
   filterText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  filterLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  filterBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 7,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterBadgeText: { color: "#B91C1C", fontSize: 12, fontWeight: "800" },
+  activeFilterBadge: {
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(255,255,255,0.45)",
+  },
+  activeFilterBadgeText: { color: "#fff" },
   finalPriceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -850,6 +914,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   mapChipText: { marginLeft: 6, fontWeight: "600", color: "#111827" },
+  responseCountChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  responseCountText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#065F46",
+  },
 });
 
 function formatDateUtc2(value) {
@@ -860,3 +939,4 @@ function formatDateUtc2(value) {
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}`;
 }
+

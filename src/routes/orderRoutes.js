@@ -14,7 +14,15 @@ const {
   getOrder,
   updateOrder,
   deleteOrder,
-  updateFinalPrice
+  updateFinalPrice,
+  respondToOrder,
+  getMyResponse,
+  responseCallMade,
+  responseResult,
+  responseConfirm,
+  responseReject,
+  responseWithdraw,
+  getOrderResponses,
 } = require('../controllers/orderController');
 const { UserRole } = require('../models/user');
 
@@ -34,5 +42,14 @@ router.patch('/:id', authenticate, authorize([UserRole.CUSTOMER]), upload.array(
 router.delete('/:id', authenticate, authorize([UserRole.CUSTOMER]), deleteOrder);
 router.post("/:id/final-price", authenticate, authorize([UserRole.CUSTOMER]), updateFinalPrice);
 
+// New response flow routes
+router.post('/:id/respond', authenticate, authorize([UserRole.DRIVER]), respondToOrder);
+router.get('/:id/respond/mine', authenticate, authorize([UserRole.DRIVER]), getMyResponse);
+router.post('/:id/respond/:responseId/call-made', authenticate, authorize([UserRole.DRIVER]), responseCallMade);
+router.post('/:id/respond/:responseId/result', authenticate, authorize([UserRole.DRIVER]), responseResult);
+router.post('/:id/respond/:responseId/confirm', authenticate, authorize([UserRole.CUSTOMER]), responseConfirm);
+router.post('/:id/respond/:responseId/reject', authenticate, authorize([UserRole.CUSTOMER]), responseReject);
+router.delete('/:id/respond/:responseId', authenticate, authorize([UserRole.DRIVER]), responseWithdraw);
+router.get('/:id/responses', authenticate, authorize([UserRole.CUSTOMER]), getOrderResponses);
 
 module.exports = router;

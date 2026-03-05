@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -48,6 +48,7 @@ export default function AllOrdersScreen({ navigation }) {
   const highlightTimer = useRef(null);
   const filtersRef = useRef(null);
   const fetchIdRef = useRef(0);
+  const fetchOrdersRef = useRef(null);
 
   const CORRIDOR_HALF_WIDTH_KM = 50; // тут змінюєш ширину коридору
 
@@ -170,12 +171,19 @@ export default function AllOrdersScreen({ navigation }) {
     init();
   }, []);
 
+  fetchOrdersRef.current = fetchOrders;
+
   useEffect(() => {
     if (!detected) return;
     fetchOrders();
-    const unsubscribe = navigation.addListener("focus", fetchOrders);
+  }, [detected, pickupPoint, dropoffPoint]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (fetchOrdersRef.current) fetchOrdersRef.current();
+    });
     return unsubscribe;
-  }, [detected, navigation, pickupPoint, dropoffPoint]);
+  }, [navigation]);
 
   useEffect(() => {
     if (!detected) return;
@@ -191,6 +199,10 @@ export default function AllOrdersScreen({ navigation }) {
   });
 
   async function fetchOrders(overrideRadiusQuery = null) {
+    // skip navigation focus event objects
+    if (overrideRadiusQuery && typeof overrideRadiusQuery === 'object' && overrideRadiusQuery.type === 'focus') {
+      overrideRadiusQuery = null;
+    }
     const currentFetchId = ++fetchIdRef.current;
     const useRadiusOverride =
       overrideRadiusQuery &&
@@ -405,8 +417,6 @@ export default function AllOrdersScreen({ navigation }) {
     if (o.deleted) return false;
     const now = new Date();
     if (o.status !== "CREATED") return false;
-    if (o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > now)
-      return false;
     if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date))
       return false;
 
