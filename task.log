@@ -42,3 +42,10 @@ Sending push {
   data: { orderId: 38, navigateTo: 'orderDetail' }
 }
 Push receipts [ { status: 'ok', id: '019cbe9b-2196-704f-bf16-52ff4335f598' } ]
+[SMSFly] Provider response {
+  recipient: '********9007',
+  httpStatus: 200,
+  success: 1,
+  status: 'ACCEPTD',
+  messageId: null
+}
