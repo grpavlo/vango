@@ -756,7 +756,7 @@ export default function MyOrdersScreen({ navigation, route }) {
         refreshing={refreshing}
         contentContainerStyle={{ paddingBottom: 80 }}
         keyboardShouldPersistTaps="handled"
-        extraScrollHeight={5}
+        extraScrollHeight={120}
         enableOnAndroid
       />
     </SafeAreaView>

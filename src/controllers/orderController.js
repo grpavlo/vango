@@ -7,10 +7,12 @@ const Transaction = require("../models/transaction");
 const User = require("../models/user");
 
 const DriverProfile = require("../models/driverProfile");
+const SavedSearch = require("../models/savedSearch");
 
 const { SERVICE_FEE_PERCENT } = require("../config");
 
 const { broadcastOrder, broadcastDelete } = require("../ws");
+const { sendPush } = require("../utils/push");
 
 
 
@@ -88,6 +90,124 @@ function buildUtcDayRange(dateStr) {
   const start = new Date(Date.UTC(y, m, d));
   const end = new Date(Date.UTC(y, m, d + 1));
   return { start, end };
+}
+
+// Діапазон з dateFrom по dateTo (DD.MM або DD.MM.YYYY).
+// Повертає { start, end } для фільтра loadFrom.
+function buildUtcDateRange(dateFromStr, dateToStr) {
+  const { parseDate } = require("../utils/date");
+  const fromParsed = parseDate(dateFromStr);
+  const toParsed = parseDate(dateToStr || dateFromStr);
+  if (!fromParsed || !toParsed) return null;
+  const y1 = fromParsed.getFullYear();
+  const m1 = fromParsed.getMonth();
+  const d1 = fromParsed.getDate();
+  const y2 = toParsed.getFullYear();
+  const m2 = toParsed.getMonth();
+  const d2 = toParsed.getDate();
+  const start = new Date(Date.UTC(y1, m1, d1));
+  const end = new Date(Date.UTC(y2, m2, d2 + 1));
+  if (end <= start) return null;
+  return { start, end };
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function normalizeCity(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function orderMatchesSavedSearch(order, savedSearch) {
+  const orderCity = normalizeCity(order.pickupCity);
+  const searchCity = normalizeCity(savedSearch.pickupCity);
+  if (!orderCity || !searchCity || !orderCity.includes(searchCity)) {
+    return false;
+  }
+
+  if (
+    !Number.isFinite(Number(order.pickupLat)) ||
+    !Number.isFinite(Number(order.pickupLon))
+  ) {
+    return false;
+  }
+
+  const savedDropoffCity = normalizeCity(savedSearch.dropoffCity);
+  if (savedDropoffCity) {
+    const orderDropoffCity = normalizeCity(order.dropoffCity);
+    if (!orderDropoffCity || !orderDropoffCity.includes(savedDropoffCity)) {
+      return false;
+    }
+  }
+
+  const hasDropoffPoint =
+    Number.isFinite(Number(savedSearch.dropoffLat)) &&
+    Number.isFinite(Number(savedSearch.dropoffLon));
+  if (hasDropoffPoint) {
+    if (
+      !Number.isFinite(Number(order.dropoffLat)) ||
+      !Number.isFinite(Number(order.dropoffLon))
+    ) {
+      return false;
+    }
+
+    const inDropoffRadius =
+      haversineKm(
+        Number(savedSearch.dropoffLat),
+        Number(savedSearch.dropoffLon),
+        Number(order.dropoffLat),
+        Number(order.dropoffLon)
+      ) <= Number(savedSearch.radius);
+
+    if (!inDropoffRadius) {
+      return false;
+    }
+  }
+
+  return (
+    haversineKm(
+      Number(savedSearch.lat),
+      Number(savedSearch.lon),
+      Number(order.pickupLat),
+      Number(order.pickupLon)
+    ) <= Number(savedSearch.radius)
+  );
+}
+
+async function notifyDriversAboutSavedSearchMatch(order) {
+  const savedSearches = await SavedSearch.findAll({
+    include: [{ model: User, as: "driver" }],
+  });
+  const notifiedDriverIds = new Set();
+
+  for (const savedSearch of savedSearches) {
+    if (!orderMatchesSavedSearch(order, savedSearch)) continue;
+
+    const driver = savedSearch.driver;
+    if (!driver?.pushToken || !driver.pushConsent) continue;
+    if (notifiedDriverIds.has(driver.id)) continue;
+    notifiedDriverIds.add(driver.id);
+
+    sendPush(
+      driver.pushToken,
+      "Нове замовлення за вашим критерієм",
+      `${order.pickupCity || "Місто завантаження"} • ${Math.round(
+        Number(savedSearch.radius)
+      )} км`,
+      { orderId: order.id, navigateTo: "orderDetail" }
+    );
+  }
 }
 
 
@@ -263,7 +383,7 @@ async function createOrder(req, res) {
     });
 
     broadcastOrder(order);
-
+    await notifyDriversAboutSavedSearchMatch(order);
     res.json(order);
 
   } catch (err) {
@@ -278,7 +398,7 @@ async function createOrder(req, res) {
 
 async function listAvailableOrders(req, res) {
 
-  const { city, pickupCity, dropoffCity, date, lat, lon, radius, dropoffLat, dropoffLon, dropoffRadius, corridorWidth } = req.query;
+  const { city, pickupCity, dropoffCity, date, dateFrom, dateTo, lat, lon, radius, dropoffLat, dropoffLon, dropoffRadius, corridorWidth } = req.query;
 
   const { Op } = require("sequelize");
 
@@ -329,7 +449,12 @@ async function listAvailableOrders(req, res) {
     },
   ];
 
-  if (date) {
+  if (dateFrom && dateTo) {
+    const range = buildUtcDateRange(dateFrom, dateTo);
+    if (range) {
+      where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
+    }
+  } else if (date) {
     const range = buildUtcDayRange(date);
     if (range) {
       where.loadFrom = { [Op.gte]: range.start };
@@ -352,20 +477,6 @@ async function listAvailableOrders(req, res) {
   const dLat = parseFloat(dropoffLat);
   const dLon = parseFloat(dropoffLon);
   const dRadius = dropoffRadius ? parseFloat(dropoffRadius) : null;
-
-  function haversineKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
 
   function toXY(lat, lon, lat0) {
     const kLat = 111.0;
@@ -1536,6 +1647,18 @@ async function updateOrder(req, res) {
 
       "cargoType",
 
+      "cargoLength",
+
+      "cargoWidth",
+
+      "cargoHeight",
+
+      "cargoVolume",
+
+      "cargoWeight",
+
+      "distance",
+
       "pickupLat",
 
       "pickupLon",
@@ -1599,6 +1722,38 @@ async function updateOrder(req, res) {
           const n = normalizeNumber(req.body.finalPrice);
 
           if (n !== null) order.finalPrice = Math.round(n);
+
+        } else if (
+
+          [
+
+            "cargoLength",
+
+            "cargoWidth",
+
+            "cargoHeight",
+
+            "cargoVolume",
+
+            "cargoWeight",
+
+            "distance",
+
+            "pickupLat",
+
+            "pickupLon",
+
+            "dropoffLat",
+
+            "dropoffLon",
+
+          ].includes(f)
+
+        ) {
+
+          const n = normalizeNumber(req.body[f]);
+
+          if (n !== null) order[f] = n;
 
         } else {
 

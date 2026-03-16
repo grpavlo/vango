@@ -9,6 +9,7 @@ const financialRoutes = require('./routes/financialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
+const savedSearchRoutes = require('./routes/savedSearchRoutes');
 const driverProfileRoutes = require('./routes/driverProfileRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
@@ -33,6 +34,7 @@ app.use('/api/finance', financialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/favorites', favoriteRoutes);
+app.use('/api/saved-searches', savedSearchRoutes);
 app.use("/api", driverProfileRoutes);
 
 

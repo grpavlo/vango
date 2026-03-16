@@ -22,6 +22,24 @@ function buildUtcDayRange(dateStr) {
   return { start, end };
 }
 
+// Діапазон з dateFrom по dateTo (DD.MM або DD.MM.YYYY).
+function buildUtcDateRange(dateFromStr, dateToStr) {
+  const { parseDate } = require('./utils/date');
+  const fromParsed = parseDate(dateFromStr);
+  const toParsed = parseDate(dateToStr || dateFromStr);
+  if (!fromParsed || !toParsed) return null;
+  const y1 = fromParsed.getFullYear();
+  const m1 = fromParsed.getMonth();
+  const d1 = fromParsed.getDate();
+  const y2 = toParsed.getFullYear();
+  const m2 = toParsed.getMonth();
+  const d2 = toParsed.getDate();
+  const start = new Date(Date.UTC(y1, m1, d1));
+  const end = new Date(Date.UTC(y2, m2, d2 + 1));
+  if (end <= start) return null;
+  return { start, end };
+}
+
 function buildWhere(query, userId, ignoreReserve = false) {
   const where = {
     [Op.or]: [
@@ -45,7 +63,12 @@ function buildWhere(query, userId, ignoreReserve = false) {
       },
     ];
     
-    if (query.date) {
+    if (query.dateFrom && query.dateTo) {
+      const range = buildUtcDateRange(query.dateFrom, query.dateTo);
+      if (range) {
+        where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
+      }
+    } else if (query.date) {
       const range = buildUtcDayRange(query.date);
       if (range) {
         where.loadFrom = { [Op.gte]: range.start };
@@ -59,7 +82,12 @@ function buildWhere(query, userId, ignoreReserve = false) {
     where[Op.and] = andConditions;
   } else {
     // Якщо ignoreReserve = true, все одно потрібно фільтрувати за датою
-    if (query.date) {
+    if (query.dateFrom && query.dateTo) {
+      const range = buildUtcDateRange(query.dateFrom, query.dateTo);
+      if (range) {
+        where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
+      }
+    } else if (query.date) {
       const range = buildUtcDayRange(query.date);
       if (range) {
         where.loadFrom = { [Op.gte]: range.start };

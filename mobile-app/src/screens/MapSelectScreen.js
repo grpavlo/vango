@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
 import AppMap from '../components/AppMap';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,8 @@ import AppButton from '../components/AppButton';
 import { getCallback, unregisterCallback } from '../callbackRegistry';
 
 export default function MapSelectScreen({ navigation, route }) {
-  const { onSelectId, onCloseId, address, lat, lon, userLat, userLon } = route.params || {};
+  const { onSelectId, onCloseId, address, lat, lon, userLat, userLon } =
+    route.params || {};
   const onSelect = getCallback(onSelectId);
   const onClose = getCallback(onCloseId);
   const [region, setRegion] = useState({
@@ -16,7 +17,11 @@ export default function MapSelectScreen({ navigation, route }) {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
-  const [marker, setMarker] = useState(lat && lon ? { latitude: parseFloat(lat), longitude: parseFloat(lon) } : null);
+  const [marker, setMarker] = useState(
+    lat && lon
+      ? { latitude: parseFloat(lat), longitude: parseFloat(lon) }
+      : null
+  );
   const mapRef = useRef(null);
 
   useEffect(() => {
@@ -24,16 +29,22 @@ export default function MapSelectScreen({ navigation, route }) {
       if (!marker && address) {
         try {
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=ua`,
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+              address
+            )}&format=json&limit=1&countrycodes=ua`,
             { headers: { 'User-Agent': 'vango-app' } }
           );
           const data = await res.json();
           if (data && data[0]) {
             const la = parseFloat(data[0].lat);
             const lo = parseFloat(data[0].lon);
-            const newRegion = { latitude: la, longitude: lo, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+            const newRegion = {
+              latitude: la,
+              longitude: lo,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            };
             setRegion(newRegion);
-            // Move the map if user already panned (keep map interactive)
             if (mapRef.current?.animateToRegion) {
               mapRef.current.animateToRegion(newRegion, 500);
             }
@@ -98,7 +109,10 @@ export default function MapSelectScreen({ navigation, route }) {
       >
         {marker && <Marker coordinate={marker} />}
       </AppMap>
-      <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => navigation.goBack()}
+      >
         <Ionicons name="arrow-back" size={32} color="#333" />
       </TouchableOpacity>
       {marker && (
@@ -114,6 +128,13 @@ export default function MapSelectScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  back: { position: 'absolute', top: 40, left: 20, backgroundColor: '#fff', borderRadius: 20, padding: 6 },
+  back: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 6,
+  },
   confirm: { position: 'absolute', bottom: 40, left: 20, right: 20 },
 });

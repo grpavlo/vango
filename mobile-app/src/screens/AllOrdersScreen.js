@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+﻿import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -7,28 +7,37 @@ import {
   SafeAreaView,
   ScrollView,
   Platform,
+  TouchableOpacity,
+  Dimensions,
 } from "react-native";
 import { Host } from "react-native-portalize";
 import { Marker, Circle, Polygon } from "react-native-maps";
+import { Ionicons } from "@expo/vector-icons";
 import AppMap from "../components/AppMap";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useAuth } from "../AuthContext";
 import { apiFetch, HOST_URL } from "../api";
+import AppText from "../components/AppText";
 import AppInput from "../components/AppInput";
 import AddressSearchInput from "../components/AddressSearchInput";
 import AppButton from "../components/AppButton";
-import DateInput from "../components/DateInput";
+import DateRangeInput from "../components/DateRangeInput";
 import OrderCard from "../components/OrderCard";
 import OrderCardSkeleton from "../components/OrderCardSkeleton";
 import BottomSheet from "../components/BottomSheet";
 import { colors } from "../components/Colors";
 import { GOOGLE_PLACES_API_KEY } from "../config";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../components/Toast";
 
 export default function AllOrdersScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { token } = useAuth();
+  const toast = useToast();
 
-  const [date, setDate] = useState(new Date());
+  const [dateFrom, setDateFrom] = useState(() => new Date());
+  const [dateTo, setDateTo] = useState(() => new Date());
   const [pickupCity, setPickupCity] = useState("");
   const [pickupPoint, setPickupPoint] = useState(null);
   const [dropoffCity, setDropoffCity] = useState("");
@@ -49,8 +58,13 @@ export default function AllOrdersScreen({ navigation }) {
   const filtersRef = useRef(null);
   const fetchIdRef = useRef(0);
   const fetchOrdersRef = useRef(null);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [deletingSearchId, setDeletingSearchId] = useState(null);
+  const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(false);
 
-  const CORRIDOR_HALF_WIDTH_KM = 50; // тут змінюєш ширину коридору
+  const CORRIDOR_HALF_WIDTH_KM = 50; // С‚СѓС‚ Р·РјС–РЅСЋС”С€ С€РёСЂРёРЅСѓ РєРѕСЂРёРґРѕСЂСѓ
 
   const originPoint = pickupPoint
     ? {
@@ -80,11 +94,11 @@ export default function AllOrdersScreen({ navigation }) {
   const hasCorridor = Boolean(originPoint && dropoffPoint);
   const shouldUseRadiusQuery = canUsePickupRadius && !hasCorridor;
 
-  // Текстові фільтри по містах (з урахуванням вибору з карти)
+  // РўРµРєСЃС‚РѕРІС– С„С–Р»СЊС‚СЂРё РїРѕ РјС–СЃС‚Р°С… (Р· СѓСЂР°С…СѓРІР°РЅРЅСЏРј РІРёР±РѕСЂСѓ Р· РєР°СЂС‚Рё)
   const pickupCityFilter = (pickupPoint?.city || pickupCity || "").trim();
   const dropoffCityFilter = (dropoffPoint?.city || dropoffCity || "").trim();
 
-  // Однакове місто завантаження/розвантаження (наприклад, Київ–Київ у фільтрі)
+  // РћРґРЅР°РєРѕРІРµ РјС–СЃС‚Рѕ Р·Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ/СЂРѕР·РІР°РЅС‚Р°Р¶РµРЅРЅСЏ (РЅР°РїСЂРёРєР»Р°Рґ, РљРёС—РІвЂ“РљРёС—РІ Сѓ С„С–Р»СЊС‚СЂС–)
   const sameCityFilter =
     pickupCityFilter &&
     dropoffCityFilter &&
@@ -109,7 +123,7 @@ export default function AllOrdersScreen({ navigation }) {
           longitude: Number(p.lon),
         })
       );
-      // має бути мінімум 4 точки + повтор першої (5)
+      // РјР°С” Р±СѓС‚Рё РјС–РЅС–РјСѓРј 4 С‚РѕС‡РєРё + РїРѕРІС‚РѕСЂ РїРµСЂС€РѕС— (5)
       if (
         corners.some(
           (c) => Number.isNaN(c.latitude) || Number.isNaN(c.longitude)
@@ -181,9 +195,15 @@ export default function AllOrdersScreen({ navigation }) {
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       if (fetchOrdersRef.current) fetchOrdersRef.current();
+      loadSavedSearches();
     });
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    if (!token) return;
+    loadSavedSearches();
+  }, [token]);
 
   useEffect(() => {
     if (!detected) return;
@@ -197,6 +217,110 @@ export default function AllOrdersScreen({ navigation }) {
   useEffect(() => {
     filtersRef.current = { passesFilters, hasCorridor };
   });
+
+  function buildSavedSearchPayload() {
+    const currentPickupCity = (pickupPoint?.city || pickupCity || "").trim();
+    const currentDropoffCity = (dropoffPoint?.city || dropoffCity || "").trim();
+    if (!currentPickupCity) {
+      toast.show("Вкажіть місто завантаження");
+      return null;
+    }
+    if (!hasOrigin) {
+      toast.show("Не вдалося визначити центр пошуку");
+      return null;
+    }
+    if (!hasRadius) {
+      toast.show("Вкажіть радіус пошуку");
+      return null;
+    }
+
+    return {
+      pickupCity: currentPickupCity,
+      dropoffCity: currentDropoffCity || null,
+      lat: Number(originPoint.latitude),
+      lon: Number(originPoint.longitude),
+      dropoffLat: dropoffPoint ? Number(dropoffPoint.lat) : null,
+      dropoffLon: dropoffPoint ? Number(dropoffPoint.lon) : null,
+      radius: radiusKm,
+    };
+  }
+
+  async function loadSavedSearches() {
+    try {
+      setSavedSearchesLoading(true);
+      const data = await apiFetch("/saved-searches", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSavedSearches(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log("loadSavedSearches error", err);
+    } finally {
+      setSavedSearchesLoading(false);
+    }
+  }
+
+  async function saveCurrentSearch() {
+    const payload = buildSavedSearchPayload();
+    if (!payload) return;
+
+    try {
+      setSavingSearch(true);
+      await apiFetch("/saved-searches", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      await loadSavedSearches();
+      toast.show("Критерій пошуку збережено");
+    } catch (err) {
+      toast.show(err.message || "Не вдалося зберегти критерій");
+    } finally {
+      setSavingSearch(false);
+    }
+  }
+
+  async function removeSavedSearch(id) {
+    try {
+      setDeletingSearchId(id);
+      await apiFetch(`/saved-searches/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSavedSearches((prev) => prev.filter((item) => item.id !== id));
+      toast.show("Критерій видалено");
+    } catch (err) {
+      toast.show(err.message || "Не вдалося видалити критерій");
+    } finally {
+      setDeletingSearchId(null);
+    }
+  }
+
+  function applySavedSearch(savedSearch) {
+    const nextPoint = {
+      city: savedSearch.pickupCity,
+      lat: Number(savedSearch.lat),
+      lon: Number(savedSearch.lon),
+    };
+    const hasSavedDropoffCity = !!String(savedSearch.dropoffCity || "").trim();
+    const hasSavedDropoffPoint =
+      Number.isFinite(Number(savedSearch.dropoffLat)) &&
+      Number.isFinite(Number(savedSearch.dropoffLon));
+    const nextDropoffPoint = hasSavedDropoffPoint
+      ? {
+          city: savedSearch.dropoffCity || "",
+          lat: Number(savedSearch.dropoffLat),
+          lon: Number(savedSearch.dropoffLon),
+        }
+      : null;
+
+    setPickupCity(savedSearch.pickupCity || "");
+    setPickupPoint(nextPoint);
+    setDropoffCity(hasSavedDropoffCity ? savedSearch.dropoffCity : "");
+    setDropoffPoint(nextDropoffPoint);
+    setRadius(String(Math.round(Number(savedSearch.radius))));
+    setFiltersVisible(false);
+    toast.show("Критерій застосовано");
+  }
 
   async function fetchOrders(overrideRadiusQuery = null) {
     // skip navigation focus event objects
@@ -212,7 +336,10 @@ export default function AllOrdersScreen({ navigation }) {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (date) params.append("date", formatDate(date));
+      if (dateFrom && dateTo) {
+        params.append("dateFrom", formatDateFull(dateFrom));
+        params.append("dateTo", formatDateFull(dateTo));
+      }
       const hasOriginForRadius = !useRadiusOverride && originPoint && hasRadius;
       const hasDropoffForRadius = !useRadiusOverride && dropoffPointRad && hasRadius;
       const useRadiusOnBackend = !hasCorridor && (hasOriginForRadius || hasDropoffForRadius);
@@ -312,9 +439,9 @@ export default function AllOrdersScreen({ navigation }) {
         if (useRadiusOnBackend) {
           return true;
         }
-        // Якщо місто завантаження та розвантаження однакові в фільтрі
-        // (наприклад, Київ–Київ) і немає коридору / радіуса:
-        // показуємо ТІЛЬКИ замовлення, де обидва міста співпадають
+        // РЇРєС‰Рѕ РјС–СЃС‚Рѕ Р·Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ С‚Р° СЂРѕР·РІР°РЅС‚Р°Р¶РµРЅРЅСЏ РѕРґРЅР°РєРѕРІС– РІ С„С–Р»СЊС‚СЂС–
+        // (РЅР°РїСЂРёРєР»Р°Рґ, РљРёС—РІвЂ“РљРёС—РІ) С– РЅРµРјР°С” РєРѕСЂРёРґРѕСЂСѓ / СЂР°РґС–СѓСЃР°:
+        // РїРѕРєР°Р·СѓС”РјРѕ РўР†Р›Р¬РљР Р·Р°РјРѕРІР»РµРЅРЅСЏ, РґРµ РѕР±РёРґРІР° РјС–СЃС‚Р° СЃРїС–РІРїР°РґР°СЋС‚СЊ
         if (sameCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
           const city = pickupCityFilter.toLowerCase();
           const orderPickup = (o.pickupCity || "").toLowerCase();
@@ -339,7 +466,7 @@ export default function AllOrdersScreen({ navigation }) {
         const inDropoffRadius =
           canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-        // Випадок з коридором: показуємо замовлення в радіусі від точок АБО в коридорі
+        // Р’РёРїР°РґРѕРє Р· РєРѕСЂРёРґРѕСЂРѕРј: РїРѕРєР°Р·СѓС”РјРѕ Р·Р°РјРѕРІР»РµРЅРЅСЏ РІ СЂР°РґС–СѓСЃС– РІС–Рґ С‚РѕС‡РѕРє РђР‘Рћ РІ РєРѕСЂРёРґРѕСЂС–
         if (hasCorridor) {
           let matchesPickupCity = true;
           if (pickupCityFilter) {
@@ -350,12 +477,12 @@ export default function AllOrdersScreen({ navigation }) {
           return matchesPickupCity || inCorridor || inPickupRadius || inDropoffRadius;
         }
 
-        // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
+        // РЇРєС‰Рѕ РЅРµРјР°С” РєРѕСЂРёРґРѕСЂСѓ, Р°Р»Рµ С” СЂР°РґС–СѓСЃ(Рё) вЂ“ РїСЂР°С†СЋС”РјРѕ РїРѕ СЂР°РґС–СѓСЃСѓ
         if (canUsePickupR || canUseDropoffR) {
           return inPickupRadius || inDropoffRadius;
         }
 
-        // Без геометрії – залишаємо замовлення
+        // Р‘РµР· РіРµРѕРјРµС‚СЂС–С— вЂ“ Р·Р°Р»РёС€Р°С”РјРѕ Р·Р°РјРѕРІР»РµРЅРЅСЏ
         return true;
       });
 
@@ -377,7 +504,7 @@ export default function AllOrdersScreen({ navigation }) {
       //     });
       //   }
       // }
-      // ... після setOrders(list) — ЗАМІНИ на:
+      // ... РїС–СЃР»СЏ setOrders(list) вЂ” Р—РђРњР†РќР РЅР°:
       // if (originPoint && dropoffPoint) {
       //   const A = {
       //     lat: parseFloat(originPoint.latitude),
@@ -387,7 +514,7 @@ export default function AllOrdersScreen({ navigation }) {
       //     lat: parseFloat(dropoffPoint.lat),
       //     lon: parseFloat(dropoffPoint.lon),
       //   };
-      //   const D = CORRIDOR_HALF_WIDTH_KM; // км відступ від прямої
+      //   const D = CORRIDOR_HALF_WIDTH_KM; // РєРј РІС–РґСЃС‚СѓРї РІС–Рґ РїСЂСЏРјРѕС—
 
       //   list = list.filter((o) => {
       //     if (!o.pickupLat || !o.pickupLon || !o.dropoffLat || !o.dropoffLon)
@@ -417,12 +544,19 @@ export default function AllOrdersScreen({ navigation }) {
     if (o.deleted) return false;
     const now = new Date();
     if (o.status !== "CREATED") return false;
-    if (date && formatDate(new Date(o.loadFrom)) !== formatDate(date))
-      return false;
+    if (dateFrom && dateTo) {
+      const orderDay = new Date(o.loadFrom);
+      orderDay.setHours(0, 0, 0, 0);
+      const fromDay = new Date(dateFrom);
+      fromDay.setHours(0, 0, 0, 0);
+      const toDay = new Date(dateTo);
+      toDay.setHours(0, 0, 0, 0);
+      if (orderDay < fromDay || orderDay > toDay) return false;
+    }
 
-    // Якщо місто завантаження та розвантаження однакові в фільтрі
-    // (наприклад, Київ–Київ) і немає коридору / радіуса:
-    // показуємо ТІЛЬКИ замовлення, де обидва міста співпадають
+    // РЇРєС‰Рѕ РјС–СЃС‚Рѕ Р·Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ С‚Р° СЂРѕР·РІР°РЅС‚Р°Р¶РµРЅРЅСЏ РѕРґРЅР°РєРѕРІС– РІ С„С–Р»СЊС‚СЂС–
+    // (РЅР°РїСЂРёРєР»Р°Рґ, РљРёС—РІвЂ“РљРёС—РІ) С– РЅРµРјР°С” РєРѕСЂРёРґРѕСЂСѓ / СЂР°РґС–СѓСЃР°:
+    // РїРѕРєР°Р·СѓС”РјРѕ РўР†Р›Р¬РљР Р·Р°РјРѕРІР»РµРЅРЅСЏ, РґРµ РѕР±РёРґРІР° РјС–СЃС‚Р° СЃРїС–РІРїР°РґР°СЋС‚СЊ
     if (sameCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
       const city = pickupCityFilter.toLowerCase();
       const orderPickup = (o.pickupCity || "").toLowerCase();
@@ -479,7 +613,7 @@ export default function AllOrdersScreen({ navigation }) {
     const inDropoffRadius =
       canUseDropoffR && P2 && inRadiusKm(P2, dropoffPointRad, rKm);
 
-    // Випадок з коридором: показуємо замовлення в радіусі від точок АБО в коридорі
+    // Р’РёРїР°РґРѕРє Р· РєРѕСЂРёРґРѕСЂРѕРј: РїРѕРєР°Р·СѓС”РјРѕ Р·Р°РјРѕРІР»РµРЅРЅСЏ РІ СЂР°РґС–СѓСЃС– РІС–Рґ С‚РѕС‡РѕРє РђР‘Рћ РІ РєРѕСЂРёРґРѕСЂС–
     if (hasCorridor) {
       let matchesPickupCity = true;
       if (pickupCityFilter) {
@@ -490,12 +624,12 @@ export default function AllOrdersScreen({ navigation }) {
       return matchesPickupCity || inCorridor || inPickupRadius || inDropoffRadius;
     }
 
-    // Якщо немає коридору, але є радіус(и) – працюємо по радіусу
+    // РЇРєС‰Рѕ РЅРµРјР°С” РєРѕСЂРёРґРѕСЂСѓ, Р°Р»Рµ С” СЂР°РґС–СѓСЃ(Рё) вЂ“ РїСЂР°С†СЋС”РјРѕ РїРѕ СЂР°РґС–СѓСЃСѓ
     if (canUsePickupR || canUseDropoffR) {
       return inPickupRadius || inDropoffRadius;
     }
 
-    // Без геометрії – залишаємо замовлення
+    // Р‘РµР· РіРµРѕРјРµС‚СЂС–С— вЂ“ Р·Р°Р»РёС€Р°С”РјРѕ Р·Р°РјРѕРІР»РµРЅРЅСЏ
     return true;
   }
 
@@ -503,13 +637,16 @@ export default function AllOrdersScreen({ navigation }) {
     if (!token) return;
     if (wsRef.current) wsRef.current.close();
     const params = new URLSearchParams();
-    if (date) params.append("date", formatDate(date));
-    // Якщо місто завантаження та розвантаження однакові - додаємо обидва параметри
+    if (dateFrom && dateTo) {
+      params.append("dateFrom", formatDateFull(dateFrom));
+      params.append("dateTo", formatDateFull(dateTo));
+    }
+    // РЇРєС‰Рѕ РјС–СЃС‚Рѕ Р·Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ С‚Р° СЂРѕР·РІР°РЅС‚Р°Р¶РµРЅРЅСЏ РѕРґРЅР°РєРѕРІС– - РґРѕРґР°С”РјРѕ РѕР±РёРґРІР° РїР°СЂР°РјРµС‚СЂРё
     if (sameCityFilter && pickupCityFilter && !shouldUseRadiusQuery && !hasCorridor) {
       params.append("pickupCity", pickupCityFilter);
       params.append("dropoffCity", dropoffCityFilter);
     } else {
-      // Якщо міста різні або не задані - додаємо окремо
+      // РЇРєС‰Рѕ РјС–СЃС‚Р° СЂС–Р·РЅС– Р°Р±Рѕ РЅРµ Р·Р°РґР°РЅС– - РґРѕРґР°С”РјРѕ РѕРєСЂРµРјРѕ
       if (shouldFilterByPickupCity && pickupCityFilter) {
         params.append("pickupCity", pickupCityFilter);
       }
@@ -578,7 +715,9 @@ export default function AllOrdersScreen({ navigation }) {
   }
 
   function clearFilters() {
-    setDate(new Date());
+    const now = new Date();
+    setDateFrom(now);
+    setDateTo(now);
     setPickupCity("");
     setPickupPoint(null);
     setDropoffCity("");
@@ -782,7 +921,7 @@ export default function AllOrdersScreen({ navigation }) {
             )
         )}
 
-        {originPoint && dropoffPoint && (
+        {hasOrigin && hasDropoff && (
           <Polygon
             coordinates={rectCornersFromAB(
               { lat: originPoint.latitude, lon: originPoint.longitude },
@@ -799,12 +938,12 @@ export default function AllOrdersScreen({ navigation }) {
         )}
         {/* {corridorCorners && (
           <>
-             4 кути фіолетовими пінками — якщо їх видно, геометрія ок 
+             4 РєСѓС‚Рё С„С–РѕР»РµС‚РѕРІРёРјРё РїС–РЅРєР°РјРё вЂ” СЏРєС‰Рѕ С—С… РІРёРґРЅРѕ, РіРµРѕРјРµС‚СЂС–СЏ РѕРє 
             {corridorCorners.slice(0, 4).map((c, i) => (
               <Marker key={`cr-${i}`} coordinate={c} pinColor="purple" />
             ))}
 
-             сам полігон 
+             СЃР°Рј РїРѕР»С–РіРѕРЅ 
             <Polygon
               coordinates={corridorCorners}
               strokeColor="rgba(0,0,0,0.9)"
@@ -825,14 +964,33 @@ export default function AllOrdersScreen({ navigation }) {
           <Modal
             visible={filtersVisible}
             animationType="slide"
+            transparent
             onRequestClose={() => setFiltersVisible(false)}
           >
             <Host>
-              <SafeAreaView style={styles.modalContainer}>
-                <ScrollView contentContainerStyle={styles.filters}>
-                <DateInput
-                  value={date}
-                  onChange={setDate}
+              <View style={styles.modalRoot}>
+                <View style={[styles.modalOverlay, { top: -insets.top }]}>
+                  <TouchableOpacity
+                  style={StyleSheet.absoluteFill}
+                  activeOpacity={1}
+                  onPress={() => setFiltersVisible(false)}
+                />
+                <View style={styles.modalPanel}>
+                  <SafeAreaView style={styles.modalContent}>
+                    <View style={styles.modalBody}>
+                    <ScrollView
+                      contentContainerStyle={styles.filters}
+                      showsVerticalScrollIndicator={false}
+                    >
+                <AppText style={styles.dateLabel}>Дата завантаження</AppText>
+                <DateRangeInput
+                  valueFrom={dateFrom}
+                  valueTo={dateTo}
+                  onChange={(from, to) => {
+                    setDateFrom(from);
+                    setDateTo(to);
+                  }}
+                  placeholder="З ... по ..."
                   style={styles.input}
                 />
                 <AddressSearchInput
@@ -866,7 +1024,7 @@ export default function AllOrdersScreen({ navigation }) {
                   lat={dropoffPoint?.lat}
                   lon={dropoffPoint?.lon}
                   currentLocation={location}
-                  // головне:
+                  // РіРѕР»РѕРІРЅРµ:
                   provider="google"
                   googleApiKey={GOOGLE_PLACES_API_KEY}
                 />
@@ -896,13 +1054,8 @@ export default function AllOrdersScreen({ navigation }) {
                     style={styles.radiusButton}
                   />
                 </View>
+               
                 <View style={styles.actionsRow}>
-                  <AppButton
-                    title="Очистити"
-                    color="#777"
-                    onPress={clearFilters}
-                    style={styles.actionBtn}
-                  />
                   <AppButton
                     title="Пошук"
                     onPress={() => {
@@ -912,15 +1065,113 @@ export default function AllOrdersScreen({ navigation }) {
                     }}
                     style={styles.actionBtn}
                   />
+                  <AppButton
+                    title="Очистити"
+                    color="#777"
+                    onPress={clearFilters}
+                    style={styles.actionBtn}
+                  />
                 </View>
+                <AppButton
+                  title={savingSearch ? "Збереження..." : "Додати критерій в обране"}
+                  onPress={saveCurrentSearch}
+                  disabled={savingSearch}
+                  color={colors.orange}
+                  style={styles.savedSearchAction}
+                />
                 <AppButton
                   title="Закрити"
                   color="#333"
                   onPress={() => setFiltersVisible(false)}
                   style={styles.closeBtn}
                 />
-              </ScrollView>
-            </SafeAreaView>
+                 <View style={styles.savedSearchSection}>
+                  <TouchableOpacity
+                    style={styles.savedSearchHeader}
+                    activeOpacity={savedSearches.length > 0 ? 0.8 : 1}
+                    disabled={savedSearches.length === 0}
+                    onPress={() => setSavedSearchesExpanded((prev) => !prev)}
+                  >
+                    <View style={styles.savedSearchHeaderTextWrap}>
+                      <AppText style={styles.savedSearchTitle}>
+                        Збережені критерії
+                      </AppText>
+                      <AppText style={styles.savedSearchSummary}>
+                        {savedSearches.length > 0
+                          ? `${savedSearches.length} ${savedSearches.length === 1 ? "критерій" : "критерії"}`
+                          : "Сповіщення за обраними критеріями"}
+                      </AppText>
+                    </View>
+                    <View style={styles.savedSearchHeaderRight}>
+                      <AppText style={styles.savedSearchCount}>
+                        {savedSearches.length}
+                      </AppText>
+                      {savedSearches.length > 0 && (
+                        <Ionicons
+                          name={savedSearchesExpanded ? "chevron-up" : "chevron-down"}
+                          size={18}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  {savedSearchesLoading ? (
+                    <AppText style={styles.savedSearchHint}>
+                      Завантаження...
+                    </AppText>
+                  ) : savedSearches.length === 0 ? (
+                    <AppText style={styles.savedSearchHint}>
+                      Тут з'являться критерії пошуку для сповіщень про нові замовлення.
+                    </AppText>
+                  ) : savedSearchesExpanded ? (
+                    savedSearches.map((item) => (
+                      <View key={item.id} style={styles.savedSearchCard}>
+                        <View style={styles.savedSearchTextWrap}>
+                          <AppText style={styles.savedSearchCardTitle}>
+                            {item.pickupCity} - {item.dropoffCity || "будь-яке місце"}
+                          </AppText>
+                          <AppText style={styles.savedSearchCardMeta}>
+                            Радіус: {Math.round(Number(item.radius) || 0)} км
+                          </AppText>
+                          {/* {!!item.dropoffCity && (
+                            <AppText style={styles.savedSearchCardMeta}>
+                              Розвантаження: {item.dropoffCity}
+                            </AppText>
+                          )} */}
+                        </View>
+                        <View style={styles.savedSearchButtons}>
+                          <TouchableOpacity
+                            style={styles.savedSearchApplyBtn}
+                            onPress={() => applySavedSearch(item)}
+                          >
+                            <AppText style={styles.savedSearchApplyText}>
+                              Застосувати
+                            </AppText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.savedSearchDeleteBtn}
+                            disabled={deletingSearchId === item.id}
+                            onPress={() => removeSavedSearch(item.id)}
+                          >
+                            <AppText style={styles.savedSearchDeleteText}>
+                              {deletingSearchId === item.id ? "..." : "Видалити"}
+                            </AppText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <AppText style={styles.savedSearchHint}>
+                      Обрані критерії згорнуті. Натисніть, щоб переглянути список.
+                    </AppText>
+                  )}
+                </View>
+                    </ScrollView>
+                    </View>
+                  </SafeAreaView>
+                </View>
+                </View>
+              </View>
             </Host>
           </Modal>
           <FlatList
@@ -953,12 +1204,24 @@ function formatDate(d) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
+function formatDateFull(d) {
+  if (!d) return "";
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
 const styles = StyleSheet.create({
   filters: {
-    padding: 16,
+    padding: 12,
+    paddingBottom: 12,
+  },
+  dateLabel: {
+    marginTop: 2,
+    marginBottom: 2,
+    color: colors.text,
   },
   input: {
-    marginVertical: 4,
+    marginVertical: 2,
     width: "100%",
   },
   toggle: { marginVertical: 8, width: "100%" },
@@ -970,15 +1233,127 @@ const styles = StyleSheet.create({
   },
   radiusButton: { flex: 1, marginHorizontal: 4 },
   radiusInput: { flex: 2, textAlign: "center" },
+  savedSearchAction: { marginTop: 4 },
+  savedSearchSection: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 16,
+    backgroundColor: colors.gray100,
+  },
+  savedSearchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  savedSearchHeaderTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  savedSearchHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  savedSearchTitle: {
+    fontWeight: "600",
+    color: colors.text,
+  },
+  savedSearchSummary: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  savedSearchCount: {
+    minWidth: 24,
+    marginRight: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+    textAlign: "center",
+    color: colors.primary,
+    backgroundColor: colors.primary100,
+    fontWeight: "600",
+  },
+  savedSearchHint: {
+    marginTop: 6,
+    color: colors.textSecondary,
+  },
+  savedSearchCard: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  savedSearchTextWrap: {
+    marginBottom: 8,
+  },
+  savedSearchCardTitle: {
+    fontWeight: "600",
+    color: colors.text,
+  },
+  savedSearchCardMeta: {
+    marginTop: 2,
+    color: colors.textSecondary,
+  },
+  savedSearchButtons: {
+    flexDirection: "row",
+  },
+  savedSearchApplyBtn: {
+    flex: 1,
+    marginRight: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: colors.primary100,
+    alignItems: "center",
+  },
+  savedSearchApplyText: {
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  savedSearchDeleteBtn: {
+    flex: 1,
+    marginLeft: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+  },
+  savedSearchDeleteText: {
+    color: colors.red,
+    fontWeight: "600",
+  },
   actionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     flexBasis: "100%",
-    marginTop: 8,
+    marginTop: 2,
   },
   actionBtn: { flex: 1, marginHorizontal: 4 },
-  closeBtn: { marginTop: 8 },
-  modalContainer: { flex: 1 },
+  closeBtn: { marginTop: 2 },
+  modalRoot: {
+    flex: 1,
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height,
+    backgroundColor: "transparent",
+    overflow: "visible",
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalPanel: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: "90%",
+    overflow: "hidden",
+  },
+  modalContent: {
+    flex: 1,
+  },
   empty: { paddingVertical: 8 },
   listContent: { paddingBottom: 260 },
 });
@@ -998,7 +1373,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 function toXY(lat, lon, lat0) {
-  // повертає координати в кілометрах у локальній площині
+  // РїРѕРІРµСЂС‚Р°С” РєРѕРѕСЂРґРёРЅР°С‚Рё РІ РєС–Р»РѕРјРµС‚СЂР°С… Сѓ Р»РѕРєР°Р»СЊРЅС–Р№ РїР»РѕС‰РёРЅС–
   const kLat = 111.0;
   const kLon = 111.0 * Math.cos((lat0 * Math.PI) / 180);
   return { x: lon * kLon, y: lat * kLat };
@@ -1010,7 +1385,7 @@ function toLatLon(x, y, lat0) {
   return { lat: y / kLat, lon: x / kLon };
 }
 
-// Кути прямокутника з відступом dKm від прямої A→B
+// РљСѓС‚Рё РїСЂСЏРјРѕРєСѓС‚РЅРёРєР° Р· РІС–РґСЃС‚СѓРїРѕРј dKm РІС–Рґ РїСЂСЏРјРѕС— Aв†’B
 function rectCornersFromAB(A, B, dKm = 50) {
   const lat0 = (A.lat + B.lat) / 2;
   const a = toXY(A.lat, A.lon, lat0);
@@ -1019,20 +1394,20 @@ function rectCornersFromAB(A, B, dKm = 50) {
     vy = b.y - a.y;
   const L = Math.hypot(vx, vy) || 1;
   const nx = -vy / L,
-    ny = vx / L; // одиничний перпендикуляр
+    ny = vx / L; // РѕРґРёРЅРёС‡РЅРёР№ РїРµСЂРїРµРЅРґРёРєСѓР»СЏСЂ
   const c1 = { x: a.x + nx * dKm, y: a.y + ny * dKm };
   const c2 = { x: a.x - nx * dKm, y: a.y - ny * dKm };
   const c3 = { x: b.x - nx * dKm, y: b.y - ny * dKm };
   const c4 = { x: b.x + nx * dKm, y: b.y + ny * dKm };
-  // назад у lat/lon
+  // РЅР°Р·Р°Рґ Сѓ lat/lon
   const p1 = toLatLon(c1.x, c1.y, lat0);
   const p2 = toLatLon(c2.x, c2.y, lat0);
   const p3 = toLatLon(c3.x, c3.y, lat0);
   const p4 = toLatLon(c4.x, c4.y, lat0);
-  return [p1, p2, p3, p4, p1]; // замкнена лінія для Polygon
+  return [p1, p2, p3, p4, p1]; // Р·Р°РјРєРЅРµРЅР° Р»С–РЅС–СЏ РґР»СЏ Polygon
 }
 
-// Перевірка: чи лежить точка P усередині прямокутника вздовж A→B з напівшириною dKm
+// РџРµСЂРµРІС–СЂРєР°: С‡Рё Р»РµР¶РёС‚СЊ С‚РѕС‡РєР° P СѓСЃРµСЂРµРґРёРЅС– РїСЂСЏРјРѕРєСѓС‚РЅРёРєР° РІР·РґРѕРІР¶ Aв†’B Р· РЅР°РїС–РІС€РёСЂРёРЅРѕСЋ dKm
 function isInsideCorridor(P, A, B, dKm = 50) {
   const lat0 = (A.lat + B.lat) / 2;
   const a = toXY(A.lat, A.lon, lat0);
@@ -1042,12 +1417,12 @@ function isInsideCorridor(P, A, B, dKm = 50) {
     vy = b.y - a.y;
   const L = Math.hypot(vx, vy) || 1;
   const ux = vx / L,
-    uy = vy / L; // вздовж
+    uy = vy / L; // РІР·РґРѕРІР¶
   const nx = -uy,
-    ny = ux; // поперек
-  // координати точки у базисі (u,n)
-  const t = (p.x - a.x) * ux + (p.y - a.y) * uy; // вздовж 0..L
-  const s = (p.x - a.x) * nx + (p.y - a.y) * ny; // поперек -d..d
+    ny = ux; // РїРѕРїРµСЂРµРє
+  // РєРѕРѕСЂРґРёРЅР°С‚Рё С‚РѕС‡РєРё Сѓ Р±Р°Р·РёСЃС– (u,n)
+  const t = (p.x - a.x) * ux + (p.y - a.y) * uy; // РІР·РґРѕРІР¶ 0..L
+  const s = (p.x - a.x) * nx + (p.y - a.y) * ny; // РїРѕРїРµСЂРµРє -d..d
   return t >= 0 && t <= L && Math.abs(s) <= dKm;
 }
 

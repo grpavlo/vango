@@ -1,6 +1,6 @@
 // src/components/Screen.js
 import React from 'react';
-import { View } from 'react-native';
+import { View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
@@ -14,6 +14,7 @@ export default function Screen({
   hasFooter = false,
   noFooterPadding = 12,
   extraFooterPadding = 8,
+  disableKeyboardAvoiding = false,
 }) {
   const insets = useSafeAreaInsets();
 
@@ -26,9 +27,21 @@ export default function Screen({
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={edges}>
-      <View style={{ flex: 1, paddingBottom: bottomPadding, ...(style || {}) }}>
-        {children}
-      </View>
+      {disableKeyboardAvoiding ? (
+        <View style={{ flex: 1, paddingBottom: bottomPadding, ...(style || {}) }}>
+          {children}
+        </View>
+      ) : (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <View style={{ flex: 1, paddingBottom: bottomPadding, ...(style || {}) }}>
+            {children}
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }

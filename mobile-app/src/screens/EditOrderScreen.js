@@ -63,11 +63,13 @@ export default function EditOrderScreen({ route, navigation }) {
       : null
   );
   const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
-  // const [length, setLength] = useState(order.dimensions.split('x')[0] || '');
-  // const [width, setWidth] = useState(order.dimensions.split('x')[1] || '');
-  // const [height, setHeight] = useState(order.dimensions.split('x')[2] || '');
-  // const [weight, setWeight] = useState(String(order.weight || ''));
-  // const [volWeight, setVolWeight] = useState(String(order.volWeight || '0'));
+  const [cargoLength, setCargoLength] = useState(order.cargoLength ? String(order.cargoLength) : "");
+  const [cargoWidth, setCargoWidth] = useState(order.cargoWidth ? String(order.cargoWidth) : "");
+  const [cargoHeight, setCargoHeight] = useState(order.cargoHeight ? String(order.cargoHeight) : "");
+  const [cargoWeight, setCargoWeight] = useState(order.cargoWeight ? String(order.cargoWeight) : "");
+  const [cargoVolume, setCargoVolume] = useState(
+    order.cargoVolume ? String(order.cargoVolume) : "0"
+  );
   const [loadHelp, setLoadHelp] = useState(order.loadHelp);
   const [unloadHelp, setUnloadHelp] = useState(order.unloadHelp);
   const [payment, setPayment] = useState(order.payment || "cash");
@@ -110,13 +112,13 @@ export default function EditOrderScreen({ route, navigation }) {
   //   calcPrice();
   // }, [pickup, dropoff]);
 
-  // useEffect(() => {
-  //   const l = parseFloat(length) || 0;
-  //   const w = parseFloat(width) || 0;
-  //   const h = parseFloat(height) || 0;
-  //   const v = l * w * h * 250;
-  //   setVolWeight(v.toFixed(2));
-  // }, [length, width, height]);
+  useEffect(() => {
+    const l = parseFloat(cargoLength) || 0;
+    const w = parseFloat(cargoWidth) || 0;
+    const h = parseFloat(cargoHeight) || 0;
+    const v = l * w * h;
+    setCargoVolume(v > 0 ? v.toFixed(2) : "0");
+  }, [cargoLength, cargoWidth, cargoHeight]);
 
   async function save() {
     try {
@@ -143,14 +145,16 @@ export default function EditOrderScreen({ route, navigation }) {
         fd.append("city", pickup.city);
       }
       fd.append("cargoType", description);
-      // fd.append('dimensions', `${length}x${width}x${height}`);
-      // fd.append('weight', weight || '0');
+      if (cargoLength) fd.append("cargoLength", cargoLength);
+      if (cargoWidth) fd.append("cargoWidth", cargoWidth);
+      if (cargoHeight) fd.append("cargoHeight", cargoHeight);
+      if (cargoWeight) fd.append("cargoWeight", cargoWeight);
+      if (parseFloat(cargoVolume) > 0) fd.append("cargoVolume", cargoVolume);
       fd.append("loadFrom", loadFrom.toISOString());
       fd.append("loadTo", loadTo.toISOString());
       fd.append("unloadFrom", unloadFrom.toISOString());
       fd.append("unloadTo", unloadTo.toISOString());
       fd.append("insurance", "false");
-      // fd.append('volWeight', volWeight);
       fd.append("loadHelp", loadHelp ? "true" : "false");
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
@@ -521,23 +525,46 @@ export default function EditOrderScreen({ route, navigation }) {
             />
           </View>
 
-          {/*
-      <View style={styles.section}>
-        <Ionicons name="cube" size={20} color={colors.green} />
-        <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <AppInput style={styles.dim} value={length} onChangeText={setLength} keyboardType="numeric" placeholder="Д" />
-        <AppInput style={styles.dim} value={width} onChangeText={setWidth} keyboardType="numeric" placeholder="Ш" />
-        <AppInput style={styles.dim} value={height} onChangeText={setHeight} keyboardType="numeric" placeholder="В" />
-      </View>
+          <View style={styles.section}>
+            <Ionicons name="cube" size={20} color={colors.green} />
+            <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <AppInput
+              style={styles.dim}
+              value={cargoLength}
+              onChangeText={setCargoLength}
+              keyboardType="numeric"
+              placeholder="Д"
+            />
+            <AppInput
+              style={styles.dim}
+              value={cargoWidth}
+              onChangeText={setCargoWidth}
+              keyboardType="numeric"
+              placeholder="Ш"
+            />
+            <AppInput
+              style={styles.dim}
+              value={cargoHeight}
+              onChangeText={setCargoHeight}
+              keyboardType="numeric"
+              placeholder="В"
+            />
+          </View>
+          {parseFloat(cargoVolume) > 0 && (
+            <AppText style={{ marginTop: 4, color: "#6B7280" }}>
+              Об'єм: {cargoVolume} м³
+            </AppText>
+          )}
 
-      <AppText style={styles.labelStandalone}>Вага, кг</AppText>
-      <AppInput value={weight} onChangeText={setWeight} keyboardType="numeric" />
-
-      <AppText style={styles.labelStandalone}>Об'ємна вага, кг</AppText>
-      <AppInput value={volWeight} editable={false} />
-      */}
+          <AppText style={styles.labelStandalone}>Вага, кг</AppText>
+          <AppInput
+            value={cargoWeight}
+            onChangeText={setCargoWeight}
+            keyboardType="numeric"
+            placeholder="Вага вантажу"
+          />
 
           <View
             style={{
@@ -642,7 +669,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: 24 },
-  // dim: { width: 88, textAlign: 'center', height: 88 },
+  dim: { flex: 1, textAlign: "center" },
   suggestionsBox: {
     backgroundColor: "#fff",
     borderRadius: 8,

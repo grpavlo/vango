@@ -14,6 +14,7 @@ import {
   Linking,
   Platform,
   AppState,
+  Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,7 +36,6 @@ import {
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 import StatusTimeline from '../components/StatusTimeline';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import AppText from '../components/AppText';
 import Screen from '../components/Screen';
 
@@ -223,8 +223,9 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [showResultScreen, setShowResultScreen] = useState(false);
   const [respondLoading, setRespondLoading] = useState(false);
   const [confirmTimeLeft, setConfirmTimeLeft] = useState(null);
-
   const [actionHeight, setActionHeight] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const [finalPrice, setFinalPrice] = useState(order?.price ? String(order.price) : '');
   const wsRef = useRef(null);
   const priceInputRef = useRef(null);
@@ -292,6 +293,23 @@ export default function OrderDetailScreen({ route, navigation }) {
   useEffect(() => {
     setFinalPrice(order?.price ? String(order.price) : '');
   }, [order?.price]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event?.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   function connectWs() {
     if (!token) return;
@@ -1154,13 +1172,9 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   const actions = renderActions();
-  const hasFooter =
-    (Array.isArray(actions) ? actions.length : 0) > 0 ||
-    (role === 'DRIVER' && showContact && contactPhone) ||
-    role === 'DRIVER';
 
   return (
-    <Screen hasFooter={hasFooter}>
+    <Screen disableKeyboardAvoiding>
       <SafeAreaView style={styles.container}>
 
       {!useNewFlow && reserved && timeLeft !== null && (
@@ -1172,7 +1186,7 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: actionHeight + 16 }}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: actionHeight + 24 }]}>
 
       <View style={styles.appBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
@@ -1418,6 +1432,9 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       </ScrollView>
 
+      <View
+        style={[styles.actionAreaWrapper, { bottom: keyboardHeight + 20 }]}
+      >
         <View style={styles.actionArea} onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}>
 
       {!useNewFlow && role === 'DRIVER' && showContact && contactPhone && (
@@ -1437,12 +1454,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {actions}
 
       {role === 'DRIVER' && (
-        <KeyboardAwareScrollView
-          enableOnAndroid
-          keyboardShouldPersistTaps="handled"
-          extraScrollHeight={200}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.finalPriceSection}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <AppText style={{ fontWeight: 'bold', marginRight: 8 }}>
               Фінальна ціна:
@@ -1475,10 +1487,11 @@ export default function OrderDetailScreen({ route, navigation }) {
               </AppText>
             )}
           </View>
-        </KeyboardAwareScrollView>
+        </View>
       )}
 
         </View>
+      </View>
 
       </SafeAreaView>
     </Screen>
@@ -1568,17 +1581,23 @@ const styles = StyleSheet.create({
   statusRowCard: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 10 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   statusValue: { fontSize: 18, fontWeight: '600' },
+  scrollContent: { paddingBottom: 24 },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
   smallBtn: { flex: 1, marginHorizontal: 4 },
-  actionArea: {
+  actionAreaWrapper: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  actionArea: {
     padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+  },
+  finalPriceSection: {
+    marginTop: 8,
   },
   // New response flow styles
   responseBadge: {

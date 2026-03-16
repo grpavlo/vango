@@ -520,7 +520,7 @@ export default function CreateOrderScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: 24 },
-  dim: { width: 88, textAlign: "center", height: 88 },
+  dim: { flex: 1, textAlign: "center" },
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,
