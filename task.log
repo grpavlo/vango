@@ -5,102 +5,138 @@
 (sequelize) Warning: PostgresSQL does not support 'INTEGER' with LENGTH, UNSIGNED or ZEROFILL. Plain 'INTEGER' will be used instead. 
 >> Check: http://www.postgresql.org/docs/9.4/static/datatype.html
 Server running on port 1001
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+(node:14488) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Новий відгук на замовлення',
+  body: 'Водій Гречко Павло Андрійович зацікавлений у замовленні №42',
+  data: { orderId: 42, navigateTo: 'orderDetail' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-1433-7373-a448-31708eba9681' } ]
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Водій готовий виконати замовлення',
+  body: 'Водій Гречко Павло Андрійович готовий виконати замовлення №42. Підтвердіть.',
+  data: { orderId: 42, navigateTo: 'orderDetail' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-44c4-723c-addf-22fb3cc3210b' } ]
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Замовник підтвердив!',
+  body: 'Замовлення №42 за вами.',
+  data: { orderId: 42, navigateTo: 'orderDetail' }
 }
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-727a-743c-ab1c-895541f694aa' } ]
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Водій отримав вантаж',
+  body: 'Водій підтвердив отримання вантажу',
+  data: { orderId: 42, navigateTo: 'orderDetail' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-aa0f-7060-92c3-f255f5d8e963' } ]
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Доставку підтверджено',
+  body: 'Водій повідомив про доставку',
+  data: { orderId: 42, navigateTo: 'orderDetail' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-b515-7515-9a20-4d02353e3a2f' } ]
+Sending push {
+  to: 'ExponentPushToken[lEUL9GKdqgnQFL02MX1aSP]',
+  title: 'Замовник підтвердив доставку',
+  body: 'Замовник підтвердив отримання вантажу',
+  data: { orderId: 42, navigateTo: 'driverHistory' }
 }
-[SMSFly] Provider response {
-  recipient: '********3382',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a4-c890-736a-ac31-f9d97e844325' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Водій готовий виконати замовлення',
+  body: 'Водій Капля Катерина Анатоліївна хоче підтвердити замовлення №43',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
 }
-Error
-    at Query.run (C:\vango\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
-    at C:\vango\node_modules\sequelize\lib\sequelize.js:315:28
-    at async PostgresQueryInterface.insert (C:\vango\node_modules\sequelize\lib\dialects\abstract\query-interface.js:308:21)
-    at async User.save (C:\vango\node_modules\sequelize\lib\model.js:2490:35)
-    at async user.create (C:\vango\node_modules\sequelize\lib\model.js:1362:12)
-    at async verifyPhoneCode (C:\vango\src\controllers\authController.js:73:12)
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a8-b79b-733a-b443-1c4050e6bef7' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовник обрав іншого водія',
+  body: 'Замовлення №43',
+  data: { orderId: 43 }
 }
-[SMSFly] Provider response {
-  recipient: '********9007',
-  httpStatus: 200,
-  success: 1,
-  status: 'ACCEPTD',
-  messageId: null
+Push receipts [ { status: 'ok', id: '019cc2a8-efd7-70c6-ab08-3ee4a884f82c' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Новий відгук на замовлення',
+  body: 'Водій Капля Катерина Анатоліївна зацікавлений у замовленні №43',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
 }
-^C
+Push receipts [ { status: 'ok', id: '019cc2a9-2064-70a8-9993-18b9e7c5fb80' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Водій готовий виконати замовлення',
+  body: 'Водій Капля Катерина Анатоліївна готовий виконати замовлення №43. Підтвердіть.',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2a9-c91a-717b-9ab9-c631fb4c1be1' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовник підтвердив!',
+  body: 'Замовлення №43 за вами.',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
+}
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовник обрав іншого водія',
+  body: 'Замовлення №43',
+  data: { orderId: 43 }
+}
+Push receipts [ { status: 'ok', id: '019cc2aa-27fe-75c1-aae6-61ba0f0538a0' } ]
+Push receipts [ { status: 'ok', id: '019cc2aa-2809-77ac-94ff-1c0d70364d3d' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Водій отримав вантаж',
+  body: 'Водій підтвердив отримання вантажу',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2aa-ab2b-7664-9155-57da21cfb318' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Доставку підтверджено',
+  body: 'Водій повідомив про доставку',
+  data: { orderId: 43, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2aa-bb44-710a-846f-d8f084b2fe42' } ]
+Sending push {
+  to: 'ExponentPushToken[VecxV9L1enS8c9mwEIeJJv]',
+  title: 'Замовник підтвердив доставку',
+  body: 'Замовник підтвердив отримання вантажу',
+  data: { orderId: 43, navigateTo: 'driverHistory' }
+}
+Push receipts [ { status: 'ok', id: '019cc2aa-d304-74ac-ba66-5d5fde0349f7' } ]
+Sending push {
+  to: 'ExponentPushToken[qSVVD6FkwFW4-oohFAkE3X]',
+  title: 'Новий відгук на замовлення',
+  body: 'Водій  зацікавлений у замовленні №9',
+  data: { orderId: 9, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2ad-a5fe-77ac-8a89-f6eb158d8c90' } ]
+Sending push {
+  to: 'ExponentPushToken[qSVVD6FkwFW4-oohFAkE3X]',
+  title: 'Водій готовий виконати замовлення',
+  body: 'Водій  готовий виконати замовлення №9. Підтвердіть.',
+  data: { orderId: 9, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2af-6598-775e-a53d-15e989299837' } ]
+Sending push {
+  to: 'ExponentPushToken[ke5TP5JFKqxPq7TpW6uHlT]',
+  title: 'Замовник підтвердив!',
+  body: 'Замовлення №9 за вами.',
+  data: { orderId: 9, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2b1-4185-7230-9558-5619b8a4ea45' } ]
+Sending push {
+  to: 'ExponentPushToken[qSVVD6FkwFW4-oohFAkE3X]',
+  title: 'Водій отримав вантаж',
+  body: 'Водій підтвердив отримання вантажу',
+  data: { orderId: 9, navigateTo: 'orderDetail' }
+}
+Push receipts [ { status: 'ok', id: '019cc2b4-77f2-7417-959e-7a58a2e1993f' } ]

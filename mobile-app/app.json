@@ -2,7 +2,7 @@
   "expo": {
     "name": "mobile",
     "slug": "mobile",
-    "version": "1.0.5",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "5",
+      "buildNumber": "7",
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
@@ -38,7 +38,7 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
-      "versionCode": 5,
+      "versionCode": 7,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"

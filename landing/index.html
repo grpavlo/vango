@@ -1,0 +1,962 @@
+﻿<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VanGo - Пілот у Черкасах</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,800;1,800&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #109445;
+      --red: #ef3a2f;
+      --blue: #172f5b;
+      --ink: #102346;
+      --muted: #4a5f87;
+      --line: #d2deef;
+      --bg: #f3f7fc;
+      --focus: #ff8b4a;
+      --max: 1160px;
+      --radius-lg: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(860px 520px at -8% 0%, rgba(16, 148, 69, 0.13), transparent 62%),
+        radial-gradient(820px 520px at 108% 0%, rgba(239, 58, 47, 0.12), transparent 62%),
+        var(--bg);
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .mesh {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(rgba(23, 47, 91, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 47, 91, 0.06) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(circle at 50% 35%, #000 44%, transparent 84%);
+    }
+
+    .reading-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(23, 47, 91, 0.1);
+      z-index: 20;
+    }
+
+    .reading-progress > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--green) 0%, var(--red) 100%);
+      transition: width 0.1s linear;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 14px 22px 90px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(23, 47, 91, 0.05);
+      padding: 9px 14px;
+      margin-bottom: 24px;
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    .topbar.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-12px);
+    }
+
+    .logo {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+      justify-self: start;
+    }
+
+    .word {
+      font-family: "Montserrat", sans-serif;
+      font-style: italic;
+      font-size: clamp(29px, 3.4vw, 42px);
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 0.95;
+    }
+
+    .word .van { color: var(--green); }
+    .word .go { color: var(--red); }
+
+    .logo small {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--blue);
+      font-weight: 800;
+      margin-top: 2px;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .menu {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      justify-self: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      min-width: 0;
+    }
+
+    .menu a {
+      text-decoration: none;
+      color: #3f5482;
+      font-size: 14px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border-radius: 999px;
+      padding: 8px 10px;
+      white-space: nowrap;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .menu a:hover {
+      background: #eef3fd;
+      color: var(--blue);
+    }
+
+    .menu a.active {
+      background: #dfe9fb;
+      color: #1a3466;
+    }
+
+    .menu a:active {
+      background: #d7e3fa;
+      color: #162f5d;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-size: 14px;
+      font-weight: 800;
+      min-height: 44px;
+      padding: 11px 16px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-red {
+      color: #fff;
+      background: linear-gradient(130deg, var(--red) 0%, #d72519 46%, #ff6156 100%);
+      box-shadow: 0 6px 16px rgba(239, 58, 47, 0.22);
+    }
+
+    .btn-red:hover {
+      background: linear-gradient(130deg, #f34b40 0%, #df2b1f 46%, #ff6a5f 100%);
+      box-shadow: 0 10px 18px rgba(239, 58, 47, 0.28);
+    }
+
+    .btn-red:active {
+      transform: translateY(0);
+      filter: brightness(0.97);
+      box-shadow: 0 4px 12px rgba(239, 58, 47, 0.2);
+    }
+
+    .btn[disabled],
+    .btn.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .topbar > .btn {
+      justify-self: end;
+    }
+
+    .btn-soft {
+      color: var(--blue);
+      border-color: #c9d7eb;
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    :where(a, button, input, select, textarea):focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+      border-radius: 10px;
+    }
+
+    .seamless {
+      display: grid;
+      gap: 0;
+    }
+
+    .seamless section {
+      content-visibility: auto;
+      contain-intrinsic-size: 740px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.04fr 0.96fr;
+      gap: 24px;
+      align-items: start;
+      padding-bottom: 34px;
+    }
+
+    .badge {
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid rgba(239, 58, 47, 0.24);
+      background: rgba(239, 58, 47, 0.1);
+      color: #8f1f18;
+      font-size: 12px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      font-weight: 800;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: clamp(35px, 4.8vw, 62px);
+      line-height: 1.01;
+      letter-spacing: -0.03em;
+      color: var(--blue);
+      max-width: 13ch;
+      font-weight: 800;
+    }
+
+    .hit {
+      color: var(--red);
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: clamp(16px, 1.6vw, 19px);
+      line-height: 1.58;
+      max-width: 62ch;
+      margin-top: 14px;
+    }
+
+    .hero-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .hero-list li {
+      list-style: none;
+      color: #36517e;
+      font-size: 14px;
+      line-height: 1.4;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .hero-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 7px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(16, 148, 69, 0.16);
+    }
+
+    .cta-row {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .cta-microcopy {
+      margin-top: 8px;
+      color: #5c7198;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .pilot-card {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .pilot-card h3 {
+      font-size: 12px;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      color: #4a5f87;
+      font-weight: 800;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      border: 1px solid #d5e0f0;
+      background: #f7fbff;
+      color: #42567e;
+      font-size: 12px;
+      padding: 6px 9px;
+    }
+
+    .route-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px dashed #c8d7ec;
+      font-size: 14px;
+      color: #3f537a;
+    }
+
+    .route-line strong {
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    .timeline {
+      margin-top: 4px;
+      padding-left: 14px;
+      border-left: 2px solid #d4deef;
+      display: grid;
+      gap: 8px;
+    }
+
+    .timeline li {
+      list-style: none;
+      color: #4b5f87;
+      font-size: 13px;
+      line-height: 1.4;
+      position: relative;
+      padding-left: 6px;
+    }
+
+    .timeline li::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      top: 6px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8db2e6;
+      box-shadow: 0 0 0 4px rgba(141, 178, 230, 0.18);
+    }
+
+    .timeline li.ok::before {
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(16, 148, 69, 0.2);
+    }
+
+    .stream {
+      border-top: 1px solid var(--line);
+      padding-top: 34px;
+      margin-top: 8px;
+    }
+
+    h2 {
+      font-size: clamp(26px, 3vw, 40px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--blue);
+      max-width: 18ch;
+      font-weight: 800;
+    }
+
+    .subtitle {
+      color: #4a5f87;
+      font-size: 15px;
+      line-height: 1.56;
+      max-width: 66ch;
+      margin-top: 8px;
+    }
+
+    .grid-3 {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .item {
+      border-left: 4px solid #d5e0ef;
+      padding-left: 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .item h3 {
+      color: #1d3365;
+      font-size: 20px;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+    }
+
+    .item p {
+      color: #50648a;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .item:nth-child(1) { border-left-color: var(--green); }
+    .item:nth-child(2) { border-left-color: var(--red); }
+    .item:nth-child(3) { border-left-color: var(--blue); }
+
+    .step-list {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .step-list li {
+      list-style: none;
+      display: grid;
+      gap: 4px;
+      padding: 10px 0;
+      border-bottom: 1px dashed #cad8ec;
+    }
+
+    .step-list b {
+      color: #203969;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .step-list p {
+      color: #4f638b;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .faq {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .faq details {
+      border: 1px solid #cfdcec;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.78);
+      padding: 12px 14px;
+    }
+
+    .faq summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      color: #1f3768;
+      line-height: 1.35;
+      padding-right: 16px;
+      position: relative;
+    }
+
+    .faq summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .faq summary::after {
+      content: "+";
+      position: absolute;
+      right: 0;
+      top: 0;
+      color: #5571a0;
+      font-weight: 800;
+    }
+
+    .faq details[open] summary::after {
+      content: "-";
+    }
+
+    .faq p {
+      color: #4f638b;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+
+    .finale {
+      border-top: 1px solid var(--line);
+      margin-top: 26px;
+      padding-top: 32px;
+      display: grid;
+      gap: 14px;
+      justify-items: start;
+    }
+
+    .join-form {
+      margin-top: 4px;
+      width: min(560px, 100%);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .join-form input {
+      border: 1px solid #c9d7eb;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: var(--ink);
+      min-width: 0;
+    }
+
+    .join-note {
+      color: #5d7299;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 16px;
+      color: #5f7499;
+      font-size: 13px;
+    }
+
+    .mobile-cta {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 15;
+      display: none;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #ccd9ec;
+      border-radius: 14px;
+      padding: 8px;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    .mobile-cta.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(12px);
+    }
+
+    .mobile-cta p {
+      color: #466191;
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 700;
+      padding-left: 4px;
+      max-width: 46%;
+    }
+
+    .mobile-cta .btn {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1080px) {
+      .topbar {
+        position: static;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          "logo cta"
+          "menu menu";
+        gap: 10px;
+        padding: 10px 12px;
+      }
+
+      .logo {
+        grid-area: logo;
+      }
+
+      .menu {
+        grid-area: menu;
+        justify-self: center;
+        gap: 4px;
+      }
+
+      .topbar > .btn {
+        grid-area: cta;
+        min-height: 42px;
+        padding: 10px 13px;
+        font-size: 13px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        padding: 10px 12px 86px;
+      }
+
+      .topbar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 18px;
+        gap: 10px;
+        text-align: center;
+        padding: 12px;
+      }
+
+      .menu {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(130px, 1fr));
+        width: 100%;
+        max-width: 360px;
+        gap: 6px;
+      }
+
+      .menu a {
+        text-align: center;
+        min-height: 44px;
+        padding: 10px 8px;
+      }
+
+      .logo {
+        justify-content: center;
+      }
+
+      .logo small {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-align: center;
+      }
+
+      .topbar > .btn {
+        width: 100%;
+        max-width: 360px;
+        justify-self: center;
+        min-height: 46px;
+      }
+
+      .join-form {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-cta {
+        display: flex;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="mesh"></div>
+  <div class="reading-progress" aria-hidden="true"><span id="readingProgress"></span></div>
+
+  <div class="wrap">
+    <header class="topbar" id="topbar">
+      <a class="logo" href="#topbar" aria-label="VanGo">
+        <div class="word"><span class="van">Van</span><span class="go">Go</span></div>
+        <small>Швидке перевезення вантажів</small>
+      </a>
+
+      <nav class="menu" aria-label="Розділи сторінки">
+        <a href="#for-whom" data-nav>Кому підходить</a>
+        <a href="#how" data-nav>Як працює пілот</a>
+        <a href="#faq" data-nav>Питання</a>
+        <a href="#join" data-nav>Запуск</a>
+      </nav>
+
+      <a class="btn btn-red" href="#join">Приєднатись до списку очікування</a>
+    </header>
+
+    <main class="seamless">
+      <section class="hero" id="start">
+        <div>
+          <div class="badge">Пілотний етап · Черкаси</div>
+          <h1>Сервіс перевезень для Черкас, де кожен крок <span class="hit">видимий і зафіксований.</span></h1>
+          <p class="lead">
+            VanGo зараз у стадії внутрішнього тестування. Ми збираємо ранню аудиторію, щоб запустити публічну версію з
+            прозорим сценарієм: заявка, підтвердження, статуси доставки та підсумок замовлення в одному процесі.
+          </p>
+
+          <ul class="hero-list">
+            <li>Зрозумілий процес без розрізнених чатів і втрати деталей.</li>
+            <li>Фокус пілоту: міські та приміські перевезення у Черкасах.</li>
+            <li>Ранні учасники першими отримують запрошення до публічного запуску.</li>
+          </ul>
+
+          <div class="cta-row">
+            <a class="btn btn-red" href="#join">Приєднатись до списку очікування</a>
+            <a class="btn btn-soft" href="#how">Подивитись як працює пілот</a>
+          </div>
+          <p class="cta-microcopy">1-2 повідомлення на місяць • без спаму • відписка в 1 клік</p>
+        </div>
+
+        <aside class="pilot-card" id="proof">
+          <h3>Що вже відпрацьовуємо у пілоті</h3>
+          <div class="chip-row">
+            <span class="chip">Внутрішній тест</span>
+            <span class="chip">Локальний запуск</span>
+            <span class="chip">Черкаси</span>
+          </div>
+
+          <div class="route-line">
+            <strong>Місто Черкаси</strong>
+            <span>перший етап</span>
+          </div>
+          <div class="route-line">
+            <strong>Черкаський район</strong>
+            <span>тест маршрутизації</span>
+          </div>
+
+          <ul class="timeline">
+            <li class="ok">Тестуємо створення заявки та підтвердження умов</li>
+            <li class="ok">Відпрацьовуємо оновлення статусів доставки</li>
+            <li>Збираємо зворотний зв'язок від ранніх користувачів</li>
+            <li>Уточнюємо фінальний сценарій перед публічним релізом</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="stream" id="for-whom">
+        <h2>Кому підходить VanGo на старті</h2>
+        <p class="subtitle">
+          Пілот орієнтований на тих, кому потрібна зрозуміла координація перевезення без зайвої невизначеності.
+        </p>
+
+        <div class="grid-3">
+          <article class="item">
+            <h3>Приватним клієнтам</h3>
+            <p>Для перевезення меблів, техніки чи речей, коли важливо бачити етапи замовлення.</p>
+          </article>
+          <article class="item">
+            <h3>Малому бізнесу</h3>
+            <p>Для локальної доставки в межах міста, коли потрібен контроль процесу і фіксація умов.</p>
+          </article>
+          <article class="item">
+            <h3>Раннім користувачам</h3>
+            <p>Для тих, хто хоче вплинути на продукт і отримати доступ до публічного запуску одним із перших.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="stream" id="how">
+        <h2>Як працює пілот VanGo</h2>
+        <p class="subtitle">Базовий сценарій, який ми доводимо до стабільного публічного формату.</p>
+
+        <ol class="step-list">
+          <li>
+            <b>Крок 1</b>
+            <p>Користувач залишає контакт і отримує інформацію про статус запуску.</p>
+          </li>
+          <li>
+            <b>Крок 2</b>
+            <p>У межах пілоту створюється тестова заявка з основними параметрами перевезення.</p>
+          </li>
+          <li>
+            <b>Крок 3</b>
+            <p>Погоджуються умови та перевіряється логіка зміни статусів на кожному етапі.</p>
+          </li>
+          <li>
+            <b>Крок 4</b>
+            <p>Після виконання збирається зворотний зв'язок для покращення сценарію.</p>
+          </li>
+          <li>
+            <b>Крок 5</b>
+            <p>Результати пілоту формують пріоритети публічного релізу в Черкасах.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="stream" id="faq">
+        <h2>Поширені питання</h2>
+        <p class="subtitle">Короткі відповіді, щоб одразу розуміти поточний стан сервісу.</p>
+
+        <div class="faq">
+          <details>
+            <summary>VanGo вже доступний для всіх?</summary>
+            <p>Ні. Зараз триває внутрішнє тестування. Публічний доступ відкриватиметься поетапно.</p>
+          </details>
+          <details>
+            <summary>Чому перший фокус саме на Черкасах?</summary>
+            <p>Черкаси - ключова стартова аудиторія для перевірки сценаріїв, попиту та стабільності процесу.</p>
+          </details>
+          <details>
+            <summary>Що я отримаю після залишення контакту?</summary>
+            <p>Оновлення про запуск, запрошення до доступу та короткі новини про розвиток функцій сервісу.</p>
+          </details>
+          <details>
+            <summary>Як часто надходитимуть повідомлення?</summary>
+            <p>Орієнтовно 1-2 повідомлення на місяць. Ми не робимо масових розсилок щодня.</p>
+          </details>
+          <details>
+            <summary>Чи можу я відписатися?</summary>
+            <p>Так. У кожному повідомленні буде проста можливість відписки.</p>
+          </details>
+        </div>
+      </section>
+
+      <section class="finale" id="join">
+        <h2>Хочете першими дізнатись про публічний запуск VanGo у Черкасах?</h2>
+        <p class="subtitle">
+          Залиште контакт у список очікування. Ми надішлемо запрошення, коли відкриємо наступну хвилю доступу.
+        </p>
+
+        <form class="join-form" action="#" method="post" novalidate>
+          <label class="sr-only" for="contactField">Контакт</label>
+          <input id="contactField" name="contact" type="text" placeholder="Телефон або email" autocomplete="email" />
+          <button class="btn btn-red" type="submit">Приєднатись до списку очікування</button>
+        </form>
+        <p class="join-note">Натискаючи кнопку, ви погоджуєтесь отримувати інформаційні повідомлення про запуск сервісу.</p>
+      </section>
+    </main>
+
+    <footer>VanGo · Черкаси · Внутрішнє тестування і підготовка публічного запуску</footer>
+  </div>
+
+  <div class="mobile-cta" id="mobileCta">
+    <p>Пілот у Черкасах: приєднуйтесь до списку запуску</p>
+    <a class="btn btn-red" href="#join">Приєднатись</a>
+  </div>
+
+  <script>
+    (function () {
+      const progressBar = document.getElementById('readingProgress');
+      const topbar = document.getElementById('topbar');
+      const mobileCta = document.getElementById('mobileCta');
+      const joinSection = document.getElementById('join');
+      const navLinks = Array.from(document.querySelectorAll('[data-nav]'));
+      const sections = navLinks
+        .map((link) => document.querySelector(link.getAttribute('href')))
+        .filter(Boolean);
+
+      function updateProgress() {
+        const scrollTop = window.scrollY || window.pageYOffset;
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        progressBar.style.width = Math.min(100, Math.max(0, progress)) + '%';
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const id = '#' + entry.target.id;
+            navLinks.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === id));
+          });
+        },
+        { rootMargin: '-40% 0px -45% 0px', threshold: 0.01 }
+      );
+
+      const joinObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const hidden = entry.isIntersecting;
+            if (topbar) topbar.classList.toggle('is-hidden', hidden);
+            if (mobileCta) mobileCta.classList.toggle('is-hidden', hidden);
+          });
+        },
+        { threshold: 0.2 }
+      );
+
+      sections.forEach((section) => observer.observe(section));
+      if (joinSection) joinObserver.observe(joinSection);
+      window.addEventListener('scroll', updateProgress, { passive: true });
+      updateProgress();
+    })();
+  </script>
+
+  <style>
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+
+  <script src="/capture-local.js" async></script>
+</body>
+</html>

@@ -203,7 +203,11 @@ export default function PhoneAuthScreen({ navigation }) {
   }, [step]);
 
   return (
+<<<<<<< HEAD
     <KeyboardAwareScrollView
+=======
+     <KeyboardAwareScrollView
+>>>>>>> 9d3a02fc9c89a7e257a2d550abd5fa34b7c93f23
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
       extraScrollHeight={80}

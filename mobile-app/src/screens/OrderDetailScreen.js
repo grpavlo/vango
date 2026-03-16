@@ -226,6 +226,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [actionHeight, setActionHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [finalPrice, setFinalPrice] = useState(order?.price ? String(order.price) : '');
   const wsRef = useRef(null);
   const priceInputRef = useRef(null);
@@ -233,6 +234,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const callingRef = useRef(false);
 
   const useNewFlow = FEATURE_FLAGS.NEW_RESPONSE_FLOW;
+  const HALF_FINAL_PRICE_INPUT_HEIGHT = 0;
 
   const contactPhone = useMemo(() => {
     if (useNewFlow && myResponse?.customerPhone) return myResponse.customerPhone;
