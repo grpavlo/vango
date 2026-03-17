@@ -1,37 +1,77 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   Alert,
   ScrollView,
-  SafeAreaView,
+  TouchableOpacity,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Ionicons } from "@expo/vector-icons";
+
 import AppText from "../components/AppText";
 import AppInput from "../components/AppInput";
 import AppButton from "../components/AppButton";
 import DateInput from "../components/DateInput";
 import TimeInput from "../components/TimeInput";
-import { colors } from "../components/Colors";
+import AddressSearchInput from "../components/AddressSearchInput";
 import Screen from "../components/Screen";
-import Slider from "@react-native-community/slider";
 import PhotoPicker from "../components/PhotoPicker";
 import OptionSwitch from "../components/OptionSwitch";
 import CheckBox from "../components/CheckBox";
-import { Ionicons } from "@expo/vector-icons";
-import { apiFetch, API_URL, HOST_URL } from "../api";
+import { colors } from "../components/Colors";
+import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
-import { registerCallback } from "../callbackRegistry";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { GOOGLE_PLACES_API_KEY } from "../config";
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const FREE_DATE_TTL_DAYS = 7;
+
+function buildDefaultSchedule() {
+  const now = new Date();
+  const loadFrom = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    9,
+    0,
+    0
+  );
+  const loadTo = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    18,
+    0,
+    0
+  );
+
+  return {
+    loadFrom,
+    loadTo,
+    unloadFrom: new Date(loadFrom.getTime() + DAY_IN_MS),
+    unloadTo: new Date(loadTo.getTime() + DAY_IN_MS),
+  };
+}
+
+function buildFlexibleSchedule(baseDate = new Date()) {
+  const loadFrom = new Date(baseDate);
+  const loadTo = new Date(loadFrom.getTime() + 60 * 60 * 1000);
+  const freeDateUntil = new Date(
+    loadFrom.getTime() + FREE_DATE_TTL_DAYS * DAY_IN_MS
+  );
+  const unloadFrom = new Date(freeDateUntil);
+  const unloadTo = new Date(freeDateUntil.getTime() + 60 * 60 * 1000);
+
+  return { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil };
+}
 
 export default function EditOrderScreen({ route, navigation }) {
   const { token } = useAuth();
   const toast = useToast();
   const { order } = route.params;
   const hasFooter = AppButton.length > 0;
-  const googleApiKey = GOOGLE_PLACES_API_KEY;
 
   const [pickupQuery, setPickupQuery] = useState(order.pickupLocation || "");
   const [pickup, setPickup] = useState(
@@ -47,7 +87,6 @@ export default function EditOrderScreen({ route, navigation }) {
         }
       : null
   );
-  const [pickupSuggestions, setPickupSuggestions] = useState([]);
   const [dropoffQuery, setDropoffQuery] = useState(order.dropoffLocation || "");
   const [dropoff, setDropoff] = useState(
     order.dropoffLat
@@ -62,23 +101,25 @@ export default function EditOrderScreen({ route, navigation }) {
         }
       : null
   );
-  const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
-  const [cargoLength, setCargoLength] = useState(order.cargoLength ? String(order.cargoLength) : "");
-  const [cargoWidth, setCargoWidth] = useState(order.cargoWidth ? String(order.cargoWidth) : "");
-  const [cargoHeight, setCargoHeight] = useState(order.cargoHeight ? String(order.cargoHeight) : "");
-  const [cargoWeight, setCargoWeight] = useState(order.cargoWeight ? String(order.cargoWeight) : "");
+  const [cargoLength, setCargoLength] = useState(
+    order.cargoLength ? String(order.cargoLength) : ""
+  );
+  const [cargoWidth, setCargoWidth] = useState(
+    order.cargoWidth ? String(order.cargoWidth) : ""
+  );
+  const [cargoHeight, setCargoHeight] = useState(
+    order.cargoHeight ? String(order.cargoHeight) : ""
+  );
+  const [cargoWeight, setCargoWeight] = useState(
+    order.cargoWeight ? String(order.cargoWeight) : ""
+  );
   const [cargoVolume, setCargoVolume] = useState(
     order.cargoVolume ? String(order.cargoVolume) : "0"
   );
   const [loadHelp, setLoadHelp] = useState(order.loadHelp);
   const [unloadHelp, setUnloadHelp] = useState(order.unloadHelp);
+  const [freeDate, setFreeDate] = useState(!!order.freeDate);
   const [payment, setPayment] = useState(order.payment || "cash");
-
-  const pickupTimer = useRef(null);
-  const dropoffTimer = useRef(null);
-  const now = new Date();
-  const startDay = new Date(order.loadFrom);
-  const endDay = new Date(order.loadTo);
   const [loadFrom, setLoadFrom] = useState(new Date(order.loadFrom));
   const [loadTo, setLoadTo] = useState(new Date(order.loadTo));
   const [unloadFrom, setUnloadFrom] = useState(new Date(order.unloadFrom));
@@ -88,41 +129,58 @@ export default function EditOrderScreen({ route, navigation }) {
   );
   const [description, setDescription] = useState(order.cargoType || "");
   const [systemPrice, setSystemPrice] = useState(order.price || null);
-  const [adjust, setAdjust] = useState(0);
   const [agreedPrice, setAgreedPrice] = useState(!!order.agreedPrice);
-
-  // useEffect(() => {
-  //   async function calcPrice() {
-  //     if (pickup && dropoff) {
-  //       try {
-  //         const res = await fetch(
-  //           `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
-  //         );
-  //         const data = await res.json();
-  //         if (data.routes && data.routes[0]) {
-  //           const km = data.routes[0].distance / 1000;
-  //           const base = km * 50;
-  //           setSystemPrice(base);
-  //         }
-  //       } catch (err) {
-  //         console.log(err);
-  //       }
-  //     }
-  //   }
-  //   calcPrice();
-  // }, [pickup, dropoff]);
 
   useEffect(() => {
     const l = parseFloat(cargoLength) || 0;
     const w = parseFloat(cargoWidth) || 0;
     const h = parseFloat(cargoHeight) || 0;
-    const v = l * w * h;
-    setCargoVolume(v > 0 ? v.toFixed(2) : "0");
+    const volume = l * w * h;
+    setCargoVolume(volume > 0 ? volume.toFixed(2) : "0");
   }, [cargoLength, cargoWidth, cargoHeight]);
+
+  function handleFreeDateChange(value) {
+    setFreeDate(value);
+    if (value) {
+      Alert.alert(
+        "Вільна дата",
+        "Якщо дата розвантаження вільна, замовлення буде актуальним 7 днів і показуватиметься водіям у вибраному місті завантаження."
+      );
+      return;
+    }
+
+    if (order.freeDate) {
+      const defaults = buildDefaultSchedule();
+      setLoadFrom(defaults.loadFrom);
+      setLoadTo(defaults.loadTo);
+      setUnloadFrom(defaults.unloadFrom);
+      setUnloadTo(defaults.unloadTo);
+    }
+  }
 
   async function save() {
     try {
+      const freeDateSchedule = freeDate
+        ? order.freeDate && order.freeDateUntil
+          ? {
+              loadFrom: new Date(order.loadFrom || new Date()),
+              loadTo: new Date(
+                order.loadTo || new Date(Date.now() + 60 * 60 * 1000)
+              ),
+              unloadFrom: new Date(order.unloadFrom || order.freeDateUntil),
+              unloadTo: new Date(
+                order.unloadTo ||
+                  new Date(
+                    new Date(order.freeDateUntil).getTime() + 60 * 60 * 1000
+                  )
+              ),
+              freeDateUntil: new Date(order.freeDateUntil),
+            }
+          : buildFlexibleSchedule()
+        : null;
+
       const fd = new FormData();
+
       if (pickup) {
         fd.append("pickupLocation", pickup.text);
         fd.append("pickupLat", pickup.lat);
@@ -132,6 +190,7 @@ export default function EditOrderScreen({ route, navigation }) {
         if (pickup.country) fd.append("pickupCountry", pickup.country);
         if (pickup.postcode) fd.append("pickupPostcode", pickup.postcode);
       }
+
       if (dropoff) {
         fd.append("dropoffLocation", dropoff.text);
         fd.append("dropoffLat", dropoff.lat);
@@ -141,41 +200,63 @@ export default function EditOrderScreen({ route, navigation }) {
         if (dropoff.country) fd.append("dropoffCountry", dropoff.country);
         if (dropoff.postcode) fd.append("dropoffPostcode", dropoff.postcode);
       }
+
       if (pickup?.city) {
         fd.append("city", pickup.city);
       }
+
       fd.append("cargoType", description);
       if (cargoLength) fd.append("cargoLength", cargoLength);
       if (cargoWidth) fd.append("cargoWidth", cargoWidth);
       if (cargoHeight) fd.append("cargoHeight", cargoHeight);
       if (cargoWeight) fd.append("cargoWeight", cargoWeight);
       if (parseFloat(cargoVolume) > 0) fd.append("cargoVolume", cargoVolume);
-      fd.append("loadFrom", loadFrom.toISOString());
-      fd.append("loadTo", loadTo.toISOString());
-      fd.append("unloadFrom", unloadFrom.toISOString());
-      fd.append("unloadTo", unloadTo.toISOString());
+
+      fd.append(
+        "loadFrom",
+        (freeDate ? freeDateSchedule.loadFrom : loadFrom).toISOString()
+      );
+      fd.append(
+        "loadTo",
+        (freeDate ? freeDateSchedule.loadTo : loadTo).toISOString()
+      );
+      fd.append(
+        "unloadFrom",
+        (freeDate ? freeDateSchedule.unloadFrom : unloadFrom).toISOString()
+      );
+      fd.append(
+        "unloadTo",
+        (freeDate ? freeDateSchedule.unloadTo : unloadTo).toISOString()
+      );
+      fd.append("freeDate", freeDate ? "true" : "false");
+      if (freeDate && freeDateSchedule?.freeDateUntil) {
+        fd.append("freeDateUntil", freeDateSchedule.freeDateUntil.toISOString());
+      }
+
       fd.append("insurance", "false");
       fd.append("loadHelp", loadHelp ? "true" : "false");
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
-      const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
-      fd.append("price", finalPrice.toString());
+      fd.append("price", String(Math.round(Number(systemPrice || 0))));
       fd.append("agreedPrice", agreedPrice ? "true" : "false");
-      if (photos && photos.length > 0) {
+
+      if (photos.length > 0) {
         photos
-          .filter((p) => !p.startsWith("http"))
-          .forEach((p) => {
-            const filename = p.split("/").pop();
+          .filter((uri) => !uri.startsWith("http"))
+          .forEach((uri) => {
+            const filename = uri.split("/").pop();
             const match = /\.([a-zA-Z0-9]+)$/.exec(filename || "");
             const type = match ? `image/${match[1]}` : "image";
-            fd.append("photos", { uri: p, name: filename, type });
+            fd.append("photos", { uri, name: filename, type });
           });
       }
+
       await apiFetch(`/orders/${order.id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
+
       toast.show("Змінено");
       navigation.pop(2);
     } catch (err) {
@@ -196,94 +277,50 @@ export default function EditOrderScreen({ route, navigation }) {
       toast.show("Потрібно вказати ціну");
       return;
     }
-    if (loadFrom < new Date()) {
-      toast.show("Дата завантаження не може бути в минулому");
-      return;
+
+    if (!freeDate) {
+      if (loadFrom < new Date()) {
+        toast.show("Дата завантаження не може бути в минулому");
+        return;
+      }
+      if (loadTo <= loadFrom) {
+        toast.show(
+          "Кінцева дата завантаження повинна бути пізніше початкової"
+        );
+        return;
+      }
+      if (unloadFrom <= loadTo) {
+        toast.show(
+          "Дата початку розвантаження повинна бути після закінчення завантаження"
+        );
+        return;
+      }
+      if (unloadTo <= unloadFrom) {
+        toast.show(
+          "Кінцева дата розвантаження повинна бути пізніше початкової"
+        );
+        return;
+      }
     }
-    if (loadTo <= loadFrom) {
-      toast.show("Кінцева дата завантаження повинна бути пізніше початкової");
-      return;
-    }
-    if (unloadFrom <= loadTo) {
-      toast.show(
-        "Дата початку розвантаження повинна бути після закінчення завантаження"
-      );
-      return;
-    }
-    if (unloadTo <= unloadFrom) {
-      toast.show("Кінцева дата розвантаження повинна бути пізніше початкової");
-      return;
-    }
+
     Alert.alert("Підтвердження", "Зберегти зміни?", [
       { text: "Скасувати" },
       { text: "OK", onPress: save },
     ]);
   }
 
-  async function loadSuggestions(text, setter) {
-    if (text.length < 3 || !googleApiKey) {
-      setter([]);
-      return;
-    }
-    try {
-      const url =
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?` +
-        `input=${encodeURIComponent(text)}` +
-        `&key=${googleApiKey}` +
-        `&components=country:ua` +
-        `&language=uk`;
-      const res = await fetch(url);
-      const json = await res.json();
-      // json.predictions — масив об’єктів
-      setter(json.predictions);
-    } catch (error) {
-      console.warn("Autocomplete error:", error);
-    }
-  }
-
-  async function fetchPlaceDetails(placeId) {
-    if (!googleApiKey) return null;
-
-    const url =
-      "https://maps.googleapis.com/maps/api/place/details/json" +
-      `?place_id=${placeId}` +
-      `&fields=geometry,formatted_address,address_components` +
-      `&language=uk&key=${googleApiKey}`;
-
-    const res = await fetch(url);
-    const json = await res.json();
-    return json.result;
-  }
-
-  function extractParts(components = []) {
-    const get = (t) =>
-      components.find((c) => c.types.includes(t))?.long_name || "";
-    return {
-      city:
-        get("locality") ||
-        get("administrative_area_level_2") ||
-        get("administrative_area_level_1"),
-      address: [get("route"), get("street_number")].filter(Boolean).join(" "),
-      country: get("country"),
-      postcode: get("postal_code"),
-    };
-  }
-
   return (
     <Screen hasFooter={hasFooter}>
       <KeyboardAwareScrollView
-        //contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
-        extraScrollHeight={80} // щоб підняло поле
-        enableOnAndroid={true}
+        extraScrollHeight={80}
+        enableOnAndroid
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.back}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={32} color="#333" />
         </TouchableOpacity>
+
         <ScrollView
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
@@ -292,238 +329,143 @@ export default function EditOrderScreen({ route, navigation }) {
             <Ionicons name="location" size={20} color={colors.green} />
             <AppText style={styles.label}>Звідки</AppText>
           </View>
-          <View style={{ position: "relative", zIndex: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <AppInput
-                style={{
-                  flex: 1,
-                  height: pickupQuery && pickupQuery.length > 60 ? 112 : 56,
-                  textAlignVertical: pickupQuery && pickupQuery.length > 60 ? 'top' : 'center',
-                  paddingTop: pickupQuery && pickupQuery.length > 60 ? 10 : 0,
-                }}
-                multiline
-                value={pickupQuery}
-                onChangeText={(t) => {
-                  setPickupQuery(t);
-                  setPickup(null);
-                  if (pickupTimer.current) clearTimeout(pickupTimer.current);
-                  pickupTimer.current = setTimeout(
-                    () => loadSuggestions(t, setPickupSuggestions),
-                    1000
-                  );
-                }}
-              />
-              <TouchableOpacity
-                style={styles.mapBtn}
-                onPress={() => {
-                  const onSelectId = registerCallback((p) => {
-                    setPickup(p);
-                    setPickupQuery(p.text || pickupQuery);
-                  });
-                  navigation.navigate("MapSelect", {
-                    address: pickupQuery,
-                    lat: pickup?.lat,
-                    lon: pickup?.lng,
-                    onSelectId,
-                  });
-                }}
-              >
-                <Ionicons name="map" size={24} color={colors.orange} />
-              </TouchableOpacity>
-            </View>
-            {pickupSuggestions.length > 0 && (
-              <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
-                <ScrollView
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="always"
-                  showsVerticalScrollIndicator
-                  contentContainerStyle={{ flexGrow: 1 }}
-                >
-                  {pickupSuggestions.map((item) => (
-                    <TouchableOpacity
-                      key={item.place_id}
-                      style={styles.suggestionItem}
-                      onPress={async () => {
-                        const det = await fetchPlaceDetails(item.place_id);
-                        if (!det?.geometry?.location) return;
-                        const { lat, lng } = det.geometry.location;
-                        const parts = extractParts(det.address_components);
-                        setPickup({
-                          text: det.formatted_address,
-                          lat: Number(lat),
-                          lon: Number(lng),
-                          city: parts.city,
-                          address: parts.address,
-                          country: parts.country,
-                          postcode: parts.postcode,
-                        });
-                        setPickupQuery(det.formatted_address);
-                        setPickupSuggestions([]);
-                      }}
-                    >
-                      <AppText style={styles.suggestionMain}>
-                        {item.structured_formatting?.main_text ||
-                          item.description}
-                      </AppText>
-                      <AppText style={styles.suggestionSub}>
-                        {item.structured_formatting?.secondary_text}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
+          <AddressSearchInput
+            placeholder="Адреса завантаження"
+            value={pickupQuery}
+            onChangeText={(text) => {
+              setPickupQuery(text);
+              if (!text) setPickup(null);
+            }}
+            onSelect={(point) => {
+              setPickup(point);
+              setPickupQuery(point?.text || "");
+            }}
+            navigation={navigation}
+            lat={pickup?.lat}
+            lon={pickup?.lon}
+            provider="google"
+            googleApiKey={GOOGLE_PLACES_API_KEY}
+          />
 
           <View style={styles.section}>
             <Ionicons name="location" size={20} color={colors.orange} />
             <AppText style={styles.label}>Куди</AppText>
           </View>
-          <View style={{ position: "relative", zIndex: 9 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <AppInput
-                style={{
-                  flex: 1,
-                  height: dropoffQuery && dropoffQuery.length > 60 ? 112 : 56,
-                  textAlignVertical: dropoffQuery && dropoffQuery.length > 60 ? 'top' : 'center',
-                  paddingTop: dropoffQuery && dropoffQuery.length > 60 ? 10 : 0,
-                }}
-                multiline
-                value={dropoffQuery}
-                onChangeText={(t) => {
-                  setDropoffQuery(t);
-                  setDropoff(null);
-                  if (dropoffTimer.current) clearTimeout(dropoffTimer.current);
-                  dropoffTimer.current = setTimeout(
-                    () => loadSuggestions(t, setDropoffSuggestions),
-                    1000
-                  );
-                }}
-              />
-              <TouchableOpacity
-                style={styles.mapBtn}
-                onPress={() => {
-                  const onSelectId = registerCallback((p) => {
-                    setDropoff(p);
-                    setDropoffQuery(p.text || dropoffQuery);
-                  });
-                  navigation.navigate("MapSelect", {
-                    address: dropoffQuery,
-                    lat: dropoff?.lat,
-                    lon: dropoff?.lon,
-                    onSelectId,
-                  });
-                }}
-              >
-                <Ionicons name="map" size={24} color={colors.green} />
-              </TouchableOpacity>
-            </View>
-            {dropoffSuggestions.length > 0 && (
-              <View style={[styles.suggestionsDropdown, styles.suggestionsBox]}>
-                <ScrollView keyboardShouldPersistTaps="handled">
-                  {dropoffSuggestions.map((item) => (
-                    <TouchableOpacity
-                      key={item.place_id}
-                      style={styles.suggestionItem}
-                      onPress={async () => {
-                        const det = await fetchPlaceDetails(item.place_id);
-                        if (!det?.geometry?.location) return;
-                        const { lat, lng } = det.geometry.location;
-                        const parts = extractParts(det.address_components);
+          <AddressSearchInput
+            placeholder="Адреса доставки"
+            value={dropoffQuery}
+            onChangeText={(text) => {
+              setDropoffQuery(text);
+              if (!text) setDropoff(null);
+            }}
+            onSelect={(point) => {
+              setDropoff(point);
+              setDropoffQuery(point?.text || "");
+            }}
+            navigation={navigation}
+            lat={dropoff?.lat}
+            lon={dropoff?.lon}
+            provider="google"
+            googleApiKey={GOOGLE_PLACES_API_KEY}
+          />
 
-                        setDropoff({
-                          // ✅ правильний стейт
-                          text: det.formatted_address,
-                          lat: Number(lat),
-                          lon: Number(lng),
-                          city: parts.city,
-                          address: parts.address,
-                          country: parts.country,
-                          postcode: parts.postcode,
-                        });
-
-                        setDropoffQuery(det.formatted_address); // ✅ правильне поле
-                        setPickupSuggestions([]);
-                        setDropoffSuggestions([]);
-                      }}
-                    >
-                      <AppText style={styles.suggestionMain}>
-                        {item.structured_formatting?.main_text ||
-                          item.description}
-                      </AppText>
-                      <AppText style={styles.suggestionSub}>
-                        {item.structured_formatting?.secondary_text}
-                      </AppText>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+          <View style={styles.freeDateBox}>
+            <CheckBox
+              value={freeDate}
+              onChange={handleFreeDateChange}
+              label="Вільна дата"
+            />
+            {freeDate && (
+              <AppText style={styles.freeDateHint}>
+                Поля завантаження та розвантаження приховані. Замовлення активне
+                7 днів.
+              </AppText>
             )}
           </View>
 
-          <View style={styles.section}>
-            <Ionicons name="arrow-down-circle" size={20} color={colors.green} />
-            <AppText style={styles.label}>Завантаження</AppText>
-          </View>
-          <DateInput
-            value={loadFrom}
-            onChange={(d) => {
-              const from = new Date(loadFrom);
-              from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-              const to = new Date(loadTo);
-              to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-              setLoadFrom(from);
-              setLoadTo(to);
-            }}
-            style={{ marginTop: 0, marginBottom: 12 }}
-            placeholder="DD.MM.YYYY"
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <TimeInput
-              value={loadFrom}
-              onChange={setLoadFrom}
-              style={{ flex: 1 }}
-              placeholder="09:00"
-            />
-            <TimeInput
-              value={loadTo}
-              onChange={setLoadTo}
-              style={{ flex: 1 }}
-              placeholder="18:00"
-            />
-          </View>
+          {!freeDate && (
+            <>
+              <View style={styles.section}>
+                <Ionicons name="arrow-down-circle" size={20} color={colors.green} />
+                <AppText style={styles.label}>Завантаження</AppText>
+              </View>
+              <DateInput
+                value={loadFrom}
+                onChange={(date) => {
+                  const from = new Date(loadFrom);
+                  from.setFullYear(
+                    date.getFullYear(),
+                    date.getMonth(),
+                    date.getDate()
+                  );
+                  const to = new Date(loadTo);
+                  to.setFullYear(
+                    date.getFullYear(),
+                    date.getMonth(),
+                    date.getDate()
+                  );
+                  setLoadFrom(from);
+                  setLoadTo(to);
+                }}
+                style={{ marginTop: 0, marginBottom: 12 }}
+                placeholder="DD.MM.YYYY"
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TimeInput
+                  value={loadFrom}
+                  onChange={setLoadFrom}
+                  style={{ flex: 1 }}
+                  placeholder="09:00"
+                />
+                <TimeInput
+                  value={loadTo}
+                  onChange={setLoadTo}
+                  style={{ flex: 1 }}
+                  placeholder="18:00"
+                />
+              </View>
 
-          <View style={styles.section}>
-            <Ionicons name="arrow-up-circle" size={20} color={colors.orange} />
-            <AppText style={styles.label}>Вивантаження</AppText>
-          </View>
-          <DateInput
-            value={unloadFrom}
-            onChange={(d) => {
-              const from = new Date(unloadFrom);
-              from.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-              const to = new Date(unloadTo);
-              to.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-              setUnloadFrom(from);
-              setUnloadTo(to);
-            }}
-            style={{ marginTop: 0, marginBottom: 12 }}
-            placeholder="DD.MM.YYYY"
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <TimeInput
-              value={unloadFrom}
-              onChange={setUnloadFrom}
-              style={{ flex: 1 }}
-              placeholder="09:00"
-            />
-            <TimeInput
-              value={unloadTo}
-              onChange={setUnloadTo}
-              style={{ flex: 1 }}
-              placeholder="18:00"
-            />
-          </View>
+              <View style={styles.section}>
+                <Ionicons name="arrow-up-circle" size={20} color={colors.orange} />
+                <AppText style={styles.label}>Розвантаження</AppText>
+              </View>
+              <DateInput
+                value={unloadFrom}
+                onChange={(date) => {
+                  const from = new Date(unloadFrom);
+                  from.setFullYear(
+                    date.getFullYear(),
+                    date.getMonth(),
+                    date.getDate()
+                  );
+                  const to = new Date(unloadTo);
+                  to.setFullYear(
+                    date.getFullYear(),
+                    date.getMonth(),
+                    date.getDate()
+                  );
+                  setUnloadFrom(from);
+                  setUnloadTo(to);
+                }}
+                style={{ marginTop: 0, marginBottom: 12 }}
+                placeholder="DD.MM.YYYY"
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TimeInput
+                  value={unloadFrom}
+                  onChange={setUnloadFrom}
+                  style={{ flex: 1 }}
+                  placeholder="09:00"
+                />
+                <TimeInput
+                  value={unloadTo}
+                  onChange={setUnloadTo}
+                  style={{ flex: 1 }}
+                  placeholder="18:00"
+                />
+              </View>
+            </>
+          )}
 
           <View style={styles.section}>
             <Ionicons name="cube" size={20} color={colors.green} />
@@ -554,7 +496,7 @@ export default function EditOrderScreen({ route, navigation }) {
           </View>
           {parseFloat(cargoVolume) > 0 && (
             <AppText style={{ marginTop: 4, color: "#6B7280" }}>
-              Об'єм: {cargoVolume} м³
+              Об'єм: {cargoVolume} м3
             </AppText>
           )}
 
@@ -566,15 +508,7 @@ export default function EditOrderScreen({ route, navigation }) {
             placeholder="Вага вантажу"
           />
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              marginTop: 8,
-              marginLeft: 24,
-            }}
-          >
+          <View style={styles.serviceRow}>
             <CheckBox
               value={loadHelp}
               onChange={setLoadHelp}
@@ -608,24 +542,14 @@ export default function EditOrderScreen({ route, navigation }) {
 
           <PhotoPicker photos={photos} onChange={setPhotos} />
 
-          {/* {systemPrice !== null && ( */}
           <View style={{ marginTop: 16 }}>
-            <AppText style={styles.labelStandalone}>
-              Ціна
-              {/* : {Math.round(systemPrice * (1 + adjust / 100))} грн */}
-            </AppText>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-              }}
-            >
+            <AppText style={styles.labelStandalone}>Ціна</AppText>
+            <View style={styles.priceRow}>
               <AppInput
                 style={{ marginRight: 8, flex: 1 }}
-                value={systemPrice ? systemPrice.toString() : ""}
-                onChangeText={(t) => {
-                  setSystemPrice(t);
-                }}
+                value={systemPrice ? String(systemPrice) : ""}
+                onChangeText={setSystemPrice}
+                keyboardType="number-pad"
               />
               <CheckBox
                 value={agreedPrice}
@@ -633,26 +557,8 @@ export default function EditOrderScreen({ route, navigation }) {
                 label="Договірна"
               />
             </View>
-
-            {/* <Slider
-                   minimumValue={-5}
-                   maximumValue={15}
-                   step={1}
-                   value={adjust}
-                   onValueChange={setAdjust}
-                   thumbTintColor={colors.green}
-                 />
-                 <View
-                   style={{
-                     flexDirection: "row",
-                     justifyContent: "space-between",
-                   }}
-                 >
-                   <AppText>-5%</AppText>
-                   <AppText>+15%</AppText>
-                 </View>*/}
           </View>
-          {/* )} */}
+
           <View style={styles.actions}>
             <AppButton
               title="Зберегти"
@@ -670,34 +576,18 @@ export default function EditOrderScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 24 },
   dim: { flex: 1, textAlign: "center" },
-  suggestionsBox: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    maxHeight: 200,
-    overflow: "hidden",
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderColor: "#eee",
-  },
-  suggestionSub: {
-    fontSize: 13,
-    color: "#666",
-    marginTop: 2,
-  },
-  suggestionMain: { fontSize: 16 },
   section: { flexDirection: "row", alignItems: "center", marginTop: 24 },
   label: { marginLeft: 8, color: colors.text, fontWeight: "600" },
   labelStandalone: { marginTop: 24, color: colors.text, fontWeight: "600" },
-  suggestionsDropdown: {
-    position: "absolute",
-    top: 50,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    zIndex: 100,
-    elevation: 5,
+  freeDateBox: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#F0FDF4",
+  },
+  freeDateHint: {
+    marginTop: 8,
+    color: "#166534",
   },
   back: {
     position: "absolute",
@@ -708,6 +598,16 @@ const styles = StyleSheet.create({
     padding: 6,
     zIndex: 100,
   },
-  mapBtn: { marginLeft: 8 },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+    marginLeft: 24,
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   actions: { flexDirection: "row", marginTop: 32 },
 });

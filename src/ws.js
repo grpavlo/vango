@@ -8,8 +8,7 @@ const { Op } = require('sequelize');
 
 let wssInstance;
 
-// Діапазон дня в UTC з текстового параметра `date`, щоб фільтр по даті
-// не залежав від часовго поясу сервера.
+// Build a UTC day range from a textual `date` filter.
 function buildUtcDayRange(dateStr) {
   const { parseDate } = require('./utils/date');
   const parsed = parseDate(dateStr);
@@ -22,7 +21,7 @@ function buildUtcDayRange(dateStr) {
   return { start, end };
 }
 
-// Діапазон з dateFrom по dateTo (DD.MM або DD.MM.YYYY).
+// Build a UTC range from `dateFrom` to `dateTo` (DD.MM or DD.MM.YYYY).
 function buildUtcDateRange(dateFromStr, dateToStr) {
   const { parseDate } = require('./utils/date');
   const fromParsed = parseDate(dateFromStr);
@@ -40,6 +39,55 @@ function buildUtcDateRange(dateFromStr, dateToStr) {
   return { start, end };
 }
 
+function buildAvailableDateCondition(query, now) {
+  const activeFreeDateCondition = {
+    freeDate: true,
+    freeDateUntil: { [Op.gte]: now },
+  };
+  const regularOrderCondition = {
+    freeDate: { [Op.not]: true },
+  };
+
+  if (query.dateFrom && query.dateTo) {
+    const range = buildUtcDateRange(query.dateFrom, query.dateTo);
+    if (range) {
+      return {
+        [Op.or]: [
+          activeFreeDateCondition,
+          {
+            ...regularOrderCondition,
+            loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end },
+          },
+        ],
+      };
+    }
+  } else if (query.date) {
+    const range = buildUtcDayRange(query.date);
+    if (range) {
+      return {
+        [Op.or]: [
+          activeFreeDateCondition,
+          {
+            ...regularOrderCondition,
+            loadFrom: { [Op.gte]: range.start },
+            loadTo: { [Op.lt]: range.end },
+          },
+        ],
+      };
+    }
+  }
+
+  return {
+    [Op.or]: [
+      activeFreeDateCondition,
+      {
+        ...regularOrderCondition,
+        loadFrom: { [Op.gte]: now },
+      },
+    ],
+  };
+}
+
 function buildWhere(query, userId, ignoreReserve = false) {
   const where = {
     [Op.or]: [
@@ -51,9 +99,9 @@ function buildWhere(query, userId, ignoreReserve = false) {
   if (city) where.pickupCity = city;
   if (query.dropoffCity) where.dropoffCity = query.dropoffCity;
   const now = new Date();
-  
+
   if (!ignoreReserve) {
-    const andConditions = [
+    where[Op.and] = [
       {
         [Op.or]: [
           { reservedBy: null },
@@ -61,42 +109,12 @@ function buildWhere(query, userId, ignoreReserve = false) {
           { reservedBy: userId },
         ],
       },
+      buildAvailableDateCondition(query, now),
     ];
-    
-    if (query.dateFrom && query.dateTo) {
-      const range = buildUtcDateRange(query.dateFrom, query.dateTo);
-      if (range) {
-        where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
-      }
-    } else if (query.date) {
-      const range = buildUtcDayRange(query.date);
-      if (range) {
-        where.loadFrom = { [Op.gte]: range.start };
-        where.loadTo = { [Op.lt]: range.end };
-      }
-    } else {
-      // Якщо дата не передана, показуємо тільки майбутні замовлення
-      andConditions.push({ loadFrom: { [Op.gte]: now } });
-    }
-    
-    where[Op.and] = andConditions;
   } else {
-    // Якщо ignoreReserve = true, все одно потрібно фільтрувати за датою
-    if (query.dateFrom && query.dateTo) {
-      const range = buildUtcDateRange(query.dateFrom, query.dateTo);
-      if (range) {
-        where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
-      }
-    } else if (query.date) {
-      const range = buildUtcDayRange(query.date);
-      if (range) {
-        where.loadFrom = { [Op.gte]: range.start };
-        where.loadTo = { [Op.lt]: range.end };
-      }
-    } else {
-      where.loadFrom = { [Op.gte]: now };
-    }
+    Object.assign(where, buildAvailableDateCondition(query, now));
   }
+
   return where;
 }
 

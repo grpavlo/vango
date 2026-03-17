@@ -540,11 +540,20 @@ export default function AllOrdersScreen({ navigation }) {
     );
   }
 
+  function isActiveFreeDate(order) {
+    if (!order?.freeDate) return false;
+    if (!order.freeDateUntil) return true;
+    const expiresAt = new Date(order.freeDateUntil);
+    return !Number.isNaN(expiresAt.getTime()) && expiresAt >= new Date();
+  }
+
   function passesFilters(o) {
     if (o.deleted) return false;
     const now = new Date();
     if (o.status !== "CREATED") return false;
-    if (dateFrom && dateTo) {
+    const activeFreeDate = isActiveFreeDate(o);
+    if (o.freeDate && !activeFreeDate) return false;
+    if (!activeFreeDate && dateFrom && dateTo) {
       const orderDay = new Date(o.loadFrom);
       orderDay.setHours(0, 0, 0, 0);
       const fromDay = new Date(dateFrom);
@@ -1054,21 +1063,22 @@ export default function AllOrdersScreen({ navigation }) {
                     style={styles.radiusButton}
                   />
                 </View>
-               
+
                 <View style={styles.actionsRow}>
+
                   <AppButton
+                    title="Очистити"
+                    color="#777"
+                    onPress={clearFilters}
+                    style={styles.actionBtn}
+                  />
+                   <AppButton
                     title="Пошук"
                     onPress={() => {
                       fetchOrders();
                       connectWs();
                       setFiltersVisible(false);
                     }}
-                    style={styles.actionBtn}
-                  />
-                  <AppButton
-                    title="Очистити"
-                    color="#777"
-                    onPress={clearFilters}
                     style={styles.actionBtn}
                   />
                 </View>
@@ -1219,6 +1229,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 2,
     color: colors.text,
+    fontSize: 18,
   },
   input: {
     marginVertical: 2,

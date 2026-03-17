@@ -1,4 +1,4 @@
-//export const HOST_URL = 'http://192.168.0.170:9999';
+export const HOST_URL = 'http://192.168.0.170:9999';
 //export const HOST_URL = 'https://bagroup.com.ua:1000';
 export const API_URL = `${HOST_URL}/api`;
 

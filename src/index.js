@@ -50,7 +50,12 @@ function scheduleCleanup() {
     await Order.destroy({ 
       where: { 
         [Op.and]: [
-          { loadFrom: { [Op.lt]: cutoff } },
+          {
+            [Op.or]: [
+              { freeDate: true, freeDateUntil: { [Op.lt]: new Date() } },
+              { freeDate: { [Op.not]: true }, loadFrom: { [Op.lt]: cutoff } },
+            ],
+          },
           {
             // Exclude orders that should be kept
             [Op.not]: {

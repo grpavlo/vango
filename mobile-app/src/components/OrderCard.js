@@ -2,10 +2,23 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Marker } from "react-native-maps";
+
 import AppMap from "./AppMap";
 import { colors } from "./Colors";
 
-export default function OrderCard({ order, onPress, highlighted, showResponseCount = true }) {
+function formatDate(date) {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(date);
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+}
+
+export default function OrderCard({
+  order,
+  onPress,
+  highlighted,
+  showResponseCount = true,
+}) {
   const pickupCity =
     order.pickupCity ||
     ((order.pickupLocation || "").split(",")[1] || "").trim();
@@ -39,6 +52,12 @@ export default function OrderCard({ order, onPress, highlighted, showResponseCou
     };
   }
 
+  const freeDateLabel = order.freeDate
+    ? order.freeDateUntil
+      ? `Вільна дата до ${formatDate(order.freeDateUntil)}`
+      : "Вільна дата"
+    : `Завантаження: ${formatDate(order.loadFrom)}`;
+
   return (
     <View style={[styles.card, highlighted && styles.highlighted]}>
       <View style={styles.mapContainer}>
@@ -63,17 +82,16 @@ export default function OrderCard({ order, onPress, highlighted, showResponseCou
           )}
         </AppMap>
       </View>
+
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
         style={styles.infoContainer}
       >
         <Text style={styles.route}>
-          {pickupCity} ➔ {dropoffCity}
+          {pickupCity} → {dropoffCity}
         </Text>
-        <Text style={styles.info}>
-          Завантаження: {formatDate(new Date(order.loadFrom))}
-        </Text>
+        <Text style={styles.info}>{freeDateLabel}</Text>
         <Text style={styles.info}>
           {`Ціна: ${Math.round(order.price)} грн${
             order.agreedPrice ? " (Договірна)" : ""
@@ -102,23 +120,30 @@ export default function OrderCard({ order, onPress, highlighted, showResponseCou
               style={{ marginLeft: 4 }}
             />
           )}
+          {order.freeDate && (
+            <Ionicons
+              name="calendar-clear-outline"
+              size={20}
+              color={colors.green}
+              style={{ marginLeft: 4 }}
+            />
+          )}
         </View>
+
         {showResponseCount && order.responseCount > 0 && (
           <View style={styles.responseCountRow}>
             <Ionicons name="people-outline" size={16} color="#6B7280" />
             <Text style={styles.responseCountText}>
-              {order.responseCount} {order.responseCount === 1 ? 'водій обговорює' : 'водіїв обговорюють'}
+              {order.responseCount}{" "}
+              {order.responseCount === 1
+                ? "водій обговорює"
+                : "водіїв обговорюють"}
             </Text>
           </View>
         )}
       </TouchableOpacity>
     </View>
   );
-}
-
-function formatDate(d) {
-  const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
 const styles = StyleSheet.create({

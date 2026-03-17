@@ -1343,25 +1343,39 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      <View style={styles.row}>
-        <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
-        <Text style={styles.label}>Завантаження:</Text>
-        <Text style={styles.value}>
-          {formatDate(order.loadFrom)}
-          {'\n'}
-          {formatTime(order.loadFrom)} - {formatTime(order.loadTo)}
-        </Text>
-      </View>
+      {order.freeDate ? (
+        <View style={styles.row}>
+          <Ionicons name="calendar-clear-outline" size={20} color="#555" style={styles.rowIcon} />
+          <Text style={styles.label}>Вільна дата:</Text>
+          <Text style={styles.value}>
+            {order.freeDateUntil
+              ? `Актуально до ${formatDateTimeUtc2(order.freeDateUntil)}`
+              : 'Дата узгоджується окремо'}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.row}>
+            <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
+            <Text style={styles.label}>Завантаження:</Text>
+            <Text style={styles.value}>
+              {formatDate(order.loadFrom)}
+              {'\n'}
+              {formatTime(order.loadFrom)} - {formatTime(order.loadTo)}
+            </Text>
+          </View>
 
-      <View style={styles.row}>
-        <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
-        <Text style={styles.label}>Вивантаження:</Text>
-        <Text style={styles.value}>
-          {formatDate(order.unloadFrom)}
-          {'\n'}
-          {formatTime(order.unloadFrom)} - {formatTime(order.unloadTo)}
-        </Text>
-      </View>
+          <View style={styles.row}>
+            <Ionicons name="time-outline" size={20} color="#555" style={styles.rowIcon} />
+            <Text style={styles.label}>Вивантаження:</Text>
+            <Text style={styles.value}>
+              {formatDate(order.unloadFrom)}
+              {'\n'}
+              {formatTime(order.unloadFrom)} - {formatTime(order.unloadTo)}
+            </Text>
+          </View>
+        </>
+      )}
 
       <View style={styles.row}>
         <Ionicons name={order.payment === 'card' ? 'card-outline' : 'cash-outline'} size={20} color="#555" style={styles.rowIcon} />

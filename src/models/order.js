@@ -37,6 +37,8 @@ Order.init(
     dropoffLon: { type: DataTypes.FLOAT },
     loadHelp: { type: DataTypes.BOOLEAN, defaultValue: false },
     unloadHelp: { type: DataTypes.BOOLEAN, defaultValue: false },
+    freeDate: { type: DataTypes.BOOLEAN, defaultValue: false },
+    freeDateUntil: { type: DataTypes.DATE },
     payment: { type: DataTypes.ENUM('cash', 'card'), defaultValue: 'cash' },
     loadFrom: { type: DataTypes.DATE, allowNull: false },
     loadTo: { type: DataTypes.DATE, allowNull: false },

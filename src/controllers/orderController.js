@@ -17,6 +17,7 @@ const { sendPush } = require("../utils/push");
 
 
 const PRICE_HISTORY_STATUS = "PRICE_UPDATED";
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 
 
@@ -29,6 +30,22 @@ const roundPriceValue = (value) => {
   return Number.isFinite(num) ? Math.round(num) : null;
 
 };
+
+const normalizeBoolean = (value) =>
+  value === true ||
+  value === "true" ||
+  value === "1" ||
+  value === 1 ||
+  value === "on";
+
+function buildFreeDateSchedule(baseDate = new Date()) {
+  const loadFrom = new Date(baseDate);
+  const loadTo = new Date(loadFrom.getTime() + 60 * 60 * 1000);
+  const freeDateUntil = new Date(loadFrom.getTime() + 7 * DAY_IN_MS);
+  const unloadFrom = new Date(freeDateUntil);
+  const unloadTo = new Date(freeDateUntil.getTime() + 60 * 60 * 1000);
+  return { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil };
+}
 
 
 
@@ -109,6 +126,55 @@ function buildUtcDateRange(dateFromStr, dateToStr) {
   const end = new Date(Date.UTC(y2, m2, d2 + 1));
   if (end <= start) return null;
   return { start, end };
+}
+
+function buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op) {
+  const activeFreeDateCondition = {
+    freeDate: true,
+    freeDateUntil: { [Op.gte]: now },
+  };
+  const regularOrderCondition = {
+    freeDate: { [Op.not]: true },
+  };
+
+  if (dateFrom && dateTo) {
+    const range = buildUtcDateRange(dateFrom, dateTo);
+    if (range) {
+      return {
+        [Op.or]: [
+          activeFreeDateCondition,
+          {
+            ...regularOrderCondition,
+            loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end },
+          },
+        ],
+      };
+    }
+  } else if (date) {
+    const range = buildUtcDayRange(date);
+    if (range) {
+      return {
+        [Op.or]: [
+          activeFreeDateCondition,
+          {
+            ...regularOrderCondition,
+            loadFrom: { [Op.gte]: range.start },
+            loadTo: { [Op.lt]: range.end },
+          },
+        ],
+      };
+    }
+  }
+
+  return {
+    [Op.or]: [
+      activeFreeDateCondition,
+      {
+        ...regularOrderCondition,
+        loadFrom: { [Op.gte]: now },
+      },
+    ],
+  };
 }
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -270,6 +336,8 @@ async function createOrder(req, res) {
 
     unloadHelp,
 
+    freeDate,
+
     payment,
 
     agreedPrice,
@@ -307,6 +375,8 @@ async function createOrder(req, res) {
     }
 
     const { cargoLength, cargoWidth, cargoHeight, cargoVolume, cargoWeight, distance } = req.body;
+    const isFreeDate = normalizeBoolean(freeDate);
+    const freeDateSchedule = isFreeDate ? buildFreeDateSchedule() : null;
 
     const order = await Order.create({
 
@@ -342,19 +412,25 @@ async function createOrder(req, res) {
 
       dropoffLon,
 
-      loadHelp: loadHelp === "true" || loadHelp === true,
+      loadHelp: normalizeBoolean(loadHelp),
 
-      unloadHelp: unloadHelp === "true" || unloadHelp === true,
+      unloadHelp: normalizeBoolean(unloadHelp),
+
+      freeDate: isFreeDate,
+
+      freeDateUntil: isFreeDate
+        ? new Date(req.body.freeDateUntil || freeDateSchedule.freeDateUntil)
+        : null,
 
       payment,
 
-      loadFrom,
+      loadFrom: isFreeDate ? new Date(loadFrom || freeDateSchedule.loadFrom) : loadFrom,
 
-      loadTo,
+      loadTo: isFreeDate ? new Date(loadTo || freeDateSchedule.loadTo) : loadTo,
 
-      unloadFrom,
+      unloadFrom: isFreeDate ? new Date(unloadFrom || freeDateSchedule.unloadFrom) : unloadFrom,
 
-      unloadTo,
+      unloadTo: isFreeDate ? new Date(unloadTo || freeDateSchedule.unloadTo) : unloadTo,
 
       insurance,
 
@@ -362,7 +438,7 @@ async function createOrder(req, res) {
 
       price,
 
-      agreedPrice: agreedPrice === "true" || agreedPrice === true,
+      agreedPrice: normalizeBoolean(agreedPrice),
 
       distance: distance ? parseFloat(distance) : null,
 
@@ -449,21 +525,7 @@ async function listAvailableOrders(req, res) {
     },
   ];
 
-  if (dateFrom && dateTo) {
-    const range = buildUtcDateRange(dateFrom, dateTo);
-    if (range) {
-      where.loadFrom = { [Op.gte]: range.start, [Op.lt]: range.end };
-    }
-  } else if (date) {
-    const range = buildUtcDayRange(date);
-    if (range) {
-      where.loadFrom = { [Op.gte]: range.start };
-      where.loadTo = { [Op.lt]: range.end };
-    }
-  } else {
-    // Якщо дата не передана, показуємо тільки майбутні замовлення
-    andConditions.push({ loadFrom: { [Op.gte]: now } });
-  }
+  andConditions.push(buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op));
 
   where[Op.and] = andConditions;
 
@@ -1671,6 +1733,8 @@ async function updateOrder(req, res) {
 
       "unloadHelp",
 
+      "freeDate",
+
       "payment",
 
       "loadFrom",
@@ -1689,15 +1753,13 @@ async function updateOrder(req, res) {
 
       "finalPrice",
 
+      "freeDateUntil",
+
     ];
 
 
 
     // Нормалізації для спеціальних типів
-
-    const normalizeBoolean = (v) =>
-
-      v === true || v === "true" || v === "1" || v === 1 || v === "on";
 
     const normalizeNumber = (v) => {
 
@@ -1717,11 +1779,21 @@ async function updateOrder(req, res) {
 
           order.agreedPrice = normalizeBoolean(req.body.agreedPrice);
 
+        } else if (f === "freeDate") {
+
+          order.freeDate = normalizeBoolean(req.body.freeDate);
+
         } else if (f === "finalPrice") {
 
           const n = normalizeNumber(req.body.finalPrice);
 
           if (n !== null) order.finalPrice = Math.round(n);
+
+        } else if (f === "freeDateUntil") {
+
+          const nextDate = new Date(req.body.freeDateUntil);
+
+          if (!Number.isNaN(nextDate.getTime())) order.freeDateUntil = nextDate;
 
         } else if (
 
@@ -1764,6 +1836,20 @@ async function updateOrder(req, res) {
       }
 
     });
+
+    if (order.freeDate) {
+
+      if (!order.freeDateUntil || Number.isNaN(new Date(order.freeDateUntil).getTime())) {
+
+        order.freeDateUntil = buildFreeDateSchedule().freeDateUntil;
+
+      }
+
+    } else {
+
+      order.freeDateUntil = null;
+
+    }
 
 
 
@@ -2276,4 +2362,3 @@ module.exports = {
   responseWithdraw,
   getOrderResponses,
 };
-
