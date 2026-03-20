@@ -8,11 +8,17 @@ const User = require("../models/user");
 
 const DriverProfile = require("../models/driverProfile");
 const SavedSearch = require("../models/savedSearch");
+const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
 
 const { SERVICE_FEE_PERCENT } = require("../config");
 
 const { broadcastOrder, broadcastDelete } = require("../ws");
 const { sendPush } = require("../utils/push");
+const {
+  getOrderLifecycle,
+  getLifecycleCutoffDate,
+  startOfDay,
+} = require("../utils/orderLifecycle");
 
 
 
@@ -128,13 +134,55 @@ function buildUtcDateRange(dateFromStr, dateToStr) {
   return { start, end };
 }
 
+function formatDayKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function trackRouteSearchForOrders(orderIds, driverId, now = new Date()) {
+  if (!Array.isArray(orderIds) || orderIds.length === 0 || !driverId) return;
+  const dayKey = formatDayKey(now);
+  const rows = orderIds.map((orderId) => ({ orderId, driverId, dayKey }));
+  try {
+    await OrderRouteSearchEvent.bulkCreate(rows, { ignoreDuplicates: true });
+  } catch (err) {
+    // fallback for dialects/configs where ignoreDuplicates may be unavailable
+    for (const row of rows) {
+      await OrderRouteSearchEvent.findOrCreate({
+        where: row,
+        defaults: row,
+      });
+    }
+  }
+}
+
+function attachOrderLifecycleMeta(order, now = new Date()) {
+  const json = order.toJSON ? order.toJSON() : { ...order };
+  const lifecycle = getOrderLifecycle(json, now);
+  json.isDateOutdated = lifecycle.isStale;
+  json.staleDays = lifecycle.staleDays;
+  json.staleSince = lifecycle.staleSince;
+  json.isLowPriority = lifecycle.isLowPriority;
+  return json;
+}
+
 function buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op) {
-  const activeFreeDateCondition = {
+  const lifecycleCutoff = getLifecycleCutoffDate(now);
+  const todayStart = startOfDay(now);
+
+  const freeDateWindowCondition = {
     freeDate: true,
-    freeDateUntil: { [Op.gte]: now },
+    freeDateUntil: { [Op.gte]: lifecycleCutoff },
   };
+
   const regularOrderCondition = {
     freeDate: { [Op.not]: true },
+  };
+  const staleRegularCondition = {
+    ...regularOrderCondition,
+    unloadTo: { [Op.gte]: lifecycleCutoff, [Op.lt]: todayStart },
   };
 
   if (dateFrom && dateTo) {
@@ -142,10 +190,13 @@ function buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op) {
     if (range) {
       return {
         [Op.or]: [
-          activeFreeDateCondition,
+          freeDateWindowCondition,
           {
             ...regularOrderCondition,
-            loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end },
+            [Op.or]: [
+              { loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end } },
+              staleRegularCondition,
+            ],
           },
         ],
       };
@@ -155,11 +206,16 @@ function buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op) {
     if (range) {
       return {
         [Op.or]: [
-          activeFreeDateCondition,
+          freeDateWindowCondition,
           {
             ...regularOrderCondition,
-            loadFrom: { [Op.gte]: range.start },
-            loadTo: { [Op.lt]: range.end },
+            [Op.or]: [
+              {
+                loadFrom: { [Op.gte]: range.start },
+                loadTo: { [Op.lt]: range.end },
+              },
+              staleRegularCondition,
+            ],
           },
         ],
       };
@@ -168,10 +224,10 @@ function buildAvailableDateCondition({ date, dateFrom, dateTo }, now, Op) {
 
   return {
     [Op.or]: [
-      activeFreeDateCondition,
+      freeDateWindowCondition,
       {
         ...regularOrderCondition,
-        loadFrom: { [Op.gte]: now },
+        unloadTo: { [Op.gte]: lifecycleCutoff },
       },
     ],
   };
@@ -579,10 +635,13 @@ async function listAvailableOrders(req, res) {
   }
 
   const filtered = orders.filter(inRadius);
+  const nowForLifecycle = new Date();
 
   const OrderResponse = require("../models/orderResponse");
   const { Op: SeqOp } = require("sequelize");
   const orderIds = filtered.map((o) => o.id);
+  await trackRouteSearchForOrders(orderIds, req.user.id, nowForLifecycle);
+
   let responseCounts = {};
   if (orderIds.length > 0) {
     const counts = await OrderResponse.findAll({
@@ -594,9 +653,20 @@ async function listAvailableOrders(req, res) {
     counts.forEach((c) => { responseCounts[c.orderId] = parseInt(c.cnt); });
   }
   const enriched = filtered.map((o) => {
-    const json = o.toJSON ? o.toJSON() : o;
+    const json = attachOrderLifecycleMeta(o, nowForLifecycle);
     json.responseCount = responseCounts[json.id] || 0;
     return json;
+  });
+  enriched.sort((a, b) => {
+    if (Boolean(a.isLowPriority) !== Boolean(b.isLowPriority)) {
+      return a.isLowPriority ? 1 : -1;
+    }
+    if (Boolean(a.isDateOutdated) !== Boolean(b.isDateOutdated)) {
+      return a.isDateOutdated ? 1 : -1;
+    }
+    const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    return bTime - aTime;
   });
 
   const takenOrders = await Order.findAll({
@@ -1682,6 +1752,18 @@ async function updateOrder(req, res) {
     const prevPriceForHistory = order.price;
 
     const prevFinalPriceForHistory = order.finalPrice;
+    const getLifecycleAnchor = (entity) =>
+      JSON.stringify({
+        freeDate: Boolean(entity?.freeDate),
+        loadFrom: entity?.loadFrom ? new Date(entity.loadFrom).toISOString() : null,
+        loadTo: entity?.loadTo ? new Date(entity.loadTo).toISOString() : null,
+        unloadFrom: entity?.unloadFrom ? new Date(entity.unloadFrom).toISOString() : null,
+        unloadTo: entity?.unloadTo ? new Date(entity.unloadTo).toISOString() : null,
+        freeDateUntil: entity?.freeDateUntil
+          ? new Date(entity.freeDateUntil).toISOString()
+          : null,
+      });
+    const previousLifecycleAnchor = getLifecycleAnchor(order);
 
 
 
@@ -1958,8 +2040,13 @@ async function updateOrder(req, res) {
       order.photos = [...(order.photos || []), ...uploaded];
 
     }
+    const nextLifecycleAnchor = getLifecycleAnchor(order);
+    if (nextLifecycleAnchor !== previousLifecycleAnchor) {
+      order.lifecycleRemindersSent = [];
+    }
 
     await order.save();
+    broadcastOrder(order);
 
     res.json(order);
 

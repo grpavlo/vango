@@ -62,7 +62,7 @@ export default function AllOrdersScreen({ navigation }) {
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
   const [savingSearch, setSavingSearch] = useState(false);
   const [deletingSearchId, setDeletingSearchId] = useState(null);
-  const [savedSearchesExpanded, setSavedSearchesExpanded] = useState(false);
+  const [savedSearchesModalVisible, setSavedSearchesModalVisible] = useState(false);
 
   const CORRIDOR_HALF_WIDTH_KM = 50; // С‚СѓС‚ Р·РјС–РЅСЋС”С€ С€РёСЂРёРЅСѓ РєРѕСЂРёРґРѕСЂСѓ
 
@@ -318,6 +318,7 @@ export default function AllOrdersScreen({ navigation }) {
     setDropoffCity(hasSavedDropoffCity ? savedSearch.dropoffCity : "");
     setDropoffPoint(nextDropoffPoint);
     setRadius(String(Math.round(Number(savedSearch.radius))));
+    setSavedSearchesModalVisible(false);
     setFiltersVisible(false);
     toast.show("Критерій застосовано");
   }
@@ -547,13 +548,34 @@ export default function AllOrdersScreen({ navigation }) {
     return !Number.isNaN(expiresAt.getTime()) && expiresAt >= new Date();
   }
 
+  function isDateOutdated(order) {
+    if (typeof order?.isDateOutdated === "boolean") return order.isDateOutdated;
+    const ref = order?.freeDate
+      ? order?.freeDateUntil || order?.unloadTo || order?.loadTo || order?.loadFrom
+      : order?.unloadTo || order?.loadTo || order?.loadFrom;
+    if (!ref) return false;
+
+    const baseDate = new Date(ref);
+    if (Number.isNaN(baseDate.getTime())) return false;
+
+    const staleSince = new Date(baseDate);
+    staleSince.setHours(0, 0, 0, 0);
+    staleSince.setDate(staleSince.getDate() + 1);
+
+    const autoCloseAt = new Date(staleSince);
+    autoCloseAt.setDate(autoCloseAt.getDate() + 14);
+    const now = new Date();
+
+    return now >= staleSince && now < autoCloseAt;
+  }
+
   function passesFilters(o) {
     if (o.deleted) return false;
-    const now = new Date();
     if (o.status !== "CREATED") return false;
     const activeFreeDate = isActiveFreeDate(o);
-    if (o.freeDate && !activeFreeDate) return false;
-    if (!activeFreeDate && dateFrom && dateTo) {
+    const outdated = isDateOutdated(o);
+    if (o.freeDate && !activeFreeDate && !outdated) return false;
+    if (!activeFreeDate && !outdated && dateFrom && dateTo) {
       const orderDay = new Date(o.loadFrom);
       orderDay.setHours(0, 0, 0, 0);
       const fromDay = new Date(dateFrom);
@@ -924,7 +946,7 @@ export default function AllOrdersScreen({ navigation }) {
                   latitude: Number(o.pickupLat),
                   longitude: Number(o.pickupLon),
                 }}
-                pinColor={colors.orange}
+                pinColor={isDateOutdated(o) ? colors.gray500 : colors.orange}
                 onPress={() => onMarkerPress(o.id)}
               />
             )
@@ -974,7 +996,10 @@ export default function AllOrdersScreen({ navigation }) {
             visible={filtersVisible}
             animationType="slide"
             transparent
-            onRequestClose={() => setFiltersVisible(false)}
+            onRequestClose={() => {
+              setSavedSearchesModalVisible(false);
+              setFiltersVisible(false);
+            }}
           >
             <Host>
               <View style={styles.modalRoot}>
@@ -982,7 +1007,10 @@ export default function AllOrdersScreen({ navigation }) {
                   <TouchableOpacity
                   style={StyleSheet.absoluteFill}
                   activeOpacity={1}
-                  onPress={() => setFiltersVisible(false)}
+                  onPress={() => {
+                    setSavedSearchesModalVisible(false);
+                    setFiltersVisible(false);
+                  }}
                 />
                 <View style={styles.modalPanel}>
                   <SafeAreaView style={styles.modalContent}>
@@ -1077,6 +1105,7 @@ export default function AllOrdersScreen({ navigation }) {
                     onPress={() => {
                       fetchOrders();
                       connectWs();
+                      setSavedSearchesModalVisible(false);
                       setFiltersVisible(false);
                     }}
                     style={styles.actionBtn}
@@ -1089,22 +1118,25 @@ export default function AllOrdersScreen({ navigation }) {
                   color={colors.orange}
                   style={styles.savedSearchAction}
                 />
+                
                 <AppButton
                   title="Закрити"
                   color="#333"
-                  onPress={() => setFiltersVisible(false)}
+                  onPress={() => {
+                    setSavedSearchesModalVisible(false);
+                    setFiltersVisible(false);
+                  }}
                   style={styles.closeBtn}
                 />
-                 <View style={styles.savedSearchSection}>
+                <View style={styles.savedSearchSection}>
                   <TouchableOpacity
                     style={styles.savedSearchHeader}
-                    activeOpacity={savedSearches.length > 0 ? 0.8 : 1}
-                    disabled={savedSearches.length === 0}
-                    onPress={() => setSavedSearchesExpanded((prev) => !prev)}
+                    activeOpacity={0.8}
+                    onPress={() => setSavedSearchesModalVisible(true)}
                   >
                     <View style={styles.savedSearchHeaderTextWrap}>
                       <AppText style={styles.savedSearchTitle}>
-                        Збережені критерії
+                        Збережені критерії ♥
                       </AppText>
                       <AppText style={styles.savedSearchSummary}>
                         {savedSearches.length > 0
@@ -1116,65 +1148,15 @@ export default function AllOrdersScreen({ navigation }) {
                       <AppText style={styles.savedSearchCount}>
                         {savedSearches.length}
                       </AppText>
-                      {savedSearches.length > 0 && (
+                     {savedSearches.length > 0 && (
                         <Ionicons
-                          name={savedSearchesExpanded ? "chevron-up" : "chevron-down"}
+                          name={"arrow-forward-outline"}
                           size={18}
                           color={colors.textSecondary}
                         />
                       )}
                     </View>
                   </TouchableOpacity>
-                  {savedSearchesLoading ? (
-                    <AppText style={styles.savedSearchHint}>
-                      Завантаження...
-                    </AppText>
-                  ) : savedSearches.length === 0 ? (
-                    <AppText style={styles.savedSearchHint}>
-                      Тут з'являться критерії пошуку для сповіщень про нові замовлення.
-                    </AppText>
-                  ) : savedSearchesExpanded ? (
-                    savedSearches.map((item) => (
-                      <View key={item.id} style={styles.savedSearchCard}>
-                        <View style={styles.savedSearchTextWrap}>
-                          <AppText style={styles.savedSearchCardTitle}>
-                            {item.pickupCity} - {item.dropoffCity || "будь-яке місце"}
-                          </AppText>
-                          <AppText style={styles.savedSearchCardMeta}>
-                            Радіус: {Math.round(Number(item.radius) || 0)} км
-                          </AppText>
-                          {/* {!!item.dropoffCity && (
-                            <AppText style={styles.savedSearchCardMeta}>
-                              Розвантаження: {item.dropoffCity}
-                            </AppText>
-                          )} */}
-                        </View>
-                        <View style={styles.savedSearchButtons}>
-                          <TouchableOpacity
-                            style={styles.savedSearchApplyBtn}
-                            onPress={() => applySavedSearch(item)}
-                          >
-                            <AppText style={styles.savedSearchApplyText}>
-                              Застосувати
-                            </AppText>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.savedSearchDeleteBtn}
-                            disabled={deletingSearchId === item.id}
-                            onPress={() => removeSavedSearch(item.id)}
-                          >
-                            <AppText style={styles.savedSearchDeleteText}>
-                              {deletingSearchId === item.id ? "..." : "Видалити"}
-                            </AppText>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))
-                  ) : (
-                    <AppText style={styles.savedSearchHint}>
-                      Обрані критерії згорнуті. Натисніть, щоб переглянути список.
-                    </AppText>
-                  )}
                 </View>
                     </ScrollView>
                     </View>
@@ -1183,6 +1165,83 @@ export default function AllOrdersScreen({ navigation }) {
                 </View>
               </View>
             </Host>
+          </Modal>
+          <Modal
+            visible={savedSearchesModalVisible}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setSavedSearchesModalVisible(false)}
+          >
+            <View style={styles.modalRoot}>
+              <View style={[styles.modalOverlay, { top: -insets.top }]}>
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFill}
+                  activeOpacity={1}
+                  onPress={() => setSavedSearchesModalVisible(false)}
+                />
+                <View style={styles.modalPanel}>
+                  <SafeAreaView style={styles.modalContent}>
+                    <View style={styles.savedSearchModalHeader}>
+                      <AppText style={styles.savedSearchModalTitle}>
+                        Збережені критерії
+                      </AppText>
+                      <TouchableOpacity
+                        style={styles.savedSearchModalClose}
+                        onPress={() => setSavedSearchesModalVisible(false)}
+                      >
+                        <Ionicons name="close" size={20} color={colors.text} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView
+                      contentContainerStyle={styles.savedSearchList}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {savedSearchesLoading ? (
+                        <AppText style={styles.savedSearchHint}>
+                          Завантаження...
+                        </AppText>
+                      ) : savedSearches.length === 0 ? (
+                        <AppText style={styles.savedSearchHint}>
+                          Тут з'являться критерії пошуку для сповіщень про нові замовлення.
+                        </AppText>
+                      ) : (
+                        savedSearches.map((item) => (
+                          <View key={item.id} style={styles.savedSearchCard}>
+                            <View style={styles.savedSearchTextWrap}>
+                              <AppText style={styles.savedSearchCardTitle}>
+                                {item.pickupCity} - {item.dropoffCity || "будь-яке місце"}
+                              </AppText>
+                              <AppText style={styles.savedSearchCardMeta}>
+                                Радіус: {Math.round(Number(item.radius) || 0)} км
+                              </AppText>
+                            </View>
+                            <View style={styles.savedSearchButtons}>
+                              <TouchableOpacity
+                                style={styles.savedSearchApplyBtn}
+                                onPress={() => applySavedSearch(item)}
+                              >
+                                <AppText style={styles.savedSearchApplyText}>
+                                  Застосувати
+                                </AppText>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.savedSearchDeleteBtn}
+                                disabled={deletingSearchId === item.id}
+                                onPress={() => removeSavedSearch(item.id)}
+                              >
+                                <AppText style={styles.savedSearchDeleteText}>
+                                  {deletingSearchId === item.id ? "..." : "Видалити"}
+                                </AppText>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  </SafeAreaView>
+                </View>
+              </View>
+            </View>
           </Modal>
           <FlatList
             ref={listRef}
@@ -1206,12 +1265,6 @@ export default function AllOrdersScreen({ navigation }) {
       </BottomSheet>
     </View>
   );
-}
-
-function formatDate(d) {
-  if (!d) return "";
-  const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
 function formatDateFull(d) {
@@ -1285,9 +1338,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary100,
     fontWeight: "600",
   },
-  savedSearchHint: {
-    marginTop: 6,
+  savedSearchArrow: {
+    fontSize: 16,
     color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  savedSearchModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  savedSearchModalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  savedSearchModalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  savedSearchHint: {
+    marginTop: 8,
+    color: colors.textSecondary,
+  },
+  savedSearchList: {
+    padding: 12,
+    paddingBottom: 20,
   },
   savedSearchCard: {
     marginTop: 8,
@@ -1363,6 +1444,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   modalContent: {
+    flex: 1,
+  },
+  modalBody: {
     flex: 1,
   },
   empty: { paddingVertical: 8 },

@@ -147,7 +147,13 @@ export default function SettingsScreen({ navigation }) {
                 icon="car"
               />
             )}
-
+           
+              <ListItem
+                title="Аналітика"
+                onPress={() => navigation.navigate("Analytics")}
+                icon="stats-chart"
+              />
+            
             <View style={styles.roleCard}>
               <View style={styles.badge}>
                 <Ionicons name="person" size={20} color="#fff" />

@@ -16,6 +16,7 @@ import EditOrderScreen from './src/screens/EditOrderScreen';
 import EditProfile from './src/screens/EditProfile';
 import EditCustomerProfileScreen from './src/screens/EditCustomerProfileScreen';
 import DriverProfileScreen from './src/screens/DriverProfileScreen';
+import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -57,6 +58,8 @@ function RootNavigator() {
           <Stack.Screen name="ProfileScreen" component={EditProfile} />
           <Stack.Screen name="CustomerProfileScreen" component={EditCustomerProfileScreen} />
           <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+          <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+          
         </>
       )}
     </Stack.Navigator>

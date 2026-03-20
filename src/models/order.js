@@ -62,6 +62,7 @@ Order.init(
     cargoWeight: { type: DataTypes.FLOAT },
     photos: { type: DataTypes.JSON },
     history: { type: DataTypes.JSON, defaultValue: [] },
+    lifecycleRemindersSent: { type: DataTypes.JSON, defaultValue: [] },
   },
   { sequelize: db, modelName: 'order' }
 );

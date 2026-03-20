@@ -15,6 +15,9 @@ const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
 require('./models/orderResponse');
+require('./models/orderRouteSearchEvent');
+const { startOrderLifecycleScheduler } = require('./services/orderLifecycleScheduler');
+const { getLifecycleCutoffDate } = require('./utils/orderLifecycle');
 const { Op } = require('sequelize');
 
 const PORT = process.env.NODE_ENV === 'production'
@@ -40,42 +43,47 @@ app.use("/api", driverProfileRoutes);
 
 function scheduleCleanup() {
   async function cleanup() {
-    const cutoff = new Date();
-    // Set to the start of the current day
-    cutoff.setHours(0, 0, 0, 0);
-    // Delete orders where load date is before today, but keep:
-    // - COMPLETED orders (for history)
-    // - Orders with driverId (taken by driver)
-    // - Orders with confirmed statuses (ACCEPTED, IN_PROGRESS, DELIVERED, PENDING)
-    await Order.destroy({ 
-      where: { 
+    const cutoff = getLifecycleCutoffDate(new Date());
+    await Order.destroy({
+      where: {
         [Op.and]: [
           {
             [Op.or]: [
-              { freeDate: true, freeDateUntil: { [Op.lt]: new Date() } },
-              { freeDate: { [Op.not]: true }, loadFrom: { [Op.lt]: cutoff } },
+              {
+                freeDate: true,
+                freeDateUntil: { [Op.lt]: cutoff },
+              },
+              {
+                freeDate: { [Op.not]: true },
+                unloadTo: { [Op.lt]: cutoff },
+              },
+              {
+                freeDate: { [Op.not]: true },
+                unloadTo: null,
+                loadFrom: { [Op.lt]: cutoff },
+              },
             ],
           },
           {
-            // Exclude orders that should be kept
             [Op.not]: {
               [Op.or]: [
-                // Keep COMPLETED orders
                 { status: OrderStatus.COMPLETED },
-                // Keep orders taken by driver
                 { driverId: { [Op.ne]: null } },
-                // Keep orders with confirmed statuses
-                { status: { [Op.in]: [
-                  OrderStatus.ACCEPTED,
-                  OrderStatus.IN_PROGRESS,
-                  OrderStatus.DELIVERED,
-                  OrderStatus.PENDING
-                ]}}
-              ]
-            }
-          }
-        ]
-      } 
+                {
+                  status: {
+                    [Op.in]: [
+                      OrderStatus.ACCEPTED,
+                      OrderStatus.IN_PROGRESS,
+                      OrderStatus.DELIVERED,
+                      OrderStatus.PENDING,
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
     });
   }
   const now = new Date();
@@ -109,6 +117,7 @@ async function start() {
     setupWebSocket(server);
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     scheduleCleanup();
+    startOrderLifecycleScheduler();
   } catch (err) {
     console.error('Failed to start server', err);
   }

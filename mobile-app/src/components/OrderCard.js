@@ -13,6 +13,27 @@ function formatDate(date) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
+function isOrderDateOutdated(order) {
+  if (typeof order?.isDateOutdated === "boolean") return order.isDateOutdated;
+  const ref = order?.freeDate
+    ? order?.freeDateUntil || order?.unloadTo || order?.loadTo || order?.loadFrom
+    : order?.unloadTo || order?.loadTo || order?.loadFrom;
+  if (!ref) return false;
+
+  const baseDate = new Date(ref);
+  if (Number.isNaN(baseDate.getTime())) return false;
+
+  const staleSince = new Date(baseDate);
+  staleSince.setHours(0, 0, 0, 0);
+  staleSince.setDate(staleSince.getDate() + 1);
+
+  const autoCloseAt = new Date(staleSince);
+  autoCloseAt.setDate(autoCloseAt.getDate() + 14);
+
+  const now = new Date();
+  return now >= staleSince && now < autoCloseAt;
+}
+
 export default function OrderCard({
   order,
   onPress,
@@ -52,6 +73,12 @@ export default function OrderCard({
     };
   }
 
+  const isDateOutdated = isOrderDateOutdated(order);
+  const mainPinColor = isDateOutdated ? colors.gray500 : colors.orange;
+  const secondPinColor = isDateOutdated ? colors.gray500 : colors.green;
+  const iconColor = isDateOutdated ? colors.gray500 : colors.green;
+  const helperColor = isDateOutdated ? colors.gray500 : colors.orange;
+
   const freeDateLabel = order.freeDate
     ? order.freeDateUntil
       ? `Вільна дата до ${formatDate(order.freeDateUntil)}`
@@ -59,7 +86,13 @@ export default function OrderCard({
     : `Завантаження: ${formatDate(order.loadFrom)}`;
 
   return (
-    <View style={[styles.card, highlighted && styles.highlighted]}>
+    <View
+      style={[
+        styles.card,
+        highlighted && styles.highlighted,
+        isDateOutdated && styles.cardOutdated,
+      ]}
+    >
       <View style={styles.mapContainer}>
         <AppMap style={{ flex: 1 }} initialRegion={region}>
           {order.pickupLat && order.pickupLon && (
@@ -68,7 +101,7 @@ export default function OrderCard({
                 latitude: Number(order.pickupLat),
                 longitude: Number(order.pickupLon),
               }}
-              pinColor={colors.orange}
+              pinColor={mainPinColor}
             />
           )}
           {order.dropoffLat && order.dropoffLon && (
@@ -77,7 +110,7 @@ export default function OrderCard({
                 latitude: Number(order.dropoffLat),
                 longitude: Number(order.dropoffLon),
               }}
-              pinColor={colors.green}
+              pinColor={secondPinColor}
             />
           )}
         </AppMap>
@@ -88,11 +121,14 @@ export default function OrderCard({
         activeOpacity={0.8}
         style={styles.infoContainer}
       >
-        <Text style={styles.route}>
-          {pickupCity} → {dropoffCity}
+        <Text style={[styles.route, isDateOutdated && styles.mutedText]}>
+          {pickupCity} {"->"} {dropoffCity}
+
         </Text>
-        <Text style={styles.info}>{freeDateLabel}</Text>
-        <Text style={styles.info}>
+        <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
+          {freeDateLabel}
+        </Text>
+        <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
           {`Ціна: ${Math.round(order.price)} грн${
             order.agreedPrice ? " (Договірна)" : ""
           }`}
@@ -102,13 +138,13 @@ export default function OrderCard({
           <Ionicons
             name={order.payment === "card" ? "card" : "cash"}
             size={20}
-            color={colors.green}
+            color={iconColor}
           />
           {order.loadHelp && (
             <Ionicons
               name="arrow-down-circle-outline"
               size={20}
-              color={colors.orange}
+              color={helperColor}
               style={{ marginLeft: 8 }}
             />
           )}
@@ -116,7 +152,7 @@ export default function OrderCard({
             <Ionicons
               name="arrow-up-circle-outline"
               size={20}
-              color={colors.orange}
+              color={helperColor}
               style={{ marginLeft: 4 }}
             />
           )}
@@ -124,7 +160,7 @@ export default function OrderCard({
             <Ionicons
               name="calendar-clear-outline"
               size={20}
-              color={colors.green}
+              color={iconColor}
               style={{ marginLeft: 4 }}
             />
           )}
@@ -155,6 +191,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 2,
   },
+  cardOutdated: {
+    backgroundColor: "#F3F4F6",
+  },
   highlighted: {
     borderWidth: 2,
     borderColor: colors.orange,
@@ -163,6 +202,7 @@ const styles = StyleSheet.create({
   infoContainer: { paddingVertical: 4 },
   route: { fontWeight: "bold", marginTop: 8 },
   info: { marginTop: 2, color: "#333" },
+  mutedText: { color: colors.gray600 },
   iconRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   responseCountRow: {
     flexDirection: "row",

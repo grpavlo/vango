@@ -5,6 +5,7 @@ const { JWT_SECRET } = require('./config');
 const Order = require('./models/order');
 const User = require('./models/user');
 const { Op } = require('sequelize');
+const { getLifecycleCutoffDate, startOfDay } = require('./utils/orderLifecycle');
 
 let wssInstance;
 
@@ -40,12 +41,19 @@ function buildUtcDateRange(dateFromStr, dateToStr) {
 }
 
 function buildAvailableDateCondition(query, now) {
-  const activeFreeDateCondition = {
+  const lifecycleCutoff = getLifecycleCutoffDate(now);
+  const todayStart = startOfDay(now);
+
+  const freeDateWindowCondition = {
     freeDate: true,
-    freeDateUntil: { [Op.gte]: now },
+    freeDateUntil: { [Op.gte]: lifecycleCutoff },
   };
   const regularOrderCondition = {
     freeDate: { [Op.not]: true },
+  };
+  const staleRegularCondition = {
+    ...regularOrderCondition,
+    unloadTo: { [Op.gte]: lifecycleCutoff, [Op.lt]: todayStart },
   };
 
   if (query.dateFrom && query.dateTo) {
@@ -53,10 +61,13 @@ function buildAvailableDateCondition(query, now) {
     if (range) {
       return {
         [Op.or]: [
-          activeFreeDateCondition,
+          freeDateWindowCondition,
           {
             ...regularOrderCondition,
-            loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end },
+            [Op.or]: [
+              { loadFrom: { [Op.gte]: range.start, [Op.lt]: range.end } },
+              staleRegularCondition,
+            ],
           },
         ],
       };
@@ -66,11 +77,16 @@ function buildAvailableDateCondition(query, now) {
     if (range) {
       return {
         [Op.or]: [
-          activeFreeDateCondition,
+          freeDateWindowCondition,
           {
             ...regularOrderCondition,
-            loadFrom: { [Op.gte]: range.start },
-            loadTo: { [Op.lt]: range.end },
+            [Op.or]: [
+              {
+                loadFrom: { [Op.gte]: range.start },
+                loadTo: { [Op.lt]: range.end },
+              },
+              staleRegularCondition,
+            ],
           },
         ],
       };
@@ -79,10 +95,10 @@ function buildAvailableDateCondition(query, now) {
 
   return {
     [Op.or]: [
-      activeFreeDateCondition,
+      freeDateWindowCondition,
       {
         ...regularOrderCondition,
-        loadFrom: { [Op.gte]: now },
+        unloadTo: { [Op.gte]: lifecycleCutoff },
       },
     ],
   };
@@ -112,7 +128,7 @@ function buildWhere(query, userId, ignoreReserve = false) {
       buildAvailableDateCondition(query, now),
     ];
   } else {
-    Object.assign(where, buildAvailableDateCondition(query, now));
+    where[Op.and] = [buildAvailableDateCondition(query, now)];
   }
 
   return where;
