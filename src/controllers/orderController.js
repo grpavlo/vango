@@ -251,6 +251,12 @@ function normalizeCity(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function isIntraCityRoute(pickupCity, dropoffCity) {
+  const pickup = normalizeCity(pickupCity);
+  const dropoff = normalizeCity(dropoffCity);
+  return Boolean(pickup && dropoff && pickup === dropoff);
+}
+
 function orderMatchesSavedSearch(order, savedSearch) {
   const orderCity = normalizeCity(order.pickupCity);
   const searchCity = normalizeCity(savedSearch.pickupCity);
@@ -405,6 +411,7 @@ async function createOrder(req, res) {
   let systemPrice = 0;
 
   let price = 0;
+  const intraCity = isIntraCityRoute(pickupCity, dropoffCity);
 
   try {
 
@@ -424,7 +431,11 @@ async function createOrder(req, res) {
 
         systemPrice = km * 50;
 
-        price = parseFloat(req.body.price || systemPrice);
+        if (intraCity) {
+          price = 0;
+        } else {
+          price = parseFloat(req.body.price || systemPrice);
+        }
 
       }
 
@@ -445,6 +456,8 @@ async function createOrder(req, res) {
       pickupCountry,
 
       pickupCity,
+
+      isIntraCity: intraCity,
 
       pickupAddress,
 
@@ -1933,6 +1946,8 @@ async function updateOrder(req, res) {
 
     }
 
+    order.isIntraCity = isIntraCityRoute(order.pickupCity, order.dropoffCity);
+
 
 
     if (req.body.price !== undefined) {
@@ -2099,11 +2114,50 @@ async function deleteOrder(req, res) {
 // ── OrderResponse (new response flow) ──
 
 const OrderResponse = require("../models/orderResponse");
-const { ResponseStatus } = require("../models/orderResponse");
+const { ResponseStatus, ArrivalEta } = require("../models/orderResponse");
 
 const MAX_ACTIVE_RESPONSES = 5;
 const CONFIRM_TIMEOUT_MS = 30 * 60 * 1000;
 const DISCUSSING_TIMEOUT_MS = 60 * 60 * 1000;
+const OFFER_ETA_VALUES = new Set(Object.values(ArrivalEta));
+const ACTIVE_RESPONSE_STATUSES = [
+  ResponseStatus.RESPONDED,
+  ResponseStatus.CALL_MADE,
+  ResponseStatus.PENDING_CONFIRM,
+  ResponseStatus.DISCUSSING,
+];
+
+function normalizeOfferNumber(value) {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function canShareCustomerContacts(order, response) {
+  if (!order) return false;
+  if (!order.isIntraCity) return true;
+  if (
+    order.driverId &&
+    response?.driverId === order.driverId &&
+    [OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS, OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(order.status)
+  ) {
+    return true;
+  }
+  return response?.status === ResponseStatus.CONFIRMED;
+}
+
+function canShareDriverContacts(order, response) {
+  if (!order) return false;
+  if (!order.isIntraCity) return true;
+  if (
+    order.driverId &&
+    response?.driverId === order.driverId &&
+    [OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS, OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(order.status)
+  ) {
+    return true;
+  }
+  return response?.status === ResponseStatus.CONFIRMED;
+}
 
 async function respondToOrder(req, res) {
   const orderId = req.params.id;
@@ -2118,7 +2172,7 @@ async function respondToOrder(req, res) {
     const activeCount = await OrderResponse.count({
       where: {
         driverId: req.user.id,
-        status: { [require("sequelize").Op.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+        status: { [require("sequelize").Op.in]: ACTIVE_RESPONSE_STATUSES },
       },
     });
     if (activeCount >= MAX_ACTIVE_RESPONSES) {
@@ -2132,7 +2186,36 @@ async function respondToOrder(req, res) {
       return res.status(400).send("Ви вже відгукнулися на це замовлення");
     }
 
-    if (req.body && req.body.finalPrice != null && order.agreedPrice) {
+    const isIntraCity = Boolean(order.isIntraCity);
+    let hourlyRate = null;
+    let minHours = null;
+    let arrivalEta = null;
+    let offerTotal = null;
+
+    if (isIntraCity) {
+      hourlyRate = normalizeOfferNumber(req.body?.hourlyRate);
+      minHours = normalizeOfferNumber(req.body?.minHours);
+      arrivalEta = req.body?.arrivalEta;
+
+      if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+        return res.status(400).send("Р’РєР°Р¶С–С‚СЊ РєРѕСЂРµРєС‚РЅСѓ СЃС‚Р°РІРєСѓ Р·Р° РіРѕРґРёРЅСѓ");
+      }
+      if (!Number.isFinite(minHours) || minHours <= 0) {
+        return res.status(400).send("Р’РєР°Р¶С–С‚СЊ РєРѕСЂРµРєС‚РЅРёР№ РјС–РЅС–РјСѓРј РіРѕРґРёРЅ");
+      }
+      if (!OFFER_ETA_VALUES.has(arrivalEta)) {
+        return res.status(400).send("РћР±РµСЂС–С‚СЊ С‡Р°СЃ РїСЂРёР±СѓС‚С‚СЏ");
+      }
+
+      hourlyRate = roundPriceValue(hourlyRate);
+      minHours = roundPriceValue(minHours);
+      offerTotal = roundPriceValue(hourlyRate * minHours);
+      if (!offerTotal || offerTotal <= 0) {
+        return res.status(400).send("РќРµРІР°Р»С–РґРЅР° СЃСѓРјР° РїСЂРѕРїРѕР·РёС†С–С—");
+      }
+    }
+
+    if (!isIntraCity && req.body && req.body.finalPrice != null && order.agreedPrice) {
       const normalized = roundPriceValue(req.body.finalPrice);
       if (normalized !== null) {
         appendPriceHistory(order, order.finalPrice ?? order.price, normalized, "finalPrice", "DRIVER", req.user.id);
@@ -2141,7 +2224,7 @@ async function respondToOrder(req, res) {
       }
     }
 
-    const isImmediate = req.body && req.body.immediateConfirm === true;
+    const isImmediate = isIntraCity || (req.body && req.body.immediateConfirm === true);
     const initialStatus = isImmediate ? ResponseStatus.PENDING_CONFIRM : ResponseStatus.RESPONDED;
 
     const response = await OrderResponse.create({
@@ -2150,6 +2233,10 @@ async function respondToOrder(req, res) {
       status: initialStatus,
       respondedAt: new Date(),
       resultSubmittedAt: isImmediate ? new Date() : null,
+      hourlyRate,
+      minHours,
+      arrivalEta,
+      offerTotal,
     });
 
     if (order.customer && order.customer.pushToken && order.customer.pushConsent) {
@@ -2163,8 +2250,10 @@ async function respondToOrder(req, res) {
         : `Водій ${driverUser?.name || ""} зацікавлений у замовленні №${order.id}`;
       sendPush(
         order.customer.pushToken,
-        pushTitle,
-        pushBody,
+        isIntraCity ? "Нова пропозиція від водія" : pushTitle,
+        isIntraCity
+          ? `Водій ${driverUser?.name || ""} надіслав пропозицію на замовлення №${order.id}`
+          : pushBody,
         { orderId: order.id, navigateTo: "orderDetail" }
       );
     }
@@ -2173,8 +2262,8 @@ async function respondToOrder(req, res) {
 
     res.json({
       ...response.toJSON(),
-      customerPhone: order.customer ? order.customer.phone : null,
-      customerName: order.customer ? order.customer.name : null,
+      customerPhone: canShareCustomerContacts(order, response) ? order?.customer?.phone || null : null,
+      customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
     console.error("respondToOrder error:", err);
@@ -2200,8 +2289,8 @@ async function getMyResponse(req, res) {
 
     res.json({
       ...response.toJSON(),
-      customerPhone: order?.customer?.phone || null,
-      customerName: order?.customer?.name || null,
+      customerPhone: canShareCustomerContacts(order, response) ? order?.customer?.phone || null : null,
+      customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
     res.status(400).send("Помилка");
@@ -2211,6 +2300,15 @@ async function getMyResponse(req, res) {
 async function responseCallMade(req, res) {
   const { id: orderId, responseId } = req.params;
   try {
+    const orderPrimary = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
+    let order = orderPrimary;
+    if (!order) return res.status(400).send("Замовлення не знайдено");
+    if (order.isIntraCity) return res.status(400).send("Для міських замовлень дзвінок не потрібен");
+
+    order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
+    if (!order) return res.status(400).send("Замовлення не знайдено");
+    if (order.isIntraCity) return res.status(400).send("Для міських замовлень етап дзвінка не потрібен");
+
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
       return res.status(400).send("Відгук не знайдено");
@@ -2219,11 +2317,10 @@ async function responseCallMade(req, res) {
     response.callMadeAt = new Date();
     await response.save();
 
-    const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
     res.json({
       ...response.toJSON(),
-      customerPhone: order?.customer?.phone || null,
-      customerName: order?.customer?.name || null,
+      customerPhone: canShareCustomerContacts(order, response) ? order?.customer?.phone || null : null,
+      customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
     res.status(400).send("Помилка");
@@ -2234,12 +2331,14 @@ async function responseResult(req, res) {
   const { id: orderId, responseId } = req.params;
   const { result } = req.body;
   try {
+    const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
+    if (!order) return res.status(400).send("Р—Р°РјРѕРІР»РµРЅРЅСЏ РЅРµ Р·РЅР°Р№РґРµРЅРѕ");
+    if (order.isIntraCity) return res.status(400).send("Р”Р»СЏ РјС–СЃСЊРєРёС… Р·Р°РјРѕРІР»РµРЅСЊ РµС‚Р°Рї РґР·РІС–РЅРєР° РЅРµ РїРѕС‚СЂС–Р±РµРЅ");
+
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
       return res.status(400).send("Відгук не знайдено");
     }
-
-    const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
 
     if (result === "agreed") {
       response.status = ResponseStatus.PENDING_CONFIRM;
@@ -2273,8 +2372,8 @@ async function responseResult(req, res) {
     broadcastOrder(order);
     res.json({
       ...response.toJSON(),
-      customerPhone: order?.customer?.phone || null,
-      customerName: order?.customer?.name || null,
+      customerPhone: canShareCustomerContacts(order, response) ? order?.customer?.phone || null : null,
+      customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
     console.error("responseResult error:", err);
@@ -2303,6 +2402,17 @@ async function responseConfirm(req, res) {
     response.expiresAt = null;
     await response.save();
 
+    const previousOrderPrice = roundPriceValue(order.price);
+    if (order.isIntraCity) {
+      const total = roundPriceValue(response.offerTotal);
+      if (!total || total <= 0) {
+        return res.status(400).send("Немає коректної пропозиції для підтвердження");
+      }
+      order.price = total;
+      order.finalPrice = total;
+      appendPriceHistory(order, previousOrderPrice, total, "price", "CUSTOMER", req.user.id);
+    }
+
     order.driverId = response.driverId;
     order.status = "ACCEPTED";
     order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date() }];
@@ -2315,7 +2425,7 @@ async function responseConfirm(req, res) {
         where: {
           orderId,
           id: { [Op.ne]: response.id },
-          status: { [Op.in]: [ResponseStatus.RESPONDED, ResponseStatus.CALL_MADE, ResponseStatus.PENDING_CONFIRM, ResponseStatus.DISCUSSING] },
+          status: { [Op.in]: ACTIVE_RESPONSE_STATUSES },
         },
       }
     );
@@ -2327,6 +2437,94 @@ async function responseConfirm(req, res) {
         driver.pushToken,
         "Замовник підтвердив!",
         `Замовлення №${order.id} за вами.`,
+        { orderId: order.id, navigateTo: "orderDetail" }
+      );
+    }
+
+    const rejectedResponses = await OrderResponse.findAll({
+      where: { orderId, status: ResponseStatus.REJECTED, id: { [require("sequelize").Op.ne]: response.id } },
+    });
+    for (const rr of rejectedResponses) {
+      const rejDriver = await User.findByPk(rr.driverId);
+      if (rejDriver?.pushToken && rejDriver.pushConsent) {
+        const { sendPush } = require("../utils/push");
+        sendPush(rejDriver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
+      }
+    }
+
+    const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
+    await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+
+    const updated = await Order.findByPk(orderId, {
+      include: [
+        { model: User, as: "customer" },
+        { model: User, as: "driver" },
+      ],
+    });
+    broadcastOrder(updated);
+    res.json(updated);
+  } catch (err) {
+    console.error("responseConfirm error:", err);
+    res.status(400).send("Помилка підтвердження");
+  }
+}
+
+async function responseConfirmCityAware(req, res) {
+  const { id: orderId, responseId } = req.params;
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || response.status !== ResponseStatus.PENDING_CONFIRM) {
+      return res.status(400).send("Неможливо підтвердити");
+    }
+
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id) {
+      return res.status(400).send("Немає прав");
+    }
+    if (order.status !== "CREATED") {
+      return res.status(400).send("Замовлення вже зайняте");
+    }
+
+    response.status = ResponseStatus.CONFIRMED;
+    response.confirmedAt = new Date();
+    response.expiresAt = null;
+    await response.save();
+
+    const previousOrderPrice = roundPriceValue(order.price);
+    if (order.isIntraCity) {
+      const total = roundPriceValue(response.offerTotal);
+      if (!total || total <= 0) {
+        return res.status(400).send("Немає коректної пропозиції для підтвердження");
+      }
+      order.price = total;
+      order.finalPrice = total;
+      appendPriceHistory(order, previousOrderPrice, total, "price", "CUSTOMER", req.user.id);
+    }
+
+    order.driverId = response.driverId;
+    order.status = "ACCEPTED";
+    order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date() }];
+    await order.save();
+
+    const { Op } = require("sequelize");
+    await OrderResponse.update(
+      { status: ResponseStatus.REJECTED },
+      {
+        where: {
+          orderId,
+          id: { [Op.ne]: response.id },
+          status: { [Op.in]: ACTIVE_RESPONSE_STATUSES },
+        },
+      }
+    );
+
+    const driver = await User.findByPk(response.driverId);
+    if (driver?.pushToken && driver.pushConsent) {
+      const { sendPush } = require("../utils/push");
+      sendPush(
+        driver.pushToken,
+        "Замовлення підтверджено",
+        `Ви отримали замовлення №${order.id}. Контакти замовника вже доступні.`,
         { orderId: order.id, navigateTo: "orderDetail" }
       );
     }
@@ -2417,7 +2615,7 @@ async function getOrderResponses(req, res) {
     const result = responses.map((r) => ({
       ...r.toJSON(),
       driverName: r.driver?.name || null,
-      driverPhone: r.driver?.phone || null,
+      driverPhone: canShareDriverContacts(order, r) ? r.driver?.phone || null : null,
       driverRating: r.driver?.rating || null,
     }));
     res.json(result);
@@ -2444,7 +2642,7 @@ module.exports = {
   getMyResponse,
   responseCallMade,
   responseResult,
-  responseConfirm,
+  responseConfirm: responseConfirmCityAware,
   responseReject,
   responseWithdraw,
   getOrderResponses,

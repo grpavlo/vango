@@ -14,6 +14,14 @@ const ResponseStatus = {
   EXPIRED: 'EXPIRED',
 };
 
+const ArrivalEta = {
+  UP_TO_15_MIN: 'UP_TO_15_MIN',
+  UP_TO_30_MIN: 'UP_TO_30_MIN',
+  UP_TO_1_HOUR: 'UP_TO_1_HOUR',
+  SEVERAL_HOURS: 'SEVERAL_HOURS',
+  AT_APPOINTED_TIME: 'AT_APPOINTED_TIME',
+};
+
 class OrderResponse extends Model {}
 
 OrderResponse.init(
@@ -30,6 +38,10 @@ OrderResponse.init(
     resultSubmittedAt: { type: DataTypes.DATE },
     confirmedAt: { type: DataTypes.DATE },
     expiresAt: { type: DataTypes.DATE },
+    hourlyRate: { type: DataTypes.FLOAT },
+    minHours: { type: DataTypes.FLOAT },
+    arrivalEta: { type: DataTypes.ENUM(...Object.values(ArrivalEta)) },
+    offerTotal: { type: DataTypes.FLOAT },
   },
   { sequelize: db, modelName: 'orderResponse' }
 );
@@ -42,3 +54,4 @@ OrderResponse.belongsTo(User, { foreignKey: 'driverId', as: 'driver' });
 
 module.exports = OrderResponse;
 module.exports.ResponseStatus = ResponseStatus;
+module.exports.ArrivalEta = ArrivalEta;

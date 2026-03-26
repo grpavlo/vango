@@ -14,24 +14,116 @@ function formatDate(date) {
 }
 
 function isOrderDateOutdated(order) {
-  if (typeof order?.isDateOutdated === "boolean") return order.isDateOutdated;
-  const ref = order?.freeDate
-    ? order?.freeDateUntil || order?.unloadTo || order?.loadTo || order?.loadFrom
-    : order?.unloadTo || order?.loadTo || order?.loadFrom;
+  const backendOutdated = parseBooleanLike(order?.isDateOutdated);
+  if (backendOutdated === true) return true;
+
+  const staleDays = Number(order?.staleDays);
+  if (Number.isFinite(staleDays) && staleDays > 0) return true;
+
+  const staleSinceFromBackend = parseOrderDate(order?.staleSince);
+  if (staleSinceFromBackend && new Date() >= staleSinceFromBackend) return true;
+
+  const ref =
+    order?.unloadTo ||
+    order?.freeDateUntil ||
+    order?.loadTo ||
+    order?.loadFrom;
   if (!ref) return false;
 
-  const baseDate = new Date(ref);
-  if (Number.isNaN(baseDate.getTime())) return false;
+  const baseDate = parseOrderDate(ref);
+  if (!baseDate) return false;
 
   const staleSince = new Date(baseDate);
   staleSince.setHours(0, 0, 0, 0);
   staleSince.setDate(staleSince.getDate() + 1);
 
-  const autoCloseAt = new Date(staleSince);
-  autoCloseAt.setDate(autoCloseAt.getDate() + 14);
+  return new Date() >= staleSince;
+}
 
-  const now = new Date();
-  return now >= staleSince && now < autoCloseAt;
+function parseBooleanLike(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+}
+
+function parseOrderDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+  if (typeof value === "number") {
+    const parsedNumberDate = new Date(value);
+    return Number.isNaN(parsedNumberDate.getTime()) ? null : parsedNumberDate;
+  }
+  if (typeof value !== "string") return null;
+
+  const raw = value.trim().replace(",", " ");
+  if (!raw) return null;
+
+  if (/^\d{10,13}$/.test(raw)) {
+    const ts = Number(raw);
+    const parsedTsDate = new Date(raw.length === 10 ? ts * 1000 : ts);
+    if (!Number.isNaN(parsedTsDate.getTime())) return parsedTsDate;
+  }
+
+  const ddMmYyyyMatch = raw.match(
+    /^(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?$/
+  );
+  if (ddMmYyyyMatch) {
+    const day = Number(ddMmYyyyMatch[1]);
+    const month = Number(ddMmYyyyMatch[2]);
+    const now = new Date();
+    let year = ddMmYyyyMatch[3] ? Number(ddMmYyyyMatch[3]) : now.getFullYear();
+    if (year < 100) year += 2000;
+    const hours = ddMmYyyyMatch[4] ? Number(ddMmYyyyMatch[4]) : 0;
+    const minutes = ddMmYyyyMatch[5] ? Number(ddMmYyyyMatch[5]) : 0;
+    const seconds = ddMmYyyyMatch[6] ? Number(ddMmYyyyMatch[6]) : 0;
+    const parsedDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (
+      parsedDate.getFullYear() === year &&
+      parsedDate.getMonth() === month - 1 &&
+      parsedDate.getDate() === day &&
+      parsedDate.getHours() === hours &&
+      parsedDate.getMinutes() === minutes
+    ) {
+      return parsedDate;
+    }
+  }
+
+  const isoLikeDateMatch = raw.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+  );
+  if (isoLikeDateMatch) {
+    const year = Number(isoLikeDateMatch[1]);
+    const month = Number(isoLikeDateMatch[2]);
+    const day = Number(isoLikeDateMatch[3]);
+    const hours = isoLikeDateMatch[4] ? Number(isoLikeDateMatch[4]) : 0;
+    const minutes = isoLikeDateMatch[5] ? Number(isoLikeDateMatch[5]) : 0;
+    const seconds = isoLikeDateMatch[6] ? Number(isoLikeDateMatch[6]) : 0;
+    const parsedDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (
+      parsedDate.getFullYear() === year &&
+      parsedDate.getMonth() === month - 1 &&
+      parsedDate.getDate() === day
+    ) {
+      return parsedDate;
+    }
+  }
+
+  const dateOnlyFromTextMatch = raw.match(
+    /(\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)/
+  );
+  if (dateOnlyFromTextMatch) {
+    return parseOrderDate(dateOnlyFromTextMatch[1]);
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export default function OrderCard({
@@ -40,6 +132,8 @@ export default function OrderCard({
   highlighted,
   showResponseCount = true,
 }) {
+  const CITY_PIN_COLOR = "#fffb0b";
+  const OUTDATED_MARKER_COLOR = "#85898f";
   const pickupCity =
     order.pickupCity ||
     ((order.pickupLocation || "").split(",")[1] || "").trim();
@@ -74,10 +168,19 @@ export default function OrderCard({
   }
 
   const isDateOutdated = isOrderDateOutdated(order);
-  const mainPinColor = isDateOutdated ? colors.gray500 : colors.orange;
-  const secondPinColor = isDateOutdated ? colors.gray500 : colors.green;
+  const isIntraCityOrder = Boolean(order?.isIntraCity);
+  const mainPinColor = isDateOutdated
+    ? OUTDATED_MARKER_COLOR
+    : isIntraCityOrder
+    ? CITY_PIN_COLOR
+    : colors.orange;
+  const secondPinColor = isDateOutdated
+    ? OUTDATED_MARKER_COLOR
+    : isIntraCityOrder
+    ? CITY_PIN_COLOR
+    : colors.green;
   const iconColor = isDateOutdated ? colors.gray500 : colors.green;
-  const helperColor = isDateOutdated ? colors.gray500 : colors.orange;
+  const helperColor = isDateOutdated ? colors.gray500 : colors.red;
 
   const freeDateLabel = order.freeDate
     ? order.freeDateUntil
@@ -85,12 +188,19 @@ export default function OrderCard({
       : "Вільна дата"
     : `Завантаження: ${formatDate(order.loadFrom)}`;
 
+  const priceLabel = isIntraCityOrder
+    ? "Водій пропонує ціну"
+    : `Р¦С–РЅР°: ${Math.round(order.price)} РіСЂРЅ${
+        order.agreedPrice ? " (Р”РѕРіРѕРІС–СЂРЅР°)" : ""
+      }`;
+
   return (
     <View
       style={[
         styles.card,
-        highlighted && styles.highlighted,
         isDateOutdated && styles.cardOutdated,
+        isIntraCityOrder && !isDateOutdated && styles.cardIntraCity,
+        highlighted && styles.highlighted,
       ]}
     >
       <View style={styles.mapContainer}>
@@ -128,11 +238,22 @@ export default function OrderCard({
         <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
           {freeDateLabel}
         </Text>
-        <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
+        <Text
+          style={[
+            styles.info,
+            isDateOutdated && styles.mutedText,
+            isIntraCityOrder && styles.hiddenPrice,
+          ]}
+        >
           {`Ціна: ${Math.round(order.price)} грн${
             order.agreedPrice ? " (Договірна)" : ""
           }`}
         </Text>
+        {isIntraCityOrder && (
+          <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
+            Водій пропонує ціну
+          </Text>
+        )}
 
         <View style={styles.iconRow}>
           <Ionicons
@@ -194,6 +315,10 @@ const styles = StyleSheet.create({
   cardOutdated: {
     backgroundColor: "#F3F4F6",
   },
+  cardIntraCity: {
+    borderWidth: 1,
+    borderColor: "#230bff",
+  },
   highlighted: {
     borderWidth: 2,
     borderColor: colors.orange,
@@ -202,6 +327,7 @@ const styles = StyleSheet.create({
   infoContainer: { paddingVertical: 4 },
   route: { fontWeight: "bold", marginTop: 8 },
   info: { marginTop: 2, color: "#333" },
+  hiddenPrice: { height: 0, opacity: 0, marginTop: 0, fontSize: 1 },
   mutedText: { color: colors.gray600 },
   iconRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   responseCountRow: {

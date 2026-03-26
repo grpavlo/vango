@@ -63,9 +63,9 @@ export default function AllOrdersScreen({ navigation }) {
   const [savingSearch, setSavingSearch] = useState(false);
   const [deletingSearchId, setDeletingSearchId] = useState(null);
   const [savedSearchesModalVisible, setSavedSearchesModalVisible] = useState(false);
+  const OUTDATED_MARKER_COLOR = colors.gray500;
 
-  const CORRIDOR_HALF_WIDTH_KM = 50; // С‚СѓС‚ Р·РјС–РЅСЋС”С€ С€РёСЂРёРЅСѓ РєРѕСЂРёРґРѕСЂСѓ
-
+  const CORRIDOR_HALF_WIDTH_KM = 50; 
   const originPoint = pickupPoint
     ? {
         latitude: parseFloat(pickupPoint.lat),
@@ -94,11 +94,11 @@ export default function AllOrdersScreen({ navigation }) {
   const hasCorridor = Boolean(originPoint && dropoffPoint);
   const shouldUseRadiusQuery = canUsePickupRadius && !hasCorridor;
 
-  // РўРµРєСЃС‚РѕРІС– С„С–Р»СЊС‚СЂРё РїРѕ РјС–СЃС‚Р°С… (Р· СѓСЂР°С…СѓРІР°РЅРЅСЏРј РІРёР±РѕСЂСѓ Р· РєР°СЂС‚Рё)
+ 
   const pickupCityFilter = (pickupPoint?.city || pickupCity || "").trim();
   const dropoffCityFilter = (dropoffPoint?.city || dropoffCity || "").trim();
 
-  // РћРґРЅР°РєРѕРІРµ РјС–СЃС‚Рѕ Р·Р°РІР°РЅС‚Р°Р¶РµРЅРЅСЏ/СЂРѕР·РІР°РЅС‚Р°Р¶РµРЅРЅСЏ (РЅР°РїСЂРёРєР»Р°Рґ, РљРёС—РІвЂ“РљРёС—РІ Сѓ С„С–Р»СЊС‚СЂС–)
+  
   const sameCityFilter =
     pickupCityFilter &&
     dropoffCityFilter &&
@@ -544,29 +544,37 @@ export default function AllOrdersScreen({ navigation }) {
   function isActiveFreeDate(order) {
     if (!order?.freeDate) return false;
     if (!order.freeDateUntil) return true;
-    const expiresAt = new Date(order.freeDateUntil);
+    const expiresAt = parseOrderDate(order.freeDateUntil);
+    if (!expiresAt) return false;
+    expiresAt.setHours(23, 59, 59, 999);
     return !Number.isNaN(expiresAt.getTime()) && expiresAt >= new Date();
   }
 
   function isDateOutdated(order) {
-    if (typeof order?.isDateOutdated === "boolean") return order.isDateOutdated;
-    const ref = order?.freeDate
-      ? order?.freeDateUntil || order?.unloadTo || order?.loadTo || order?.loadFrom
-      : order?.unloadTo || order?.loadTo || order?.loadFrom;
+    const backendOutdated = parseBooleanLike(order?.isDateOutdated);
+    if (backendOutdated === true) return true;
+
+    const staleDays = Number(order?.staleDays);
+    if (Number.isFinite(staleDays) && staleDays > 0) return true;
+
+    const staleSinceFromBackend = parseOrderDate(order?.staleSince);
+    if (staleSinceFromBackend && new Date() >= staleSinceFromBackend) return true;
+
+    const ref =
+      order?.unloadTo ||
+      order?.freeDateUntil ||
+      order?.loadTo ||
+      order?.loadFrom;
     if (!ref) return false;
 
-    const baseDate = new Date(ref);
-    if (Number.isNaN(baseDate.getTime())) return false;
+    const baseDate = parseOrderDate(ref);
+    if (!baseDate) return false;
 
     const staleSince = new Date(baseDate);
     staleSince.setHours(0, 0, 0, 0);
     staleSince.setDate(staleSince.getDate() + 1);
 
-    const autoCloseAt = new Date(staleSince);
-    autoCloseAt.setDate(autoCloseAt.getDate() + 14);
-    const now = new Date();
-
-    return now >= staleSince && now < autoCloseAt;
+    return new Date() >= staleSince;
   }
 
   function passesFilters(o) {
@@ -576,7 +584,8 @@ export default function AllOrdersScreen({ navigation }) {
     const outdated = isDateOutdated(o);
     if (o.freeDate && !activeFreeDate && !outdated) return false;
     if (!activeFreeDate && !outdated && dateFrom && dateTo) {
-      const orderDay = new Date(o.loadFrom);
+      const orderDay = parseOrderDate(o.loadFrom);
+      if (!orderDay) return false;
       orderDay.setHours(0, 0, 0, 0);
       const fromDay = new Date(dateFrom);
       fromDay.setHours(0, 0, 0, 0);
@@ -946,7 +955,13 @@ export default function AllOrdersScreen({ navigation }) {
                   latitude: Number(o.pickupLat),
                   longitude: Number(o.pickupLon),
                 }}
-                pinColor={isDateOutdated(o) ? colors.gray500 : colors.orange}
+                pinColor={
+                  isDateOutdated(o)
+                    ? "#85898f" //OUTDATED_MARKER_COLOR
+                    : o?.isIntraCity
+                    ? "#fffb0b"
+                    : colors.red
+                }
                 onPress={() => onMarkerPress(o.id)}
               />
             )
@@ -1271,6 +1286,92 @@ function formatDateFull(d) {
   if (!d) return "";
   const pad = (n) => (n < 10 ? `0${n}` : n);
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+function parseBooleanLike(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+}
+
+function parseOrderDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+  if (typeof value === "number") {
+    const parsedNumberDate = new Date(value);
+    return Number.isNaN(parsedNumberDate.getTime()) ? null : parsedNumberDate;
+  }
+  if (typeof value !== "string") return null;
+
+  const raw = value.trim().replace(",", " ");
+  if (!raw) return null;
+
+  if (/^\d{10,13}$/.test(raw)) {
+    const ts = Number(raw);
+    const parsedTsDate = new Date(raw.length === 10 ? ts * 1000 : ts);
+    if (!Number.isNaN(parsedTsDate.getTime())) return parsedTsDate;
+  }
+
+  const ddMmYyyyMatch = raw.match(
+    /^(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?(?:\s+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?$/
+  );
+  if (ddMmYyyyMatch) {
+    const day = Number(ddMmYyyyMatch[1]);
+    const month = Number(ddMmYyyyMatch[2]);
+    const now = new Date();
+    let year = ddMmYyyyMatch[3] ? Number(ddMmYyyyMatch[3]) : now.getFullYear();
+    if (year < 100) year += 2000;
+    const hours = ddMmYyyyMatch[4] ? Number(ddMmYyyyMatch[4]) : 0;
+    const minutes = ddMmYyyyMatch[5] ? Number(ddMmYyyyMatch[5]) : 0;
+    const seconds = ddMmYyyyMatch[6] ? Number(ddMmYyyyMatch[6]) : 0;
+    const parsedDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (
+      parsedDate.getFullYear() === year &&
+      parsedDate.getMonth() === month - 1 &&
+      parsedDate.getDate() === day &&
+      parsedDate.getHours() === hours &&
+      parsedDate.getMinutes() === minutes
+    ) {
+      return parsedDate;
+    }
+  }
+
+  const isoLikeDateMatch = raw.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/
+  );
+  if (isoLikeDateMatch) {
+    const year = Number(isoLikeDateMatch[1]);
+    const month = Number(isoLikeDateMatch[2]);
+    const day = Number(isoLikeDateMatch[3]);
+    const hours = isoLikeDateMatch[4] ? Number(isoLikeDateMatch[4]) : 0;
+    const minutes = isoLikeDateMatch[5] ? Number(isoLikeDateMatch[5]) : 0;
+    const seconds = isoLikeDateMatch[6] ? Number(isoLikeDateMatch[6]) : 0;
+    const parsedDate = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (
+      parsedDate.getFullYear() === year &&
+      parsedDate.getMonth() === month - 1 &&
+      parsedDate.getDate() === day
+    ) {
+      return parsedDate;
+    }
+  }
+
+  const dateOnlyFromTextMatch = raw.match(
+    /(\d{1,2}[.\-/]\d{1,2}(?:[.\-/]\d{2,4})?)/
+  );
+  if (dateOnlyFromTextMatch) {
+    return parseOrderDate(dateOnlyFromTextMatch[1]);
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 const styles = StyleSheet.create({

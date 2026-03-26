@@ -93,6 +93,49 @@ const responseStatusIcons = {
   EXPIRED: '⏰',
 };
 
+const CITY_ARRIVAL_ETA_OPTIONS = [
+  { value: 'UP_TO_15_MIN', label: 'до 15 хв' },
+  { value: 'UP_TO_30_MIN', label: 'до 30 хв' },
+  { value: 'UP_TO_1_HOUR', label: 'до 1 год' },
+  { value: 'SEVERAL_HOURS', label: 'кілька годин' },
+  { value: 'AT_APPOINTED_TIME', label: 'на призначений час' },
+];
+
+const CITY_ARRIVAL_ETA_LABELS = CITY_ARRIVAL_ETA_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+const responseStatusIconsSafe = {
+  RESPONDED: '\uD83D\uDFE2',
+  CALL_MADE: '\uD83D\uDCDE',
+  PENDING_CONFIRM: '\u23F3',
+  DISCUSSING: '\uD83D\uDFE1',
+  CONFIRMED: '\u2705',
+  DECLINED: '\u274C',
+  REJECTED: '\u274C',
+  EXPIRED: '\u23F0',
+};
+
+function normalizeCityKey(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function getOrderCityKey(order) {
+  const pickup = normalizeCityKey(order?.pickupCity);
+  if (pickup) return pickup;
+  return normalizeCityKey(order?.dropoffCity);
+}
+
+function formatCityOfferSummary(response) {
+  if (!response) return null;
+  const hourly = Number(response.hourlyRate);
+  const minHours = Number(response.minHours);
+  const eta = CITY_ARRIVAL_ETA_LABELS[response.arrivalEta] || response.arrivalEta || '';
+  if (!Number.isFinite(hourly) || !Number.isFinite(minHours)) return null;
+  return `${Math.round(hourly)} грн/год • мін ${Math.round(minHours)} год • ${eta}`;
+}
+
 const historyActorLabels = {
   DRIVER: 'Водій',
   CUSTOMER: 'Замовник',
@@ -228,6 +271,10 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [finalPrice, setFinalPrice] = useState(order?.price ? String(order.price) : '');
+  const [cityHourlyRate, setCityHourlyRate] = useState('');
+  const [cityMinHours, setCityMinHours] = useState('');
+  const [cityArrivalEta, setCityArrivalEta] = useState('UP_TO_30_MIN');
+  const [cityOfferExpanded, setCityOfferExpanded] = useState(false);
   const wsRef = useRef(null);
   const priceInputRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
@@ -235,21 +282,33 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const useNewFlow = FEATURE_FLAGS.NEW_RESPONSE_FLOW;
   const HALF_FINAL_PRICE_INPUT_HEIGHT = 0;
+  const isCityOrder = Boolean(order?.isIntraCity);
+  const cityOrderKey = useMemo(() => getOrderCityKey(order), [order?.pickupCity, order?.dropoffCity, order?.id]);
+  const cityTemplateStorageKey = useMemo(
+    () => (cityOrderKey ? `city-offer-template:${cityOrderKey}` : null),
+    [cityOrderKey]
+  );
+  const cityOfferTotalPreview = useMemo(() => {
+    const hourly = Number(cityHourlyRate);
+    const hours = Number(cityMinHours);
+    if (!Number.isFinite(hourly) || !Number.isFinite(hours) || hourly <= 0 || hours <= 0) return null;
+    return Math.round(hourly * hours);
+  }, [cityHourlyRate, cityMinHours]);
 
   const contactPhone = useMemo(() => {
-    if (useNewFlow && myResponse?.customerPhone) return myResponse.customerPhone;
+    if (useNewFlow) return myResponse?.customerPhone || null;
     return order ? phone || (order.customer ? order.customer.phone : null) : phone;
   }, [useNewFlow, myResponse, order, phone]);
 
   const contactName = useMemo(() => {
-    if (useNewFlow && myResponse?.customerName) return myResponse.customerName;
+    if (useNewFlow) return myResponse?.customerName || null;
     return order ? customerName || (order.customer ? order.customer.name : null) : customerName;
   }, [useNewFlow, myResponse, order, customerName]);
 
   const showContact = useMemo(() => {
-    if (useNewFlow) return Boolean(myResponse && myResponse.status !== 'DECLINED' && myResponse.status !== 'EXPIRED');
+    if (useNewFlow) return Boolean(myResponse?.customerPhone);
     return Boolean(order && (order.reservedBy || order.driverId));
-  }, [useNewFlow, myResponse, order]);
+  }, [useNewFlow, myResponse, order, myResponse?.customerPhone]);
 
   const assignedDriver = useMemo(() => {
     if (!order) return null;
@@ -295,6 +354,32 @@ export default function OrderDetailScreen({ route, navigation }) {
   useEffect(() => {
     setFinalPrice(order?.price ? String(order.price) : '');
   }, [order?.price]);
+
+  useEffect(() => {
+    if (role !== 'DRIVER' || !isCityOrder || !cityTemplateStorageKey) return;
+    if (myResponse) return;
+
+    let isMounted = true;
+    setCityHourlyRate('');
+    setCityMinHours('');
+    setCityArrivalEta('UP_TO_30_MIN');
+
+    async function loadTemplate() {
+      try {
+        const saved = await AsyncStorage.getItem(cityTemplateStorageKey);
+        if (!saved || !isMounted) return;
+        const parsed = JSON.parse(saved);
+        if (parsed?.hourlyRate) setCityHourlyRate(String(parsed.hourlyRate));
+        if (parsed?.minHours) setCityMinHours(String(parsed.minHours));
+        if (parsed?.arrivalEta) setCityArrivalEta(parsed.arrivalEta);
+      } catch {}
+    }
+
+    loadTemplate();
+    return () => {
+      isMounted = false;
+    };
+  }, [role, isCityOrder, cityTemplateStorageKey, myResponse?.id, order?.id]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -454,24 +539,57 @@ export default function OrderDetailScreen({ route, navigation }) {
         myResponse
       ) {
         callingRef.current = false;
-        if (myResponse.status === 'RESPONDED' || myResponse.status === 'CALL_MADE') {
+        if (!isCityOrder && (myResponse.status === 'RESPONDED' || myResponse.status === 'CALL_MADE')) {
           setShowResultScreen(true);
         }
       }
       appStateRef.current = nextAppState;
     });
     return () => subscription?.remove();
-  }, [useNewFlow, myResponse]);
+  }, [useNewFlow, myResponse, isCityOrder]);
 
   // ── New flow: Respond ──
   async function handleRespond() {
     try {
       setRespondLoading(true);
-      const payload = order.agreedPrice && finalPrice !== '' && !Number.isNaN(Number(finalPrice))
-        ? { finalPrice: String(Math.round(Number(finalPrice))) }
-        : {};
+      let payload = {};
+
+      if (isCityOrder) {
+        const hourlyRate = Number(cityHourlyRate);
+        const minHours = Number(cityMinHours);
+        if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+          Alert.alert('Помилка', 'Вкажіть коректну ставку за годину');
+          setRespondLoading(false);
+          return;
+        }
+        if (!Number.isFinite(minHours) || minHours <= 0) {
+          Alert.alert('Помилка', 'Вкажіть коректний мінімум годин');
+          setRespondLoading(false);
+          return;
+        }
+        payload = {
+          hourlyRate: String(Math.round(hourlyRate)),
+          minHours: String(Math.round(minHours)),
+          arrivalEta: cityArrivalEta,
+        };
+      } else if (order.agreedPrice && finalPrice !== '' && !Number.isNaN(Number(finalPrice))) {
+        payload = { finalPrice: String(Math.round(Number(finalPrice))) };
+      }
+
       const resp = await respondToOrder(order.id, token, payload);
       setMyResponse(resp);
+      if (isCityOrder && cityTemplateStorageKey) {
+        try {
+          await AsyncStorage.setItem(
+            cityTemplateStorageKey,
+            JSON.stringify({
+              hourlyRate: payload.hourlyRate,
+              minHours: payload.minHours,
+              arrivalEta: payload.arrivalEta,
+            })
+          );
+        } catch {}
+      }
       setRespondLoading(false);
     } catch (err) {
       setRespondLoading(false);
@@ -485,6 +603,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   async function handleRespondImmediate() {
+    if (isCityOrder) return;
     try {
       setRespondLoading(true);
       const payload = { immediateConfirm: true };
@@ -824,7 +943,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     if (!useNewFlow || role !== 'DRIVER' || !myResponse) return null;
     const st = myResponse.status;
     if (st === 'DECLINED' || st === 'EXPIRED') return null;
-    const icon = responseStatusIcons[st] || '';
+    const icon = responseStatusIconsSafe[st] || responseStatusIcons[st] || '';
     const label = responseStatusLabelsDriver[st] || st;
     const bgColor =
       st === 'PENDING_CONFIRM' ? '#FEF3C7'
@@ -963,7 +1082,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           const mins = confirmTimeLeft !== null ? Math.ceil(confirmTimeLeft / 60000) : null;
           buttons.push(
             <View key="pending-info" style={styles.pendingInfoBox}>
-              <Text style={styles.pendingInfoIcon}>⏳</Text>
+              {/* <Text style={styles.pendingInfoIcon}>⏳</Text> */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.pendingInfoTitle}>Очікується рішення замовника</Text>
                 {mins !== null && mins > 0 && (
@@ -1089,6 +1208,141 @@ export default function OrderDetailScreen({ route, navigation }) {
     return buttons.length > 0 ? buttons : <View style={{ height: 24 }} />;
   }
 
+  function renderCityDriverActions() {
+    const buttons = [];
+
+    if (!myResponse && order.status === 'CREATED') {
+      buttons.push(
+        <View key="city-offer-form" style={styles.cityOfferForm}>
+          <TouchableOpacity
+            style={styles.cityOfferToggle}
+            activeOpacity={0.85}
+            onPress={() => setCityOfferExpanded((prev) => !prev)}
+          >
+            <Text style={styles.cityOfferToggleTitle}>Дані для пропозиції</Text>
+            <Ionicons
+              name={cityOfferExpanded ? 'chevron-down' : 'chevron-up'}
+              size={20}
+              color="#1E3A8A"
+            />
+          </TouchableOpacity>
+
+          {cityOfferExpanded && (
+            <>
+              <Text style={styles.cityOfferLabel}>Ставка, грн/год</Text>
+              <AppInput
+                keyboardType="numeric"
+                placeholder="Наприклад: 450"
+                value={cityHourlyRate}
+                onChangeText={(value) => setCityHourlyRate(value.replace(/[^\d]/g, ''))}
+                style={styles.cityOfferInput}
+              />
+              <Text style={styles.cityOfferLabel}>Мінімум годин</Text>
+              <AppInput
+                keyboardType="numeric"
+                placeholder="Наприклад: 2"
+                value={cityMinHours}
+                onChangeText={(value) => setCityMinHours(value.replace(/[^\d]/g, ''))}
+                style={styles.cityOfferInput}
+              />
+              <Text style={styles.cityOfferLabel}>Час прибуття</Text>
+              <View style={styles.cityEtaWrap}>
+                {CITY_ARRIVAL_ETA_OPTIONS.map((eta) => (
+                  <TouchableOpacity
+                    key={eta.value}
+                    style={[
+                      styles.cityEtaChip,
+                      cityArrivalEta === eta.value && styles.cityEtaChipActive,
+                    ]}
+                    onPress={() => setCityArrivalEta(eta.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.cityEtaChipText,
+                        cityArrivalEta === eta.value && styles.cityEtaChipTextActive,
+                      ]}
+                    >
+                      {eta.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {cityOfferTotalPreview !== null && (
+                <Text style={styles.cityOfferTotalText}>Разом: {cityOfferTotalPreview} грн</Text>
+              )}
+            </>
+          )}
+        </View>
+      );
+      buttons.push(
+        <AppButton
+          key="city-respond"
+          title="Запропонувати ціну"
+          onPress={handleRespond}
+          variant="success"
+          disabled={respondLoading}
+          style={{ height: 56 }}
+          textStyle={{ fontSize: 18, fontWeight: '700' }}
+        />
+      );
+      buttons.push(
+        <Text key="city-hint" style={styles.ctaHint}>Замовник отримає офер і підтвердить у застосунку</Text>
+      );
+      return buttons;
+    }
+
+    if (myResponse?.status === 'PENDING_CONFIRM') {
+      const mins = confirmTimeLeft !== null ? Math.ceil(confirmTimeLeft / 60000) : null;
+      buttons.push(
+        <View key="pending-info-city" style={styles.pendingInfoBox}>
+          <Text style={styles.pendingInfoIcon}>{responseStatusIconsSafe.PENDING_CONFIRM}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pendingInfoTitle}>Очікується рішення замовника</Text>
+            {mins !== null && mins > 0 && (
+              <Text style={styles.pendingInfoTimer}>
+                {String(Math.floor(mins)).padStart(2, '0')} хв залишилось
+              </Text>
+            )}
+          </View>
+        </View>
+      );
+      buttons.push(
+        <AppButton
+          key="cancel-request-city"
+          title="Скасувати запит"
+          onPress={handleWithdraw}
+          color="transparent"
+          style={{ height: 44, borderWidth: 1, borderColor: '#EF4444' }}
+          textStyle={{ color: '#EF4444', fontSize: 15 }}
+        />
+      );
+      return buttons;
+    }
+
+    if (order.status === 'ACCEPTED') {
+      buttons.push(
+        <AppButton key="received-city" title="Отримав вантаж" onPress={() => markReceived(order.id)} />
+      );
+      return buttons;
+    }
+
+    if (order.status === 'IN_PROGRESS') {
+      buttons.push(
+        <AppButton key="delivered-city" title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+      );
+      return buttons;
+    }
+
+    return buttons.length > 0 ? buttons : <View style={{ height: 24 }} />;
+  }
+
+  function renderActionsV2() {
+    if (useNewFlow && role === 'DRIVER' && isCityOrder) {
+      return renderCityDriverActions();
+    }
+    return renderActions();
+  }
+
   // ── Render: Customer response list ──
   function renderCustomerResponses() {
     if (!useNewFlow || role !== 'CUSTOMER' || !responses.length) return null;
@@ -1123,8 +1377,11 @@ export default function OrderDetailScreen({ route, navigation }) {
                     </Text>
                   )}
                   <Text style={{ fontSize: 12, color: '#9CA3AF' }}>
-                    {responseStatusIcons[resp.status]} {responseStatusLabelsCustomer[resp.status] || resp.status}
+                    {(responseStatusIconsSafe[resp.status] || responseStatusIcons[resp.status] || '')} {responseStatusLabelsCustomer[resp.status] || resp.status}
                   </Text>
+                  {isCityOrder && formatCityOfferSummary(resp) && (
+                    <Text style={styles.cityOfferSummary}>{formatCityOfferSummary(resp)}</Text>
+                  )}
                 </View>
               </TouchableOpacity>
               {resp.driverPhone && (
@@ -1133,7 +1390,23 @@ export default function OrderDetailScreen({ route, navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            {resp.status === 'PENDING_CONFIRM' && (
+            {resp.status === 'PENDING_CONFIRM' && isCityOrder && (
+              <View style={styles.cityResponseActions}>
+                <TouchableOpacity
+                  style={[styles.cityResponseActionBtn, styles.cityResponseActionConfirm]}
+                  onPress={() => handleConfirmResponse(resp.id)}
+                >
+                  <Ionicons name="checkmark" size={18} color="#065F46" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cityResponseActionBtn, styles.cityResponseActionReject]}
+                  onPress={() => handleRejectResponse(resp.id)}
+                >
+                  <Ionicons name="close" size={18} color="#991B1B" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {resp.status === 'PENDING_CONFIRM' && !isCityOrder && (
               <View style={styles.actionRow}>
                 <AppButton
                   title="Підтвердити водія"
@@ -1163,7 +1436,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   // Post-call result screen overlay
-  if (showResultScreen && useNewFlow) {
+  if (showResultScreen && useNewFlow && !isCityOrder) {
     return (
       <Screen>
         <SafeAreaView style={styles.container}>
@@ -1173,7 +1446,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     );
   }
 
-  const actions = renderActions();
+  const actions = renderActionsV2();
 
   return (
     <Screen disableKeyboardAvoiding>
@@ -1469,7 +1742,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       {actions}
 
-      {role === 'DRIVER' && (
+      {role === 'DRIVER' && !isCityOrder && (
         <View style={styles.finalPriceSection}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <AppText style={{ fontWeight: 'bold', marginRight: 8 }}>
@@ -1632,6 +1905,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
+  cityOfferForm: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  cityOfferToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cityOfferToggleTitle: {
+    fontSize: 15,
+    color: '#1E3A8A',
+    fontWeight: '700',
+  },
+  cityOfferLabel: {
+    fontSize: 13,
+    color: '#1E3A8A',
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  cityOfferInput: {
+    marginTop: 6,
+    marginBottom: 0,
+    height: 50,
+  },
+  cityEtaWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  cityEtaChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  cityEtaChipActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#60A5FA',
+  },
+  cityEtaChipText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  cityEtaChipTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  cityOfferTotalText: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
   pendingInfoBox: {
     flexDirection: 'row',
     backgroundColor: '#FEF3C7',
@@ -1695,6 +2031,34 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   responsesTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  cityOfferSummary: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#1D4ED8',
+    fontWeight: '600',
+  },
+  cityResponseActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  cityResponseActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  cityResponseActionConfirm: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#86EFAC',
+  },
+  cityResponseActionReject: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
   responseItem: {
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',

@@ -28,6 +28,7 @@ Order.init(
     pickupPostcode: { type: DataTypes.STRING },
     dropoffCountry: { type: DataTypes.STRING },
     dropoffCity: { type: DataTypes.STRING },
+    isIntraCity: { type: DataTypes.BOOLEAN, defaultValue: false },
     dropoffAddress: { type: DataTypes.STRING },
     dropoffPostcode: { type: DataTypes.STRING },
     cargoType: { type: DataTypes.STRING, allowNull: false },

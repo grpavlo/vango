@@ -9,7 +9,7 @@ async function sendPush(to, title, body, data = {}) {
   try {
     console.log('Sending push', { to, title, body, data });
     const receipts = await expo.sendPushNotificationsAsync([
-      { to, sound: 'default', title, body, data },
+      { to, sound: 'miraclei-sample_input_typing01_kofi_by_miraclei-363634.mp3', title, body, data },
     ]);
     console.log('Push receipts', receipts);
   } catch (err) {

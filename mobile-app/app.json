@@ -67,7 +67,8 @@
     },
     "owner": "pashagr",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+       ["expo-notifications", { "sounds": ["./assets/sounds/miraclei-sample_input_typing01_kofi_by_miraclei-363634.mp3"] }]
     ]
   }
 }

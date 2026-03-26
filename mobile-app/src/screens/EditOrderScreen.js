@@ -27,6 +27,18 @@ import { GOOGLE_PLACES_API_KEY } from "../config";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FREE_DATE_TTL_DAYS = 7;
+const INTRA_CITY_HINT_TEXT =
+  "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
+
+function normalizeCityName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isIntraCityRoute(pickupCity, dropoffCity) {
+  const pickup = normalizeCityName(pickupCity);
+  const dropoff = normalizeCityName(dropoffCity);
+  return Boolean(pickup && dropoff && pickup === dropoff);
+}
 
 function buildDefaultSchedule() {
   const now = new Date();
@@ -130,6 +142,7 @@ export default function EditOrderScreen({ route, navigation }) {
   const [description, setDescription] = useState(order.cargoType || "");
   const [systemPrice, setSystemPrice] = useState(order.price || null);
   const [agreedPrice, setAgreedPrice] = useState(!!order.agreedPrice);
+  const isIntraCityOrder = isIntraCityRoute(pickup?.city, dropoff?.city);
 
   useEffect(() => {
     const l = parseFloat(cargoLength) || 0;
@@ -237,8 +250,12 @@ export default function EditOrderScreen({ route, navigation }) {
       fd.append("loadHelp", loadHelp ? "true" : "false");
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
-      fd.append("price", String(Math.round(Number(systemPrice || 0))));
-      fd.append("agreedPrice", agreedPrice ? "true" : "false");
+      if (!isIntraCityOrder) {
+        fd.append("price", String(Math.round(Number(systemPrice || 0))));
+        fd.append("agreedPrice", agreedPrice ? "true" : "false");
+      } else {
+        fd.append("agreedPrice", "false");
+      }
 
       if (photos.length > 0) {
         photos
@@ -273,7 +290,7 @@ export default function EditOrderScreen({ route, navigation }) {
       toast.show("Вкажіть опис вантажу");
       return;
     }
-    if (systemPrice === null) {
+    if (!isIntraCityOrder && systemPrice === null) {
       toast.show("Потрібно вказати ціну");
       return;
     }
@@ -543,20 +560,30 @@ export default function EditOrderScreen({ route, navigation }) {
           <PhotoPicker photos={photos} onChange={setPhotos} />
 
           <View style={{ marginTop: 16 }}>
-            <AppText style={styles.labelStandalone}>Ціна</AppText>
-            <View style={styles.priceRow}>
-              <AppInput
-                style={{ marginRight: 8, flex: 1 }}
-                value={systemPrice ? String(systemPrice) : ""}
-                onChangeText={setSystemPrice}
-                keyboardType="number-pad"
-              />
-              <CheckBox
-                value={agreedPrice}
-                onChange={setAgreedPrice}
-                label="Договірна"
-              />
-            </View>
+            {isIntraCityOrder ? (
+              <View style={styles.intraCityHintBox}>
+                <AppText style={styles.intraCityHintText}>
+                  {INTRA_CITY_HINT_TEXT}
+                </AppText>
+              </View>
+            ) : (
+              <>
+                <AppText style={styles.labelStandalone}>Ціна</AppText>
+                <View style={styles.priceRow}>
+                  <AppInput
+                    style={{ marginRight: 8, flex: 1 }}
+                    value={systemPrice ? String(systemPrice) : ""}
+                    onChangeText={setSystemPrice}
+                    keyboardType="number-pad"
+                  />
+                  <CheckBox
+                    value={agreedPrice}
+                    onChange={setAgreedPrice}
+                    label="Договірна"
+                  />
+                </View>
+              </>
+            )}
           </View>
 
           <View style={styles.actions}>
@@ -608,6 +635,18 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  intraCityHintBox: {
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  intraCityHintText: {
+    color: "#1E3A8A",
+    lineHeight: 20,
+    fontWeight: "500",
   },
   actions: { flexDirection: "row", marginTop: 32 },
 });
