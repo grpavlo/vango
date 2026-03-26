@@ -1,0 +1,22 @@
+RewriteEngine On
+
+<IfModule mod_headers.c>
+  SetEnvIf Request_URI "^/admin/?$" IS_ADMIN_ROUTE=1
+  Header always set X-Robots-Tag "noindex, nofollow" env=IS_ADMIN_ROUTE
+</IfModule>
+
+# Force HTTPS and canonical host (non-www).
+RewriteCond %{HTTPS} !=on [OR]
+RewriteCond %{HTTP_HOST} ^www\.vango\.com\.ua$ [NC]
+RewriteRule ^ https://vango.com.ua%{REQUEST_URI} [R=301,L]
+
+# Route API requests through PHP router when physical file does not exist.
+RewriteCond %{REQUEST_URI} ^/api(?:/|$) [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
+
+# SPA fallback for frontend routes (exclude /api and existing files/folders).
+RewriteCond %{REQUEST_URI} !^/api(?:/|$) [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
