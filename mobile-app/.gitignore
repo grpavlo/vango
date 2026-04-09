@@ -13,7 +13,11 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 android/key.properties
+android/key.properties.txt
+@kapelyna__vangotest-keystore-credentials.md
+*keystore-credentials.md
 *.p8
 *.p12
 *.key
