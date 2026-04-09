@@ -148,11 +148,11 @@ export default function SettingsScreen({ navigation }) {
               />
             )}
            
-              <ListItem
+              {/* <ListItem
                 title="Аналітика"
                 onPress={() => navigation.navigate("Analytics")}
                 icon="stats-chart"
-              />
+              /> */}
             
             <View style={styles.roleCard}>
               <View style={styles.badge}>

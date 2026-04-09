@@ -164,30 +164,30 @@ function statusColor(status) {
 }
 
 function formatTime(dateStr) {
-  const d = toUtcPlus2(dateStr);
+  const d = toLocalDate(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function formatDate(dateStr) {
-  const d = toUtcPlus2(dateStr);
-  const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`;
-}
-
-function toUtcPlus2(value) {
-  if (!value) return new Date(NaN);
-  const d = value instanceof Date ? value : new Date(value);
-  const utcTime = d.getTime();
-  return new Date(utcTime + 2 * 60 * 60 * 1000);
-}
-
-function formatDateTimeUtc2(value) {
-  const d = toUtcPlus2(value);
+  const d = toLocalDate(dateStr);
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  const date = `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
-  const time = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
+function toLocalDate(value) {
+  if (!value) return new Date(NaN);
+  return value instanceof Date ? new Date(value.getTime()) : new Date(value);
+}
+
+function formatDateTimeLocal(value) {
+  const d = toLocalDate(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => (n < 10 ? `0${n}` : n);
+  const date = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return `${date} ${time}`;
 }
 
@@ -1484,7 +1484,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       <View style={styles.statusCard}>
         <Text style={styles.statusDate}>
-          {formatDateTimeUtc2(order.createdAt)}
+          {formatDateTimeLocal(order.createdAt)}
         </Text>
         <View style={styles.statusRowCard}>
           <View style={[styles.statusDot, { backgroundColor: statusColor(order.status) }]} />
@@ -1622,7 +1622,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           <Text style={styles.label}>Вільна дата:</Text>
           <Text style={styles.value}>
             {order.freeDateUntil
-              ? `Актуально до ${formatDateTimeUtc2(order.freeDateUntil)}`
+              ? `Актуально до ${formatDateTimeLocal(order.freeDateUntil)}`
               : 'Дата узгоджується окремо'}
           </Text>
         </View>

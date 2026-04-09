@@ -1127,7 +1127,7 @@ export default function AllOrdersScreen({ navigation }) {
                   />
                 </View>
                 <AppButton
-                  title={savingSearch ? "Збереження..." : "Додати критерій в обране"}
+                  title={savingSearch ? "Збереження..." : "Додати пошук в обране"}
                   onPress={saveCurrentSearch}
                   disabled={savingSearch}
                   color={colors.orange}
@@ -1151,7 +1151,7 @@ export default function AllOrdersScreen({ navigation }) {
                   >
                     <View style={styles.savedSearchHeaderTextWrap}>
                       <AppText style={styles.savedSearchTitle}>
-                        Збережені критерії ♥
+                        Збережені критерії пошуку ♥
                       </AppText>
                       <AppText style={styles.savedSearchSummary}>
                         {savedSearches.length > 0
@@ -1198,7 +1198,7 @@ export default function AllOrdersScreen({ navigation }) {
                   <SafeAreaView style={styles.modalContent}>
                     <View style={styles.savedSearchModalHeader}>
                       <AppText style={styles.savedSearchModalTitle}>
-                        Збережені критерії
+                        Збережені критерії пошуку
                       </AppText>
                       <TouchableOpacity
                         style={styles.savedSearchModalClose}

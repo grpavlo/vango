@@ -492,7 +492,7 @@ export default function MyOrdersScreen({ navigation, route }) {
           </View>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Дата створення: </Text>
-            {formatDateUtc2(item.createdAt)}
+            {formatDateLocal(item.createdAt)}
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Ціна:</Text>
@@ -931,12 +931,11 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatDateUtc2(value) {
+function formatDateLocal(value) {
   if (!value) return '';
-  const d0 = value instanceof Date ? value : new Date(value);
-  const utcTime = d0.getTime();
-  const d = new Date(utcTime + 2 * 60 * 60 * 1000);
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => (n < 10 ? `0${n}` : n);
-  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
