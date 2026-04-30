@@ -9,7 +9,6 @@ import {
   ScrollView,
   Linking,
   Alert,
-  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +19,8 @@ import AppInput from "../components/AppInput";
 import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import OrderCardSkeleton from "../components/OrderCardSkeleton";
+import { markOrderUpdatesSeen, reconcileOrderUpdates } from "../orderUpdates";
+import { openLocationInMaps } from "../maps";
 
 const statusLabels = {
   CREATED: "Створено",
@@ -42,6 +43,10 @@ export default function MyOrdersScreen({ navigation, route }) {
   const wsRef = useRef(null);
   const [filter, setFilter] = useState("active");
   const [editedFinal, setEditedFinal] = useState({}); // { [orderId]: "12345" }
+  const [tabsViewportWidth, setTabsViewportWidth] = useState(0);
+  const [tabsContentWidth, setTabsContentWidth] = useState(0);
+  const [tabsScrollX, setTabsScrollX] = useState(0);
+  const [unreadUpdatesByOrder, setUnreadUpdatesByOrder] = useState({});
   const lastPresetFilterRequestRef = useRef(null);
 
   async function load() {
@@ -96,6 +101,28 @@ export default function MyOrdersScreen({ navigation, route }) {
       });
     }
   }, [route?.params?.presetFilter, route?.params?.presetFilterRequestId, navigation]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function syncUnreadUpdates() {
+      if (!role || !token) {
+        if (mounted) setUnreadUpdatesByOrder({});
+        return;
+      }
+      try {
+        const { unreadByOrder } = await reconcileOrderUpdates(role, token, orders);
+        if (mounted) setUnreadUpdatesByOrder(unreadByOrder || {});
+      } catch (err) {
+        console.log("sync unread updates error", err);
+      }
+    }
+
+    syncUnreadUpdates();
+    return () => {
+      mounted = false;
+    };
+  }, [orders, role, token]);
 
   function connectWs() {
     if (!token) return;
@@ -194,17 +221,24 @@ export default function MyOrdersScreen({ navigation, route }) {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       let body;
-      if (options.photoUri) {
+      const photoUris = Array.isArray(options.photoUris)
+        ? options.photoUris.filter(Boolean)
+        : options.photoUri
+        ? [options.photoUri]
+        : [];
+      if (photoUris.length > 0) {
         const fd = new FormData();
         fd.append("status", status);
-        const uri = options.photoUri;
-        const filenameFromUri = uri.split("/").pop() || `photo-${Date.now()}.jpg`;
-        const extMatch = /\.(\w+)$/.exec(filenameFromUri);
-        const normalizedName = extMatch ? filenameFromUri : `${filenameFromUri}.jpg`;
-        const ext = (extMatch ? extMatch[1] : "jpg").toLowerCase();
-        const mime =
-          ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "jpeg"}`;
-        fd.append("statusPhoto", { uri, name: normalizedName, type: mime });
+        photoUris.forEach((uri, index) => {
+          const filenameFromUri = uri.split("/").pop() || `photo-${Date.now()}-${index + 1}.jpg`;
+          const extMatch = /\.(\w+)$/.exec(filenameFromUri);
+          const normalizedName = extMatch ? filenameFromUri : `${filenameFromUri}.jpg`;
+          const ext = (extMatch ? extMatch[1] : "jpg").toLowerCase();
+          const mime =
+            ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext || "jpeg"}`;
+          const fieldName = photoUris.length === 1 ? "statusPhoto" : "statusPhotos";
+          fd.append(fieldName, { uri, name: normalizedName, type: mime });
+        });
         body = fd;
       } else {
         body = JSON.stringify({ status });
@@ -217,32 +251,8 @@ export default function MyOrdersScreen({ navigation, route }) {
       load();
     } catch (err) {
       console.log(err);
+      Alert.alert("Помилка", err?.message || "Не вдалося оновити статус");
     }
-  }
-
-  function openLocationInMaps(address, lat, lon) {
-    const latNum = Number(lat);
-    const lonNum = Number(lon);
-    const hasCoords =
-      lat !== undefined &&
-      lat !== null &&
-      lon !== undefined &&
-      lon !== null &&
-      `${lat}` !== "" &&
-      `${lon}` !== "" &&
-      Number.isFinite(latNum) &&
-      Number.isFinite(lonNum);
-    const query = address || (hasCoords ? `${latNum},${lonNum}` : "");
-    if (!query) return;
-    const encoded = encodeURIComponent(query);
-    const coord = hasCoords ? `${latNum},${lonNum}` : null;
-    const url = coord
-      ? Platform.select({
-          ios: `http://maps.apple.com/?ll=${coord}&q=${encoded}`,
-          default: `geo:${coord}?q=${encoded}`,
-        })
-      : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-    Linking.openURL(url).catch((err) => console.log("maps open error", err));
   }
 
   function askPhotoPrompt(message) {
@@ -254,31 +264,48 @@ export default function MyOrdersScreen({ navigation, route }) {
     });
   }
 
-  async function captureStatusPhoto() {
+  async function captureStatusPhotos() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (permission.status !== "granted") {
         Alert.alert("Доступ до камери", "Надайте доступ до камери, щоб додати фото.");
-        return null;
+        return [];
       }
-      const result = await ImagePicker.launchCameraAsync({
-        quality: 0.5,
-      });
-      if (result.canceled) return null;
-      return result.assets?.[0]?.uri || null;
+      const collected = [];
+      let keepCapturing = true;
+      while (keepCapturing) {
+        const result = await ImagePicker.launchCameraAsync({
+          quality: 0.5,
+        });
+        if (result.canceled) break;
+        const uri = result.assets?.[0]?.uri;
+        if (!uri) break;
+        collected.push(uri);
+        keepCapturing = await askAddMorePhotoPrompt();
+      }
+      return collected;
     } catch (err) {
       console.log(err);
       Alert.alert("Помилка", "Не вдалося зробити фото.");
-      return null;
+      return [];
     }
+  }
+
+  function askAddMorePhotoPrompt() {
+    return new Promise((resolve) => {
+      Alert.alert("Додати ще фото?", "Зробити додаткові фото вантажу", [
+        { text: "Ні", style: "cancel", onPress: () => resolve(false) },
+        { text: "Так", onPress: () => resolve(true) },
+      ]);
+    });
   }
 
   async function changeStatusWithOptionalPhoto(id, status, promptMessage) {
     const wantsPhoto = await askPhotoPrompt(promptMessage);
     if (wantsPhoto) {
-      const photoUri = await captureStatusPhoto();
-      if (photoUri) {
-        await updateStatus(id, status, { photoUri });
+      const photoUris = await captureStatusPhotos();
+      if (photoUris.length > 0) {
+        await updateStatus(id, status, { photoUris });
         return;
       }
     }
@@ -358,6 +385,19 @@ export default function MyOrdersScreen({ navigation, route }) {
   //   }
   // }
 
+  function openOrderDetail(item) {
+    if (!item) return;
+    const orderId = String(item.id);
+    setUnreadUpdatesByOrder((prev) => ({
+      ...prev,
+      [orderId]: { status: false, photo: false },
+    }));
+    markOrderUpdatesSeen(role, token, item).catch((err) =>
+      console.log("mark updates seen from list error", err)
+    );
+    navigation.navigate("OrderDetail", { order: item, token });
+  }
+
   function renderItem({ item }) {
     const pickupCity =
       item.pickupCity ||
@@ -365,10 +405,15 @@ export default function MyOrdersScreen({ navigation, route }) {
     const dropoffCity =
       item.dropoffCity ||
       ((item.dropoffLocation || "").split(",")[1] || "").trim();
+    const pickupAddress =
+      item.pickupAddress ||
+      ((item.pickupLocation || "").split(",")[0] || "").trim();
     const dropoffAddress =
       item.dropoffAddress ||
       ((item.dropoffLocation || "").split(",")[0] || "").trim();
-    const pickupQuery = item.pickupLocation || pickupCity;
+    const pickupQuery =
+      item.pickupLocation ||
+      [pickupAddress, pickupCity].filter(Boolean).join(", ");
     const dropoffQuery =
       item.dropoffLocation ||
       [dropoffAddress, dropoffCity].filter(Boolean).join(", ");
@@ -390,11 +435,12 @@ export default function MyOrdersScreen({ navigation, route }) {
             )
           )
         : 0;
+    const unreadUpdate = unreadUpdatesByOrder[String(item.id)] || {};
+    const showStatusChangedBadge = filter === "active" && Boolean(unreadUpdate.status);
+    const showNewPhotoBadge = filter === "active" && Boolean(unreadUpdate.photo);
     return (
       <TouchableOpacity
-        onPress={() =>
-          navigation.navigate("OrderDetail", { order: item, token })
-        }
+        onPress={() => openOrderDetail(item)}
         activeOpacity={0.8}
       >
         <View style={styles.card}>
@@ -469,7 +515,12 @@ export default function MyOrdersScreen({ navigation, route }) {
               style={styles.mapChip}
               activeOpacity={0.8}
               onPress={() =>
-                openLocationInMaps(pickupQuery, item.pickupLat, item.pickupLon)
+                openLocationInMaps({
+                  address: pickupQuery || item.pickupAddress,
+                  city: pickupCity,
+                  lat: item.pickupLat,
+                  lon: item.pickupLon,
+                })
               }
             >
               <Ionicons name="navigate-outline" size={18} color={colors.orange} />
@@ -479,11 +530,12 @@ export default function MyOrdersScreen({ navigation, route }) {
               style={styles.mapChip}
               activeOpacity={0.8}
               onPress={() =>
-                openLocationInMaps(
-                  dropoffQuery,
-                  item.dropoffLat,
-                  item.dropoffLon
-                )
+                openLocationInMaps({
+                  address: dropoffQuery || dropoffAddress,
+                  city: dropoffCity,
+                  lat: item.dropoffLat,
+                  lon: item.dropoffLon,
+                })
               }
             >
               <Ionicons name="navigate-outline" size={18} color={colors.green} />
@@ -508,6 +560,22 @@ export default function MyOrdersScreen({ navigation, route }) {
               {statusLabels[item.status] || item.status}
             </Text>
           </Text>
+          {(showStatusChangedBadge || showNewPhotoBadge) && (
+            <View style={styles.updateBadgesRow}>
+              {showStatusChangedBadge && (
+                <View style={styles.statusChangedBadge}>
+                  <Ionicons name="sync-outline" size={14} color="#9A3412" />
+                  <Text style={styles.statusChangedBadgeText}>Статус змінено</Text>
+                </View>
+              )}
+              {showNewPhotoBadge && (
+                <View style={styles.newPhotoBadge}>
+                  <Ionicons name="image-outline" size={14} color="#075985" />
+                  <Text style={styles.newPhotoBadgeText}>Додано нове фото</Text>
+                </View>
+              )}
+            </View>
+          )}
           {role === "CUSTOMER" && item.status === "CREATED" && item.responseCount > 0 && (
             <View style={styles.responseCountChip}>
               <Ionicons name="people-outline" size={16} color="#065F46" />
@@ -634,30 +702,93 @@ export default function MyOrdersScreen({ navigation, route }) {
   }
 
   const driverHasActiveResponse = (o) =>
-    o.myResponseStatus && ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"].includes(o.myResponseStatus);
+    o.myResponseStatus &&
+    ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED"].includes(
+      o.myResponseStatus
+    );
 
-  const filtered = orders.filter((o) => {
-    const reservedActive =
-      o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
-    const hasActiveResponses = o.responseCount > 0;
-    if (filter === "active") {
-      if (role === "DRIVER") {
-        return ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(o.status);
+  function parseOrderHistory(order) {
+    if (Array.isArray(order?.history)) return order.history;
+    if (typeof order?.history === "string") {
+      try {
+        const parsed = JSON.parse(order.history);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
       }
-      return (
-        ["ACCEPTED", "IN_PROGRESS", "PENDING", "PENDING_CONFIRM", "DELIVERED"].includes(o.status) ||
-        reservedActive ||
-        (o.status === "CREATED" && hasActiveResponses)
-      );
     }
-    if (filter === "posted") {
-      if (role === "DRIVER") {
-        return reservedActive || driverHasActiveResponse(o) || o.status === "PENDING" || o.status === "PENDING_CONFIRM" || o.status === "DISCUSSING";
+    return [];
+  }
+
+  function getStatusTimeMs(order, statuses) {
+    const statusSet = new Set(Array.isArray(statuses) ? statuses : [statuses]);
+    const history = parseOrderHistory(order);
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      const entry = history[i];
+      if (!entry || !statusSet.has(entry.status) || !entry.at) continue;
+      const ms = new Date(entry.at).getTime();
+      if (Number.isFinite(ms) && ms > 0) return ms;
+    }
+    return 0;
+  }
+
+  function getSortTimeMs(order, currentFilter) {
+    if (currentFilter === "active") {
+      const byAcceptedStatus = getStatusTimeMs(order, "ACCEPTED");
+      if (byAcceptedStatus > 0) return byAcceptedStatus;
+      const byCurrentStatus = getStatusTimeMs(order, order.status);
+      if (byCurrentStatus > 0) return byCurrentStatus;
+      return new Date(order.updatedAt || order.createdAt || 0).getTime() || 0;
+    }
+    if (currentFilter === "history") {
+      const byFinishStatus = getStatusTimeMs(order, ["COMPLETED", "CANCELLED"]);
+      if (byFinishStatus > 0) return byFinishStatus;
+      return new Date(order.updatedAt || order.createdAt || 0).getTime() || 0;
+    }
+    return new Date(order.createdAt || order.updatedAt || 0).getTime() || 0;
+  }
+
+  const filtered = orders
+    .filter((o) => {
+      const reservedActive =
+        o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
+      const hasActiveResponses = o.responseCount > 0;
+      if (filter === "active") {
+        if (role === "DRIVER") {
+          return ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(o.status);
+        }
+        return (
+          ["ACCEPTED", "IN_PROGRESS", "PENDING", "PENDING_CONFIRM", "DELIVERED"].includes(o.status) ||
+          reservedActive ||
+          (o.status === "CREATED" && hasActiveResponses)
+        );
       }
-      return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
-    }
-    return ["COMPLETED"].includes(o.status) || o.status === "CANCELLED";
-  });
+      if (filter === "posted") {
+        if (role === "DRIVER") {
+          return (
+            reservedActive ||
+            driverHasActiveResponse(o) ||
+            o.status === "PENDING" ||
+            o.status === "PENDING_CONFIRM" ||
+            o.status === "DISCUSSING" ||
+            o.status === "COUNTER_OFFERED"
+          );
+        }
+        return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
+      }
+      return ["COMPLETED"].includes(o.status) || o.status === "CANCELLED";
+    })
+    .sort((a, b) => {
+      const aTime = getSortTimeMs(a, filter);
+      const bTime = getSortTimeMs(b, filter);
+      if (aTime !== bTime) return bTime - aTime;
+
+      const aId = Number(a.id);
+      const bId = Number(b.id);
+      const safeAId = Number.isFinite(aId) ? aId : 0;
+      const safeBId = Number.isFinite(bId) ? bId : 0;
+      return safeBId - safeAId;
+    });
 
   const activeCount = orders.filter((o) => {
     const reservedActive =
@@ -678,10 +809,29 @@ export default function MyOrdersScreen({ navigation, route }) {
       o.reservedBy && o.reservedUntil && new Date(o.reservedUntil) > new Date();
     const hasActiveResponses = o.responseCount > 0;
     if (role === "DRIVER") {
-      return reservedActive || driverHasActiveResponse(o) || o.status === "PENDING" || o.status === "PENDING_CONFIRM" || o.status === "DISCUSSING";
+      return (
+        reservedActive ||
+        driverHasActiveResponse(o) ||
+        o.status === "PENDING" ||
+        o.status === "PENDING_CONFIRM" ||
+        o.status === "DISCUSSING" ||
+        o.status === "COUNTER_OFFERED"
+      );
     }
     return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
   }).length;
+
+  const showTabsScrollTrack = tabsContentWidth > tabsViewportWidth + 1;
+  const tabsThumbWidth = showTabsScrollTrack
+    ? Math.max((tabsViewportWidth / tabsContentWidth) * tabsViewportWidth, 44)
+    : 0;
+  const maxTabsThumbOffset = Math.max(tabsViewportWidth - tabsThumbWidth, 0);
+  const maxTabsScrollOffset = Math.max(tabsContentWidth - tabsViewportWidth, 0);
+  const clampedTabsScrollX = Math.min(Math.max(tabsScrollX, 0), maxTabsScrollOffset);
+  const tabsThumbOffset =
+    maxTabsScrollOffset > 0
+      ? (clampedTabsScrollX / maxTabsScrollOffset) * maxTabsThumbOffset
+      : 0;
 
   function renderFilterLabel(label, count, isActive) {
     return (
@@ -717,10 +867,16 @@ export default function MyOrdersScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.filtersWrap}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filtersScroll}
         contentContainerStyle={styles.filters}
+        onLayout={(e) => setTabsViewportWidth(e.nativeEvent.layout.width)}
+        onContentSizeChange={(width) => setTabsContentWidth(width)}
+        onScroll={(e) => setTabsScrollX(e.nativeEvent.contentOffset.x)}
+        scrollEventThrottle={16}
       >
         <Pressable
           style={[styles.filterBtn, filter === "active" && styles.activeFilter]}
@@ -748,6 +904,17 @@ export default function MyOrdersScreen({ navigation, route }) {
           {renderFilterLabel("Історія", 0, filter === "history")}
         </Pressable>
       </ScrollView>
+      {showTabsScrollTrack && (
+        <View style={styles.tabsScrollTrack}>
+          <View
+            style={[
+              styles.tabsScrollThumb,
+              { width: tabsThumbWidth, transform: [{ translateX: tabsThumbOffset }] },
+            ]}
+          />
+        </View>
+      )}
+      </View>
       <KeyboardAwareFlatList
         data={filtered}
         renderItem={renderItem}
@@ -818,17 +985,77 @@ const styles = StyleSheet.create({
   fieldLabel: { fontWeight: "600", color: "#374151" },
   statusRow: { marginTop: 12, flexDirection: "row", alignItems: "center" },
   statusValue: { fontWeight: "600", color: colors.green },
+  updateBadgesRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  statusChangedBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFEDD5",
+    borderColor: "#FDBA74",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusChangedBadgeText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#9A3412",
+  },
+  newPhotoBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0F2FE",
+    borderColor: "#7DD3FC",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  newPhotoBadgeText: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#075985",
+  },
   actionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
   },
   smallBtn: { flex: 1, marginHorizontal: 4 },
+  filtersWrap: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  filtersScroll: {
+    marginBottom: 2,
+  },
   filters: {
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 12,
-    marginVertical: 16,
+    paddingBottom: 6,
+  },
+  tabsScrollTrack: {
+    height: 4,
+    marginHorizontal: 12,
+    borderRadius: 2,
+    backgroundColor: "#D1D5DB",
+    overflow: "hidden",
+  },
+  tabsScrollThumb: {
+    height: "100%",
+    borderRadius: 2,
+    backgroundColor: "#9CA3AF",
   },
   filterBtn: {
     height: 44,

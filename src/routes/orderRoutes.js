@@ -20,6 +20,8 @@ const {
   responseCallMade,
   responseResult,
   responseConfirm,
+  customerCounterOffer,
+  responseCounterDecision,
   responseReject,
   responseWithdraw,
   getOrderResponses,
@@ -37,7 +39,15 @@ router.get('/:id', authenticate, getOrder);
 router.post('/:id/accept', authenticate, authorize([UserRole.DRIVER]), acceptOrder);
 router.post('/:id/confirm-driver', authenticate, authorize([UserRole.CUSTOMER]), confirmDriver);
 router.post('/:id/reject-driver', authenticate, authorize([UserRole.CUSTOMER]), rejectDriver);
-router.patch('/:id/status', authenticate, upload.single('statusPhoto'), updateStatus);
+router.patch(
+  '/:id/status',
+  authenticate,
+  upload.fields([
+    { name: 'statusPhoto', maxCount: 10 },
+    { name: 'statusPhotos', maxCount: 10 },
+  ]),
+  updateStatus
+);
 router.patch('/:id', authenticate, authorize([UserRole.CUSTOMER]), upload.array('photos', 10), updateOrder);
 router.delete('/:id', authenticate, authorize([UserRole.CUSTOMER]), deleteOrder);
 router.post("/:id/final-price", authenticate, authorize([UserRole.CUSTOMER]), updateFinalPrice);
@@ -48,6 +58,8 @@ router.get('/:id/respond/mine', authenticate, authorize([UserRole.DRIVER]), getM
 router.post('/:id/respond/:responseId/call-made', authenticate, authorize([UserRole.DRIVER]), responseCallMade);
 router.post('/:id/respond/:responseId/result', authenticate, authorize([UserRole.DRIVER]), responseResult);
 router.post('/:id/respond/:responseId/confirm', authenticate, authorize([UserRole.CUSTOMER]), responseConfirm);
+router.post('/:id/respond/:responseId/counter', authenticate, authorize([UserRole.CUSTOMER]), customerCounterOffer);
+router.post('/:id/respond/:responseId/counter-decision', authenticate, authorize([UserRole.DRIVER]), responseCounterDecision);
 router.post('/:id/respond/:responseId/reject', authenticate, authorize([UserRole.CUSTOMER]), responseReject);
 router.delete('/:id/respond/:responseId', authenticate, authorize([UserRole.DRIVER]), responseWithdraw);
 router.get('/:id/responses', authenticate, authorize([UserRole.CUSTOMER]), getOrderResponses);

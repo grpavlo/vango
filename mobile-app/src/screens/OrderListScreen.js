@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, Linking, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiFetch } from '../api';
 import { useAuth } from '../AuthContext';
 import OrderCardSkeleton from '../components/OrderCardSkeleton';
+import { openLocationInMaps } from '../maps';
 
 export default function OrderListScreen({ navigation }) {
   const { token } = useAuth();
@@ -27,31 +28,6 @@ export default function OrderListScreen({ navigation }) {
     load();
   }, []);
 
-  function openLocationInMaps(address, lat, lon) {
-    const latNum = Number(lat);
-    const lonNum = Number(lon);
-    const hasCoords =
-      lat !== undefined &&
-      lat !== null &&
-      lon !== undefined &&
-      lon !== null &&
-      `${lat}` !== '' &&
-      `${lon}` !== '' &&
-      Number.isFinite(latNum) &&
-      Number.isFinite(lonNum);
-    const query = address || (hasCoords ? `${latNum},${lonNum}` : '');
-    if (!query) return;
-    const encoded = encodeURIComponent(query);
-    const coord = hasCoords ? `${latNum},${lonNum}` : null;
-    const url = coord
-      ? Platform.select({
-          ios: `http://maps.apple.com/?ll=${coord}&q=${encoded}`,
-          default: `geo:${coord}?q=${encoded}`,
-        })
-      : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-    Linking.openURL(url).catch((err) => console.log('maps open error', err));
-  }
-
   function renderItem({ item }) {
     const pickup = item.pickupLocation || [item.pickupCity, item.pickupAddress].filter(Boolean).join(', ');
     const dropoff = item.dropoffLocation || [item.dropoffCity, item.dropoffAddress].filter(Boolean).join(', ');
@@ -65,7 +41,14 @@ export default function OrderListScreen({ navigation }) {
             <TouchableOpacity
               style={styles.mapChip}
               activeOpacity={0.8}
-              onPress={() => openLocationInMaps(pickup, item.pickupLat, item.pickupLon)}
+              onPress={() =>
+                openLocationInMaps({
+                  address: item.pickupLocation || item.pickupAddress || pickup,
+                  city: item.pickupCity,
+                  lat: item.pickupLat,
+                  lon: item.pickupLon,
+                })
+              }
             >
               <Ionicons name="navigate-outline" size={18} color="#f97316" />
               <Text style={styles.mapChipText}>Відкрити точку A</Text>
@@ -73,7 +56,14 @@ export default function OrderListScreen({ navigation }) {
             <TouchableOpacity
               style={styles.mapChip}
               activeOpacity={0.8}
-              onPress={() => openLocationInMaps(dropoff, item.dropoffLat, item.dropoffLon)}
+              onPress={() =>
+                openLocationInMaps({
+                  address: item.dropoffLocation || item.dropoffAddress || dropoff,
+                  city: item.dropoffCity,
+                  lat: item.dropoffLat,
+                  lon: item.dropoffLon,
+                })
+              }
             >
               <Ionicons name="navigate-outline" size={18} color="#16a34a" />
               <Text style={styles.mapChipText}>Відкрити точку B</Text>

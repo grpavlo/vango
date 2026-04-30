@@ -28,6 +28,8 @@ import {
   markCallMade,
   submitCallResult,
   confirmResponse,
+  submitCounterOffer,
+  submitCounterDecision,
   rejectResponse,
   withdrawResponse,
   fetchOrderResponses,
@@ -38,6 +40,8 @@ import { useAuth } from '../AuthContext';
 import StatusTimeline from '../components/StatusTimeline';
 import AppText from '../components/AppText';
 import Screen from '../components/Screen';
+import { markOrderUpdatesSeen } from '../orderUpdates';
+import { openLocationInMaps } from '../maps';
 
 const MAX_ACTIVE_RESPONSES = 5;
 
@@ -65,6 +69,7 @@ const responseStatusLabelsDriver = {
   CALL_MADE: 'Дзвінок здійснений',
   PENDING_CONFIRM: 'Очікується рішення замовника',
   DISCUSSING: 'Ведеться обговорення',
+  COUNTER_OFFERED: 'Очікується рішення водія',
   CONFIRMED: 'Підтверджено',
   DECLINED: 'Відхилено',
   REJECTED: 'Відхилено замовником',
@@ -76,6 +81,7 @@ const responseStatusLabelsCustomer = {
   CALL_MADE: 'Дзвонив',
   PENDING_CONFIRM: 'Готовий виконати',
   DISCUSSING: 'Обговорює',
+  COUNTER_OFFERED: 'Очікується відповідь водія',
   CONFIRMED: 'Підтверджено',
   DECLINED: 'Відмовився',
   REJECTED: 'Відхилено',
@@ -87,6 +93,7 @@ const responseStatusIcons = {
   CALL_MADE: '📞',
   PENDING_CONFIRM: '⏳',
   DISCUSSING: '🟡',
+  COUNTER_OFFERED: '\uD83D\uDCAC',
   CONFIRMED: '✅',
   DECLINED: '❌',
   REJECTED: '❌',
@@ -111,6 +118,7 @@ const responseStatusIconsSafe = {
   CALL_MADE: '\uD83D\uDCDE',
   PENDING_CONFIRM: '\u23F3',
   DISCUSSING: '\uD83D\uDFE1',
+  COUNTER_OFFERED: '\uD83D\uDCAC',
   CONFIRMED: '\u2705',
   DECLINED: '\u274C',
   REJECTED: '\u274C',
@@ -134,6 +142,12 @@ function formatCityOfferSummary(response) {
   const eta = CITY_ARRIVAL_ETA_LABELS[response.arrivalEta] || response.arrivalEta || '';
   if (!Number.isFinite(hourly) || !Number.isFinite(minHours)) return null;
   return `${Math.round(hourly)} грн/год • мін ${Math.round(minHours)} год • ${eta}`;
+}
+
+function formatResponseFinalPrice(response) {
+  const offered = Number(response?.finalPriceOffer);
+  if (!Number.isFinite(offered) || offered <= 0) return null;
+  return `${Math.round(offered)} грн`;
 }
 
 const historyActorLabels = {
@@ -245,12 +259,102 @@ function formatMinutesLeft(expiresAt) {
   return Math.ceil(diff / 60000);
 }
 
+function toPhotoArray(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).map((item) => String(item).trim()).filter(Boolean);
+  if (!value) return [];
+  const single = String(value).trim();
+  return single ? [single] : [];
+}
+
+function uniqPhotos(items) {
+  return Array.from(new Set((items || []).filter(Boolean)));
+}
+
+function getHistoryPhotosByStatus(history, targetStatus) {
+  if (!Array.isArray(history)) return [];
+  const photos = [];
+  history.forEach((entry) => {
+    if (entry?.status !== targetStatus) return;
+    photos.push(...toPhotoArray(entry?.photos));
+    photos.push(...toPhotoArray(entry?.photo));
+  });
+  return uniqPhotos(photos);
+}
+
+function normalizeText(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function isStreetLike(value) {
+  return /(вул|вулиця|ул|улица|просп|проспект|бульвар|бул\.?|провул|пров\.?|площа|пл\.?|наб(ережна)?|шосе|дорога|алея|street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?)/i.test(
+    normalizeText(value)
+  );
+}
+
+function isLikelyHouseNumber(value) {
+  const text = normalizeText(value);
+  if (!text) return false;
+  if (/\s/.test(text)) return false;
+  // Postal indexes like 18005 should not be treated as house numbers.
+  if (/^\d{5,}$/.test(text)) return false;
+  return /^\d{1,4}[A-Za-zА-Яа-яІіЇїЄє]?(?:[\/-]\d{1,4}[A-Za-zА-Яа-яІіЇїЄє]?)?$/.test(text);
+}
+
+function formatStreetAndHouse(value) {
+  const parts = normalizeText(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.length === 1) {
+    if (isStreetLike(parts[0]) && /\d/.test(parts[0])) return parts[0];
+    return isLikelyHouseNumber(parts[0]) ? parts[0] : '';
+  }
+
+  const combinedPart = parts.find((part) => isStreetLike(part) && /\d/.test(part));
+  if (combinedPart) return combinedPart;
+
+  for (let i = 1; i < parts.length; i += 1) {
+    if (!isLikelyHouseNumber(parts[i])) continue;
+    if (!isStreetLike(parts[i - 1])) continue;
+    return `${parts[i - 1]}, ${parts[i]}`;
+  }
+  return '';
+}
+
+function prependCity(city, value) {
+  const cityPart = normalizeText(city);
+  const text = normalizeText(value);
+  if (!cityPart) return text;
+  if (!text) return cityPart;
+  if (text.toLowerCase().includes(cityPart.toLowerCase())) return text;
+  return `${cityPart}, ${text}`;
+}
+
+function formatOrderAddress(city, address, location) {
+  const streetAndHouse = formatStreetAndHouse(address) || formatStreetAndHouse(location);
+  if (streetAndHouse) return prependCity(city, streetAndHouse);
+
+  const locationText = normalizeText(location);
+  const addressText = normalizeText(address);
+  if (locationText) {
+    if (addressText && !locationText.toLowerCase().includes(addressText.toLowerCase())) {
+      return `${addressText}, ${locationText}`;
+    }
+    return locationText;
+  }
+
+  if (addressText) return prependCity(city, addressText);
+
+  return normalizeText(city) || '-';
+}
+
 export default function OrderDetailScreen({ route, navigation }) {
   const params = route?.params ?? {};
   const initialOrder = params.order ?? null;
   const orderId = params.orderId ?? params.order?.id ?? null;
   const [order, setOrder] = useState(initialOrder);
-  const [previewIndex, setPreviewIndex] = useState(null);
+  const [previewPhotoUri, setPreviewPhotoUri] = useState(null);
   const { token, role } = useAuth();
 
   // Legacy reserve state (kept for old flow fallback)
@@ -275,7 +379,13 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [cityMinHours, setCityMinHours] = useState('');
   const [cityArrivalEta, setCityArrivalEta] = useState('UP_TO_30_MIN');
   const [cityOfferExpanded, setCityOfferExpanded] = useState(false);
+  const [counterOfferModalVisible, setCounterOfferModalVisible] = useState(false);
+  const [counterOfferValue, setCounterOfferValue] = useState('');
+  const [counterOfferResponse, setCounterOfferResponse] = useState(null);
+  const [counterOfferLoading, setCounterOfferLoading] = useState(false);
   const wsRef = useRef(null);
+  const wsShouldReconnectRef = useRef(true);
+  const wsReconnectTimerRef = useRef(null);
   const priceInputRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
   const callingRef = useRef(false);
@@ -310,6 +420,17 @@ export default function OrderDetailScreen({ route, navigation }) {
     return Boolean(order && (order.reservedBy || order.driverId));
   }, [useNewFlow, myResponse, order, myResponse?.customerPhone]);
 
+  const effectiveMyResponseStatus = useMemo(() => {
+    const status = myResponse?.status || null;
+    if (!status) return null;
+    if (status === 'PENDING_CONFIRM' && order?.status && order.status !== 'CREATED') {
+      if (['ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'].includes(order.status)) {
+        return 'CONFIRMED';
+      }
+    }
+    return status;
+  }, [myResponse?.status, order?.status]);
+
   const assignedDriver = useMemo(() => {
     if (!order) return null;
     return order.driver || order.reservedDriver || order.candidateDriver || null;
@@ -342,18 +463,87 @@ export default function OrderDetailScreen({ route, navigation }) {
     () => formatHistoryEntries(order?.history),
     [order?.history]
   );
+  const receivedStatusPhotos = useMemo(
+    () => getHistoryPhotosByStatus(order?.history, 'IN_PROGRESS'),
+    [order?.history]
+  );
+  const deliveredStatusPhotos = useMemo(
+    () => getHistoryPhotosByStatus(order?.history, 'DELIVERED'),
+    [order?.history]
+  );
+  const orderCreationPhotos = useMemo(() => {
+    const statusPhotoSet = new Set([...receivedStatusPhotos, ...deliveredStatusPhotos]);
+    return toPhotoArray(order?.photos).filter((photo) => !statusPhotoSet.has(photo));
+  }, [order?.photos, receivedStatusPhotos, deliveredStatusPhotos]);
+  const photoSections = useMemo(
+    () => [
+      { key: 'order', title: '1. Замовлення', photos: orderCreationPhotos },
+      { key: 'received', title: '2. Отримання', photos: receivedStatusPhotos },
+      { key: 'delivered', title: '3. Доставка', photos: deliveredStatusPhotos },
+    ].filter((section) => section.photos.length > 0),
+    [orderCreationPhotos, receivedStatusPhotos, deliveredStatusPhotos]
+  );
+  const pickupAddressDisplay = useMemo(
+    () => formatOrderAddress(order?.pickupCity, order?.pickupAddress, order?.pickupLocation),
+    [order?.pickupCity, order?.pickupAddress, order?.pickupLocation]
+  );
+  const dropoffAddressDisplay = useMemo(
+    () => formatOrderAddress(order?.dropoffCity, order?.dropoffAddress, order?.dropoffLocation),
+    [order?.dropoffCity, order?.dropoffAddress, order?.dropoffLocation]
+  );
 
+  const refreshOrderState = useCallback(async () => {
+    const id = initialOrder ? initialOrder.id : orderId;
+    if (!id || !token) return;
+    try {
+      const data = await apiFetch(`/orders/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setOrder(data);
+
+      if (useNewFlow && role === 'CUSTOMER') {
+        try {
+          const nextResponses = await fetchOrderResponses(id, token);
+          setResponses(Array.isArray(nextResponses) ? nextResponses : []);
+        } catch {
+          setResponses([]);
+        }
+      } else if (useNewFlow && role === 'DRIVER') {
+        try {
+          const resp = await fetchMyResponse(id, token);
+          setMyResponse(resp);
+        } catch {
+          setMyResponse(null);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  }, [initialOrder, orderId, token, role, useNewFlow]);
   // ── WebSocket ──
   useEffect(() => {
+    wsShouldReconnectRef.current = true;
     connectWs();
     return () => {
+      wsShouldReconnectRef.current = false;
+      if (wsReconnectTimerRef.current) {
+        clearTimeout(wsReconnectTimerRef.current);
+        wsReconnectTimerRef.current = null;
+      }
       if (wsRef.current) wsRef.current.close();
     };
-  }, [token]);
+  }, [token, initialOrder?.id, orderId]);
 
   useEffect(() => {
     setFinalPrice(order?.price ? String(order.price) : '');
   }, [order?.price]);
+
+  useEffect(() => {
+    if (!order?.id || !role || !token) return;
+    markOrderUpdatesSeen(role, token, order).catch((err) =>
+      console.log('mark order updates seen error', err)
+    );
+  }, [order?.id, order?.status, order?.history, order?.updatedAt, role, token]);
 
   useEffect(() => {
     if (role !== 'DRIVER' || !isCityOrder || !cityTemplateStorageKey) return;
@@ -400,6 +590,10 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   function connectWs() {
     if (!token) return;
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
     if (wsRef.current) wsRef.current.close();
     const url = `${HOST_URL.replace(/^http/, 'ws')}/api/orders/stream`;
     const ws = new WebSocket(url, null, {
@@ -410,33 +604,28 @@ export default function OrderDetailScreen({ route, navigation }) {
       try {
         const data = JSON.parse(ev.data);
         const id = initialOrder ? initialOrder.id : orderId;
-        if (data.id === id) {
-          setOrder(data);
+        if (id != null && data?.id != null && String(data.id) === String(id)) {
+          refreshOrderState();
         }
       } catch (e) {
         console.log('ws message error', e);
       }
     };
+    ws.onclose = () => {
+      if (!wsShouldReconnectRef.current || !token) return;
+      wsReconnectTimerRef.current = setTimeout(() => {
+        connectWs();
+      }, 1500);
+    };
     ws.onerror = (e) => console.log('ws error', e.message);
   }
 
-  // ── Fetch order ──
+  // в”Ђв”Ђ Fetch order в”Ђв”Ђ
   useEffect(() => {
-    async function fetchOrder() {
-      try {
-        const id = initialOrder ? initialOrder.id : orderId;
-        const data = await apiFetch(`/orders/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setOrder(data);
-      } catch (err) {
-        console.log(err);
-      }
-    }
-    fetchOrder();
-    const sub = navigation.addListener('focus', fetchOrder);
+    refreshOrderState();
+    const sub = navigation.addListener('focus', refreshOrderState);
     return sub;
-  }, [initialOrder && initialOrder.id, orderId, navigation, token]);
+  }, [navigation, refreshOrderState]);
 
   // ── Fetch my response (new flow) ──
   useEffect(() => {
@@ -518,7 +707,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   // ── PENDING_CONFIRM timer ──
   useEffect(() => {
-    if (!myResponse || myResponse.status !== 'PENDING_CONFIRM' || !myResponse.expiresAt) return;
+    if (!myResponse || effectiveMyResponseStatus !== 'PENDING_CONFIRM' || !myResponse.expiresAt) return;
     const update = () => {
       const diff = new Date(myResponse.expiresAt) - new Date();
       setConfirmTimeLeft(diff > 0 ? diff : 0);
@@ -526,7 +715,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [myResponse?.status, myResponse?.expiresAt]);
+  }, [effectiveMyResponseStatus, myResponse?.expiresAt, myResponse]);
 
   // ── AppState listener for post-call detection ──
   useEffect(() => {
@@ -572,7 +761,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           minHours: String(Math.round(minHours)),
           arrivalEta: cityArrivalEta,
         };
-      } else if (order.agreedPrice && finalPrice !== '' && !Number.isNaN(Number(finalPrice))) {
+      } else if (finalPrice !== '' && !Number.isNaN(Number(finalPrice)) && Number(finalPrice) > 0) {
         payload = { finalPrice: String(Math.round(Number(finalPrice))) };
       }
 
@@ -607,7 +796,7 @@ export default function OrderDetailScreen({ route, navigation }) {
     try {
       setRespondLoading(true);
       const payload = { immediateConfirm: true };
-      if (order.agreedPrice && finalPrice !== '' && !Number.isNaN(Number(finalPrice))) {
+      if (finalPrice !== '' && !Number.isNaN(Number(finalPrice)) && Number(finalPrice) > 0) {
         payload.finalPrice = String(Math.round(Number(finalPrice)));
       }
       const resp = await respondToOrder(order.id, token, payload);
@@ -684,6 +873,62 @@ export default function OrderDetailScreen({ route, navigation }) {
       loadResponses();
     } catch (err) {
       Alert.alert('Помилка', err?.message || 'Не вдалося підтвердити');
+    }
+  }
+
+  function openCounterOfferModal(response) {
+    const initial = response?.finalPriceOffer ? String(Math.round(Number(response.finalPriceOffer))) : '';
+    setCounterOfferResponse(response || null);
+    setCounterOfferValue(initial);
+    setCounterOfferModalVisible(true);
+  }
+
+  function closeCounterOfferModal() {
+    if (counterOfferLoading) return;
+    setCounterOfferModalVisible(false);
+    setCounterOfferResponse(null);
+    setCounterOfferValue('');
+  }
+
+  async function submitCounterOfferForSelected() {
+    const value = Number(counterOfferValue);
+    if (!Number.isFinite(value) || value <= 0 || !counterOfferResponse?.id) {
+      Alert.alert('Помилка', 'Вкажіть коректну ціну');
+      return;
+    }
+    try {
+      setCounterOfferLoading(true);
+      await submitCounterOffer(order.id, counterOfferResponse.id, token, String(Math.round(value)));
+      closeCounterOfferModal();
+      await loadResponses();
+    } catch (err) {
+      Alert.alert('Помилка', err?.message || 'Не вдалося надіслати контрпропозицію');
+    } finally {
+      setCounterOfferLoading(false);
+    }
+  }
+
+  function promptConfirmWithPrice(response) {
+    const priceText = formatResponseFinalPrice(response) || '-';
+    Alert.alert('Ви погоджуєтесь із фінальною ціною?', 'Запропонована: ' + priceText, [
+      { text: 'Скасувати', style: 'cancel' },
+      { text: 'Запропонувати іншу ціну', onPress: () => openCounterOfferModal(response) },
+      { text: 'Погодитись', onPress: () => handleConfirmResponse(response.id) },
+    ]);
+  }
+
+  async function handleDriverCounterDecision(decision) {
+    if (!myResponse?.id) return;
+    try {
+      const result = await submitCounterDecision(order.id, myResponse.id, token, decision);
+      if (decision === 'accept' && result?.id) {
+        setOrder(result);
+      } else if (decision === 'reject') {
+        setMyResponse(result);
+      }
+      await refreshOrderState();
+    } catch (err) {
+      Alert.alert('Помилка', err?.message || 'Не вдалося обробити контрпропозицію');
     }
   }
 
@@ -810,17 +1055,24 @@ export default function OrderDetailScreen({ route, navigation }) {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       let body;
-      if (options.photoUri) {
+      const photoUris = Array.isArray(options.photoUris)
+        ? options.photoUris.filter(Boolean)
+        : options.photoUri
+        ? [options.photoUri]
+        : [];
+      if (photoUris.length > 0) {
         const fd = new FormData();
         fd.append('status', status);
-        const uri = options.photoUri;
-        const filenameFromUri = uri.split('/').pop() || `photo-${Date.now()}.jpg`;
-        const extMatch = /\.(\w+)$/.exec(filenameFromUri);
-        const normalizedName = extMatch ? filenameFromUri : `${filenameFromUri}.jpg`;
-        const ext = (extMatch ? extMatch[1] : 'jpg').toLowerCase();
-        const mime =
-          ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext || 'jpeg'}`;
-        fd.append('statusPhoto', { uri, name: normalizedName, type: mime });
+        photoUris.forEach((uri, index) => {
+          const filenameFromUri = uri.split('/').pop() || `photo-${Date.now()}-${index + 1}.jpg`;
+          const extMatch = /\.(\w+)$/.exec(filenameFromUri);
+          const normalizedName = extMatch ? filenameFromUri : `${filenameFromUri}.jpg`;
+          const ext = (extMatch ? extMatch[1] : 'jpg').toLowerCase();
+          const mime =
+            ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext || 'jpeg'}`;
+          const fieldName = photoUris.length === 1 ? 'statusPhoto' : 'statusPhotos';
+          fd.append(fieldName, { uri, name: normalizedName, type: mime });
+        });
         body = fd;
       } else {
         body = JSON.stringify({ status });
@@ -834,28 +1086,9 @@ export default function OrderDetailScreen({ route, navigation }) {
       return updated;
     } catch (err) {
       console.log(err);
+      Alert.alert('Помилка', err?.message || 'Не вдалося оновити статус');
       return null;
     }
-  }
-
-  function openLocationInMaps(address, lat, lon) {
-    const latNum = Number(lat);
-    const lonNum = Number(lon);
-    const hasCoords =
-      lat !== undefined && lat !== null && lon !== undefined && lon !== null &&
-      `${lat}` !== '' && `${lon}` !== '' &&
-      Number.isFinite(latNum) && Number.isFinite(lonNum);
-    const query = address || (hasCoords ? `${latNum},${lonNum}` : '');
-    if (!query) return;
-    const encoded = encodeURIComponent(query);
-    const coord = hasCoords ? `${latNum},${lonNum}` : null;
-    const url = coord
-      ? Platform.select({
-          ios: `http://maps.apple.com/?ll=${coord}&q=${encoded}`,
-          default: `geo:${coord}?q=${encoded}`,
-        })
-      : `https://www.google.com/maps/search/?api=1&query=${encoded}`;
-    Linking.openURL(url).catch((err) => console.log('maps open error', err));
   }
 
   function askPhotoPrompt(message) {
@@ -867,29 +1100,46 @@ export default function OrderDetailScreen({ route, navigation }) {
     });
   }
 
-  async function captureStatusPhoto() {
+  async function captureStatusPhotos() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (permission.status !== 'granted') {
         Alert.alert('Доступ до камери', 'Надайте доступ до камери, щоб додати фото.');
-        return null;
+        return [];
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
-      if (result.canceled) return null;
-      return result.assets?.[0]?.uri || null;
+      const collected = [];
+      let keepCapturing = true;
+      while (keepCapturing) {
+        const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
+        if (result.canceled) break;
+        const uri = result.assets?.[0]?.uri;
+        if (!uri) break;
+        collected.push(uri);
+        keepCapturing = await askAddMorePhotoPrompt();
+      }
+      return collected;
     } catch (err) {
       console.log(err);
       Alert.alert('Помилка', 'Не вдалося зробити фото.');
-      return null;
+      return [];
     }
+  }
+
+  function askAddMorePhotoPrompt() {
+    return new Promise((resolve) => {
+      Alert.alert('Додати ще фото?', '', [
+        { text: 'Ні', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Так', onPress: () => resolve(true) },
+      ]);
+    });
   }
 
   async function changeStatusWithOptionalPhoto(id, status, promptMessage) {
     const wantsPhoto = await askPhotoPrompt(promptMessage);
     if (wantsPhoto) {
-      const photoUri = await captureStatusPhoto();
-      if (photoUri) {
-        await updateStatus(id, status, { photoUri });
+      const photoUris = await captureStatusPhotos();
+      if (photoUris.length > 0) {
+        await updateStatus(id, status, { photoUris });
         return;
       }
     }
@@ -941,7 +1191,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   // ── Render: Response status badge ──
   function renderResponseBadge() {
     if (!useNewFlow || role !== 'DRIVER' || !myResponse) return null;
-    const st = myResponse.status;
+    const st = effectiveMyResponseStatus || myResponse.status;
     if (st === 'DECLINED' || st === 'EXPIRED') return null;
     const icon = responseStatusIconsSafe[st] || responseStatusIcons[st] || '';
     const label = responseStatusLabelsDriver[st] || st;
@@ -1044,7 +1294,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
 
       if (myResponse) {
-        const rs = myResponse.status;
+        const rs = effectiveMyResponseStatus || myResponse.status;
 
         if (rs === 'RESPONDED') {
           buttons.push(
@@ -1103,6 +1353,37 @@ export default function OrderDetailScreen({ route, navigation }) {
               style={{ height: 44, borderWidth: 1, borderColor: '#EF4444' }}
               textStyle={{ color: '#EF4444', fontSize: 15 }}
             />
+          );
+          return buttons;
+        }
+
+        if (rs === 'COUNTER_OFFERED') {
+          const offered = Number(myResponse?.customerCounterPrice);
+          buttons.push(
+            <View key="counter-offer-info" style={styles.pendingInfoBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingInfoTitle}>Замовник запропонував іншу ціну</Text>
+                {Number.isFinite(offered) && offered > 0 && (
+                  <Text style={styles.pendingInfoTimer}>{Math.round(offered)} грн</Text>
+                )}
+                <Text style={styles.pendingInfoSub}>Погодьтесь або відхиліть замовлення</Text>
+              </View>
+            </View>
+          );
+          buttons.push(
+            <View key="counter-offer-actions" style={styles.actionRow}>
+              <AppButton
+                title="Погодитись"
+                onPress={() => handleDriverCounterDecision('accept')}
+                style={styles.smallBtn}
+              />
+              <AppButton
+                title="Відхилити"
+                onPress={() => handleDriverCounterDecision('reject')}
+                variant="danger"
+                style={styles.smallBtn}
+              />
+            </View>
           );
           return buttons;
         }
@@ -1176,12 +1457,12 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
       if (order.status === 'ACCEPTED') {
         buttons.push(
-          <AppButton key="received" title="Отримав вантаж" onPress={() => markReceived(order.id)} />
+          <AppButton key="received" title="Вантаж отримано" onPress={() => markReceived(order.id)} />
         );
       }
       if (order.status === 'IN_PROGRESS') {
         buttons.push(
-          <AppButton key="delivered" title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+          <AppButton key="delivered" title="Вантаж доставлено" onPress={() => markDelivered(order.id)} />
         );
       }
     }
@@ -1291,7 +1572,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       return buttons;
     }
 
-    if (myResponse?.status === 'PENDING_CONFIRM') {
+    if ((effectiveMyResponseStatus || myResponse?.status) === 'PENDING_CONFIRM') {
       const mins = confirmTimeLeft !== null ? Math.ceil(confirmTimeLeft / 60000) : null;
       buttons.push(
         <View key="pending-info-city" style={styles.pendingInfoBox}>
@@ -1360,69 +1641,90 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Text style={styles.responsesTitle}>
           Зацікавлені водії ({activeResponses.length})
         </Text>
-        {activeResponses.map((resp) => (
-          <View key={resp.id} style={styles.responseItem}>
-            <View style={styles.responseDriverRow}>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                onPress={() => resp.driver && navigation.navigate('DriverProfile', { driver: resp.driver })}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="person-circle" size={36} color={colors.green} />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text style={{ fontWeight: '600' }}>{resp.driverName || 'Водій'}</Text>
-                  {resp.driverRating && (
-                    <Text style={{ fontSize: 13, color: '#6B7280' }}>
-                      Рейтинг: {resp.driverRating.toFixed(1)}
+        {activeResponses.map((resp) => {
+          const counterOfferText =
+            resp.status === 'COUNTER_OFFERED' && Number.isFinite(Number(resp.customerCounterPrice)) && Number(resp.customerCounterPrice) > 0
+              ? `${Math.round(Number(resp.customerCounterPrice))} грн`
+              : null;
+          const offerText = isCityOrder ? null : (counterOfferText || formatResponseFinalPrice(resp));
+          const canSelect = ['RESPONDED', 'CALL_MADE', 'PENDING_CONFIRM', 'DISCUSSING'].includes(resp.status);
+
+          return (
+            <View key={resp.id} style={styles.responseItem}>
+              <View style={styles.responseDriverRow}>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                  onPress={() => resp.driver && navigation.navigate('DriverProfile', { driver: resp.driver })}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name='person-circle' size={36} color={colors.green} />
+                  <View style={{ marginLeft: 8, flex: 1 }}>
+                    <Text style={{ fontWeight: '600' }}>{resp.driverName || 'Водій'}</Text>
+                    {resp.driverRating && (
+                      <Text style={{ fontSize: 13, color: '#6B7280' }}>
+                        Рейтинг: {resp.driverRating.toFixed(1)}
+                      </Text>
+                    )}
+                    <Text style={{ fontSize: 12, color: '#9CA3AF' }}>
+                      {(responseStatusIconsSafe[resp.status] || responseStatusIcons[resp.status] || '')} {responseStatusLabelsCustomer[resp.status] || resp.status}
                     </Text>
-                  )}
-                  <Text style={{ fontSize: 12, color: '#9CA3AF' }}>
-                    {(responseStatusIconsSafe[resp.status] || responseStatusIcons[resp.status] || '')} {responseStatusLabelsCustomer[resp.status] || resp.status}
-                  </Text>
-                  {isCityOrder && formatCityOfferSummary(resp) && (
-                    <Text style={styles.cityOfferSummary}>{formatCityOfferSummary(resp)}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-              {resp.driverPhone && (
-                <TouchableOpacity onPress={() => Linking.openURL(`tel:${resp.driverPhone}`)}>
-                  <Ionicons name="call" size={24} color={colors.green} />
+                    {offerText && <Text style={styles.responseOfferText}>Фінальна ціна: {offerText}</Text>}
+                    {isCityOrder && formatCityOfferSummary(resp) && (
+                      <Text style={styles.cityOfferSummary}>{formatCityOfferSummary(resp)}</Text>
+                    )}
+                  </View>
                 </TouchableOpacity>
+                {resp.driverPhone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${resp.driverPhone}`)}>
+                    <Ionicons name='call' size={24} color={colors.green} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {canSelect && (
+                <View style={styles.actionRow}>
+                  <AppButton
+                    title='Обрати водія'
+                    onPress={() => (isCityOrder ? handleConfirmResponse(resp.id) : promptConfirmWithPrice(resp))}
+                    style={styles.smallBtn}
+                  />
+                  <AppButton
+                    title='Відхилити'
+                    onPress={() => handleRejectResponse(resp.id)}
+                    variant='danger'
+                    style={styles.smallBtn}
+                  />
+                </View>
+              )}
+
+              {!isCityOrder && resp.status === 'COUNTER_OFFERED' && (
+                <Text style={styles.counterPendingText}>
+                  Ви надіслали контрпропозицію. Очікується рішення водія.
+                </Text>
               )}
             </View>
-            {resp.status === 'PENDING_CONFIRM' && isCityOrder && (
-              <View style={styles.cityResponseActions}>
-                <TouchableOpacity
-                  style={[styles.cityResponseActionBtn, styles.cityResponseActionConfirm]}
-                  onPress={() => handleConfirmResponse(resp.id)}
-                >
-                  <Ionicons name="checkmark" size={18} color="#065F46" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.cityResponseActionBtn, styles.cityResponseActionReject]}
-                  onPress={() => handleRejectResponse(resp.id)}
-                >
-                  <Ionicons name="close" size={18} color="#991B1B" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {resp.status === 'PENDING_CONFIRM' && !isCityOrder && (
-              <View style={styles.actionRow}>
-                <AppButton
-                  title="Підтвердити водія"
-                  onPress={() => handleConfirmResponse(resp.id)}
-                  style={styles.smallBtn}
-                />
-                <AppButton
-                  title="Відхилити"
-                  onPress={() => handleRejectResponse(resp.id)}
-                  variant="danger"
-                  style={styles.smallBtn}
-                />
-              </View>
-            )}
-          </View>
-        ))}
+          );
+        })}
+      </View>
+    );
+  }
+
+  function renderPhotoSection(title, photos) {
+    if (!Array.isArray(photos) || photos.length === 0) return null;
+    return (
+      <View key={title} style={styles.photoSection}>
+        <Text style={styles.photoSectionTitle}>{title}</Text>
+        <ScrollView horizontal style={{ marginTop: 6 }}>
+          {photos.map((photoPath, index) => {
+            const uri = fullPhotoUrl(photoPath);
+            if (!uri) return null;
+            return (
+              <TouchableOpacity key={`${title}-${index}`} onPress={() => setPreviewPhotoUri(uri)}>
+                <Image source={{ uri }} style={styles.photo} />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
     );
   }
@@ -1561,11 +1863,18 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Ionicons name="pin-outline" size={20} color={colors.orange} style={styles.rowIcon} />
         <View style={styles.rowText}>
           <Text style={styles.label}>Звідки:</Text>
-          <Text style={styles.value}>{order.pickupLocation}</Text>
+          <Text style={styles.value}>{pickupAddressDisplay}</Text>
         </View>
         <TouchableOpacity
           style={styles.mapIconBtn}
-          onPress={() => openLocationInMaps(order.pickupLocation, order.pickupLat, order.pickupLon)}
+          onPress={() =>
+            openLocationInMaps({
+              address: order.pickupLocation || order.pickupAddress || pickupAddressDisplay,
+              city: order.pickupCity,
+              lat: order.pickupLat,
+              lon: order.pickupLon,
+            })
+          }
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="navigate-outline" size={20} color={colors.orange} />
@@ -1576,11 +1885,18 @@ export default function OrderDetailScreen({ route, navigation }) {
         <Ionicons name="flag-outline" size={20} color={colors.green} style={styles.rowIcon} />
         <View style={styles.rowText}>
           <Text style={styles.label}>Куди:</Text>
-          <Text style={styles.value}>{order.dropoffLocation}</Text>
+          <Text style={styles.value}>{dropoffAddressDisplay}</Text>
         </View>
         <TouchableOpacity
           style={styles.mapIconBtn}
-          onPress={() => openLocationInMaps(order.dropoffLocation, order.dropoffLat, order.dropoffLon)}
+          onPress={() =>
+            openLocationInMaps({
+              address: order.dropoffLocation || order.dropoffAddress || dropoffAddressDisplay,
+              city: order.dropoffCity,
+              lat: order.dropoffLat,
+              lon: order.dropoffLon,
+            })
+          }
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="navigate-outline" size={20} color={colors.green} />
@@ -1688,30 +2004,56 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {order.photos && order.photos.length > 0 && (
-        <ScrollView horizontal style={{ marginVertical: 8 }}>
-          {order.photos.map((p, i) => (
-            <TouchableOpacity key={i} onPress={() => setPreviewIndex(i)}>
-              <Image source={{ uri: `${HOST_URL}${p}` }} style={styles.photo} />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
+      {photoSections.map((section) => renderPhotoSection(section.title, section.photos))}
 
-      {previewIndex !== null && (
+      {previewPhotoUri !== null && (
         <Modal visible transparent>
           <View style={styles.modal}>
-            <TouchableOpacity style={styles.close} onPress={() => setPreviewIndex(null)}>
+            <TouchableOpacity style={styles.close} onPress={() => setPreviewPhotoUri(null)}>
               <Ionicons name="close" size={32} color="#fff" />
             </TouchableOpacity>
             <Image
-              source={{ uri: `${HOST_URL}${order.photos[previewIndex]}` }}
+              source={{ uri: previewPhotoUri }}
               style={styles.full}
               resizeMode="contain"
             />
           </View>
         </Modal>
       )}
+
+      <Modal
+        visible={counterOfferModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCounterOfferModal}
+      >
+        <View style={styles.counterModalBackdrop}>
+          <View style={styles.counterModalCard}>
+            <Text style={styles.counterModalTitle}>Запропонувати іншу фінальну ціну</Text>
+            <AppInput
+              keyboardType="numeric"
+              placeholder="Наприклад: 2800"
+              value={counterOfferValue}
+              onChangeText={(value) => setCounterOfferValue(String(value || '').replace(/[^\d]/g, ''))}
+              style={styles.counterModalInput}
+            />
+            <View style={styles.actionRow}>
+              <AppButton
+                title="Скасувати"
+                onPress={closeCounterOfferModal}
+                color="#9CA3AF"
+                style={styles.smallBtn}
+              />
+              <AppButton
+                title={counterOfferLoading ? 'Надсилання...' : 'Надіслати'}
+                onPress={submitCounterOfferForSelected}
+                disabled={counterOfferLoading}
+                style={styles.smallBtn}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       </View>
 
@@ -1748,7 +2090,7 @@ export default function OrderDetailScreen({ route, navigation }) {
             <AppText style={{ fontWeight: 'bold', marginRight: 8 }}>
               Фінальна ціна:
             </AppText>
-            {order.agreedPrice ? (
+            {order.status === 'CREATED' && !myResponse ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingHorizontal: 8 }}>
               <AppInput
                 ref={priceInputRef}
@@ -1768,11 +2110,13 @@ export default function OrderDetailScreen({ route, navigation }) {
             </View>
             ) : (
               <AppText style={{ flex: 1, paddingHorizontal: 8 }}>
-                {order.finalPrice
+                {myResponse?.finalPriceOffer
+                  ? `${Math.round(Number(myResponse.finalPriceOffer))} грн`
+                  : order.finalPrice
                   ? `${Math.round(Number(order.finalPrice))} грн`
                   : order.price
                   ? `${Math.round(Number(order.price))} грн`
-                  : "—"}
+                  : "-"}
               </AppText>
             )}
           </View>
@@ -1812,6 +2156,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   photo: { width: 120, height: 120, marginRight: 8, marginLeft: 10 },
+  photoSection: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  photoSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginLeft: 10,
+  },
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
   close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
@@ -2066,4 +2420,46 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   responseDriverRow: { flexDirection: 'row', alignItems: 'center' },
+  responseOfferText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#166534',
+    fontWeight: '700',
+  },
+  counterPendingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#92400E',
+    fontWeight: '600',
+  },
+  counterModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  counterModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+  },
+  counterModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  counterModalInput: {
+    marginBottom: 12,
+  },
 });
+
+
+
+
+
+
+

@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../components/Toast";
 
 export default function AllOrdersScreen({ navigation }) {
+  const AUTO_REFRESH_INTERVAL_MS = 20000;
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const toast = useToast();
@@ -49,6 +50,13 @@ export default function AllOrdersScreen({ navigation }) {
   const [radius, setRadius] = useState("30");
   const [location, setLocation] = useState(null);
   const wsRef = useRef(null);
+  const wsShouldReconnectRef = useRef(true);
+  const wsReconnectTimerRef = useRef(null);
+  const autoRefreshTimerRef = useRef(null);
+  const isScreenFocusedRef = useRef(
+    typeof navigation?.isFocused === "function" ? navigation.isFocused() : false
+  );
+  const autoRefreshInFlightRef = useRef(false);
   const [detected, setDetected] = useState(false);
   const sheetRef = useRef(null);
   const listRef = useRef(null);
@@ -193,11 +201,24 @@ export default function AllOrdersScreen({ navigation }) {
   }, [detected, pickupPoint, dropoffPoint]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
+    const onFocus = () => {
+      isScreenFocusedRef.current = true;
       if (fetchOrdersRef.current) fetchOrdersRef.current();
       loadSavedSearches();
-    });
-    return unsubscribe;
+    };
+    const onBlur = () => {
+      isScreenFocusedRef.current = false;
+    };
+
+    const unsubFocus = navigation.addListener("focus", onFocus);
+    const unsubBlur = navigation.addListener("blur", onBlur);
+    if (typeof navigation?.isFocused === "function" && navigation.isFocused()) {
+      onFocus();
+    }
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
   }, [navigation]);
 
   useEffect(() => {
@@ -207,12 +228,48 @@ export default function AllOrdersScreen({ navigation }) {
 
   useEffect(() => {
     if (!detected) return;
+    wsShouldReconnectRef.current = true;
     connectWs();
     return () => {
+      wsShouldReconnectRef.current = false;
+      if (wsReconnectTimerRef.current) {
+        clearTimeout(wsReconnectTimerRef.current);
+        wsReconnectTimerRef.current = null;
+      }
       if (wsRef.current) wsRef.current.close();
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
     };
   }, [detected, token, location, pickupPoint, dropoffPoint]);
+
+  useEffect(() => {
+    if (!detected || !token) return;
+
+    const runAutoRefresh = async () => {
+      if (!isScreenFocusedRef.current) return;
+      if (autoRefreshInFlightRef.current) return;
+      autoRefreshInFlightRef.current = true;
+      try {
+        if (fetchOrdersRef.current) {
+          await fetchOrdersRef.current();
+        }
+      } catch (err) {
+        console.log("auto refresh error", err);
+      } finally {
+        autoRefreshInFlightRef.current = false;
+      }
+    };
+
+    autoRefreshTimerRef.current = setInterval(
+      runAutoRefresh,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+    return () => {
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
+    };
+  }, [detected, token, AUTO_REFRESH_INTERVAL_MS]);
 
   useEffect(() => {
     filtersRef.current = { passesFilters, hasCorridor };
@@ -675,6 +732,10 @@ export default function AllOrdersScreen({ navigation }) {
 
   function connectWs() {
     if (!token) return;
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
     if (wsRef.current) wsRef.current.close();
     const params = new URLSearchParams();
     if (dateFrom && dateTo) {
@@ -720,6 +781,7 @@ export default function AllOrdersScreen({ navigation }) {
     });
     wsRef.current = ws;
     ws.onmessage = (ev) => {
+      if (wsRef.current !== ws) return;
       try {
         const order = JSON.parse(ev.data);
         const { passesFilters: passes, hasCorridor: inCorridor } = filtersRef.current || {};
@@ -751,7 +813,17 @@ export default function AllOrdersScreen({ navigation }) {
         console.log("ws message error", e);
       }
     };
-    ws.onerror = (e) => console.log("ws error", e.message);
+    ws.onclose = () => {
+      if (wsRef.current !== ws) return;
+      if (!wsShouldReconnectRef.current || !token) return;
+      wsReconnectTimerRef.current = setTimeout(() => {
+        connectWs();
+      }, 1500);
+    };
+    ws.onerror = (e) => {
+      if (wsRef.current !== ws) return;
+      console.log("ws error", e.message);
+    };
   }
 
   function clearFilters() {

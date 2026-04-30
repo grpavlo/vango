@@ -66,7 +66,7 @@ function buildReminderText(stepKey, order, searchedToday) {
     case "D13":
       return {
         title,
-        body: "😔 Замовлення досі не оновлене. Завтра ми автоматично закриємо його як неактуальне.",
+        body: "Замовлення досі не оновлене. Завтра ми автоматично закриємо його як неактуальне.",
       };
     default:
       return null;

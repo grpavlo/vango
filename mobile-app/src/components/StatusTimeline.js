@@ -46,6 +46,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   line: { flex: 1, width: 2, marginTop: 2 },
   content: { flex: 1 },
-  label: { fontWeight: 'bold' },
-  time: { color: '#555', fontSize: 12 },
+  label: { fontWeight: 'bold', fontSize: 16, lineHeight: 22 },
+  time: { color: '#555', fontSize: 13, marginBottom: 2 },
 });

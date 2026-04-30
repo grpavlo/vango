@@ -126,6 +126,22 @@ function parseOrderDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function parseMeasureNumber(value) {
+  if (typeof value === "string") {
+    const normalized = value.trim().replace(",", ".").replace(/\s+/g, "");
+    return Number(normalized);
+  }
+  return Number(value);
+}
+
+function formatMeasureValue(value) {
+  const num = parseMeasureNumber(value);
+  if (!Number.isFinite(num)) return "";
+  return String(num)
+    .replace(/(\.\d*?[1-9])0+$/, "$1")
+    .replace(/\.0+$/, "");
+}
+
 export default function OrderCard({
   order,
   onPress,
@@ -181,6 +197,10 @@ export default function OrderCard({
     : colors.green;
   const iconColor = isDateOutdated ? colors.gray500 : colors.green;
   const helperColor = isDateOutdated ? colors.gray500 : colors.red;
+  const cargoVolume = parseMeasureNumber(order?.cargoVolume);
+  const cargoWeight = parseMeasureNumber(order?.cargoWeight);
+  const hasCargoVolume = Number.isFinite(cargoVolume) && cargoVolume > 0;
+  const hasCargoWeight = Number.isFinite(cargoWeight) && cargoWeight > 0;
 
   const freeDateLabel = order.freeDate
     ? order.freeDateUntil
@@ -252,6 +272,17 @@ export default function OrderCard({
         {isIntraCityOrder && (
           <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
             Водій пропонує ціну
+          </Text>
+        )}
+
+        {hasCargoVolume && (
+          <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
+            Об'єм: {formatMeasureValue(cargoVolume)} м³
+          </Text>
+        )}
+        {hasCargoWeight && (
+          <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
+            Вага: {formatMeasureValue(cargoWeight)} кг
           </Text>
         )}
 

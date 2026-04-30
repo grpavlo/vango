@@ -8,6 +8,7 @@ const ResponseStatus = {
   CALL_MADE: 'CALL_MADE',
   PENDING_CONFIRM: 'PENDING_CONFIRM',
   DISCUSSING: 'DISCUSSING',
+  COUNTER_OFFERED: 'COUNTER_OFFERED',
   CONFIRMED: 'CONFIRMED',
   DECLINED: 'DECLINED',
   REJECTED: 'REJECTED',
@@ -42,6 +43,8 @@ OrderResponse.init(
     minHours: { type: DataTypes.FLOAT },
     arrivalEta: { type: DataTypes.ENUM(...Object.values(ArrivalEta)) },
     offerTotal: { type: DataTypes.FLOAT },
+    finalPriceOffer: { type: DataTypes.FLOAT },
+    customerCounterPrice: { type: DataTypes.FLOAT },
   },
   { sequelize: db, modelName: 'orderResponse' }
 );

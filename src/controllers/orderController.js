@@ -101,8 +101,8 @@ const appendPriceHistory = (
 
 };
 
-// Будуємо діапазон дат у UTC за текстовим параметром `date` (DD.MM або DD.MM.YYYY),
-// щоб фільтр не залежав від локального часового поясу сервера.
+// ?'???????"???? ???-?�???�?�???? ???�?, ?? UTC ?�?� ?,?�?????,???????? ???�???�???�?,?????? `date` (DD.MM ?�?�?? DD.MM.YYYY),
+// ?????� ?"?-?�???,?? ???� ?�?�?�?�?�?�?? ???-?? ?�?????�?�?????????? ???�???????????? ?????????? ???�?????�???�.
 function buildUtcDayRange(dateStr) {
   const { parseDate } = require("../utils/date");
   const parsed = parseDate(dateStr);
@@ -115,8 +115,8 @@ function buildUtcDayRange(dateStr) {
   return { start, end };
 }
 
-// Діапазон з dateFrom по dateTo (DD.MM або DD.MM.YYYY).
-// Повертає { start, end } для фільтра loadFrom.
+// ?"?-?�???�?�???? ?� dateFrom ???? dateTo (DD.MM ?�?�?? DD.MM.YYYY).
+// ???????�???,?�?" { start, end } ???�?? ?"?-?�???,???� loadFrom.
 function buildUtcDateRange(dateFromStr, dateToStr) {
   const { parseDate } = require("../utils/date");
   const fromParsed = parseDate(dateFromStr);
@@ -329,10 +329,10 @@ async function notifyDriversAboutSavedSearchMatch(order) {
 
     sendPush(
       driver.pushToken,
-      "Нове замовлення за вашим критерієм",
-      `${order.pickupCity || "Місто завантаження"} • ${Math.round(
+      "\u041d\u043e\u0432\u0435 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u0432\u0430\u0448\u0438\u043c \u043a\u0440\u0438\u0442\u0435\u0440\u0456\u0454\u043c",
+      `${order.pickupCity || "\u041c\u0456\u0441\u0442\u043e \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f"} - ${Math.round(
         Number(savedSearch.radius)
-      )} км`,
+      )} \u043a\u043c`,
       { orderId: order.id, navigateTo: "orderDetail" }
     );
   }
@@ -533,7 +533,7 @@ async function createOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося створити замовлення");
+    res.status(400).send("???� ?????�?�?????? ???,?????????,?? ?�?�???????�?�??????");
 
   }
 
@@ -659,7 +659,7 @@ async function listAvailableOrders(req, res) {
   if (orderIds.length > 0) {
     const counts = await OrderResponse.findAll({
       attributes: ["orderId", [require("sequelize").fn("COUNT", require("sequelize").col("id")), "cnt"]],
-      where: { orderId: { [SeqOp.in]: orderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] } },
+      where: { orderId: { [SeqOp.in]: orderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED"] } },
       group: ["orderId"],
       raw: true,
     });
@@ -755,7 +755,7 @@ async function listMyOrders(req, res) {
       attributes: ["orderId"],
       where: {
         driverId: req.user.id,
-        status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+        status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED"] },
       },
       raw: true,
     });
@@ -792,7 +792,7 @@ async function listMyOrders(req, res) {
   if (myOrderIds.length > 0) {
     const counts = await OrderResponse.findAll({
       attributes: ["orderId", [require("sequelize").fn("COUNT", require("sequelize").col("id")), "cnt"]],
-      where: { orderId: { [SeqOp.in]: myOrderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] } },
+      where: { orderId: { [SeqOp.in]: myOrderIds }, status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED"] } },
       group: ["orderId"],
       raw: true,
     });
@@ -808,7 +808,7 @@ async function listMyOrders(req, res) {
         where: {
           driverId: req.user.id,
           orderId: { [SeqOp.in]: myOrderIds },
-          status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "CONFIRMED"] },
+          status: { [SeqOp.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED", "CONFIRMED"] },
         },
         raw: true,
       });
@@ -854,14 +854,14 @@ async function getOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("Замовлення не знайдено");
+      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
 
     }
 
     const responseCount = await OrderResponse.count({
       where: {
         orderId: id,
-        status: { [require("sequelize").Op.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING"] },
+        status: { [require("sequelize").Op.in]: ["RESPONDED", "CALL_MADE", "PENDING_CONFIRM", "DISCUSSING", "COUNTER_OFFERED"] },
       },
     });
 
@@ -871,7 +871,7 @@ async function getOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося отримати замовлення");
+    res.status(400).send("???� ?????�?�?????? ???,???????�?,?? ?�?�???????�?�??????");
 
   }
 
@@ -893,7 +893,7 @@ async function reserveOrder(req, res) {
 
     if (!order || order.status !== "CREATED") {
 
-      return res.status(400).send("Замовлення недоступне");
+      return res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
 
     }
 
@@ -903,15 +903,15 @@ async function reserveOrder(req, res) {
 
 
 
-    // 👇 водій може запропонувати фінальну ціну під час резерву ТІЛЬКИ якщо agreedPrice === true
+    // ??'? ???????-?? ?????�?� ?�?�?????????????????�?,?? ?"?-???�?�?????? ???-???? ???-?? ???�?? ???�?�?�?????? ?????>?�???� ???????? agreedPrice === true
 
     if (req.body && req.body.finalPrice != null) {
 
-      // Перевірка: водій може встановлювати фінальну ціну тільки якщо замовлення з договірною ціною
+      // ???�???�???-?????�: ???????-?? ?????�?� ?????,?�???????�?????�?,?? ?"?-???�?�?????? ???-???? ?,?-?�?????? ???????? ?�?�???????�?�?????? ?� ???????????-???????? ???-??????
 
       if (!order.agreedPrice) {
 
-        return res.status(400).send("Не можна встановлювати фінальну ціну для замовлення без договірної ціни");
+        return res.status(400).send("\u0412\u043e\u0434\u0456\u0439 \u043c\u043e\u0436\u0435 \u0432\u0438\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443 \u043b\u0438\u0448\u0435 \u0434\u043b\u044f \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0431\u0435\u0437 \u0444\u0456\u043a\u0441\u043e\u0432\u0430\u043d\u043e\u0457 \u0446\u0456\u043d\u0438");
 
       }
 
@@ -967,7 +967,7 @@ async function reserveOrder(req, res) {
 
     ) {
 
-      return res.status(400).send("Вже зарезервовано");
+      return res.status(400).send("?'?�?� ?�?�???�?�?�?????????�????");
 
     }
 
@@ -995,9 +995,9 @@ async function reserveOrder(req, res) {
 
         order.customer.pushToken,
 
-        "Замовлення у резерві",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0443 \u0440\u0435\u0437\u0435\u0440\u0432\u0456",
 
-        "Водій взяв ваше замовлення в резерв",
+        "\u0412\u043e\u0434\u0456\u0439 \u0432\u0437\u044f\u0432 \u0432\u0430\u0448\u0435 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432 \u0440\u0435\u0437\u0435\u0440\u0432",
 
         { orderId: order.id, navigateTo: "orderDetail" }
 
@@ -1017,7 +1017,7 @@ async function reserveOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося зарезервувати");
+    res.status(400).send("???� ?????�?�?????? ?�?�???�?�?�?????????�?,??");
 
   }
 
@@ -1037,7 +1037,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // 1️⃣ Перевірка прав доступу
+    // 1?????? ???�???�???-?????� ?????�?? ???????,??????
 
     if (
 
@@ -1047,7 +1047,7 @@ async function cancelReserve(req, res) {
 
     ) {
 
-      return res.status(400).send("Немає резерву або немає прав");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432 \u0430\u0431\u043e \u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445");
 
     }
 
@@ -1057,7 +1057,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // 2️⃣ Очистка полів резерву
+    // 2?????? ?????????,???� ?????�?-?? ???�?�?�??????
 
     order.reservedBy = null;
 
@@ -1069,7 +1069,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // Якщо водій уже був прив’язаний, знімаємо і його
+    // ???????? ???????-?? ???�?� ?�???? ??????????T???�?�??????, ?�???-???�?"???? ?- ????????
 
     if (order.driverId && order.status === "RESERVED") {
 
@@ -1079,7 +1079,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // 3️⃣ Оновлюємо статус лише якщо він був інший
+    // 3?????? ?????????�???"???? ???,?�?,???? ?�?????� ???????? ???-?? ?�???? ?-????????
 
     if (prevStatus !== "CREATED") {
 
@@ -1089,7 +1089,7 @@ async function cancelReserve(req, res) {
 
         ...(order.history || []),
 
-        { status: "CREATED", at: new Date(), note: "Резерв скасовано" },
+        { status: "CREATED", at: new Date(), note: "?????? ?????????", changedByRole: req.user?.role, changedById: req.user?.id },
 
       ];
 
@@ -1101,7 +1101,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // 4️⃣ Завантажуємо оновлений об’єкт з усіма зв’язками
+    // 4?????? ?-?�???�???,?�?�???"???? ?????????�?�?????? ???�??T?"???, ?� ?????-???� ?�????T???�???�????
 
     const updated = await Order.findByPk(orderId, {
 
@@ -1111,7 +1111,7 @@ async function cancelReserve(req, res) {
 
 
 
-    // 5️⃣ Сповіщаємо фронт про оновлення
+    // 5?????? ?????????-???�?"???? ?"???????, ?????? ?????????�?�??????
 
     broadcastOrder(updated);
 
@@ -1121,9 +1121,9 @@ async function cancelReserve(req, res) {
 
   } catch (err) {
 
-    console.error("❌ cancelReserve error:", err);
+    console.error("??? cancelReserve error:", err);
 
-    res.status(400).send("Не вдалося зняти резерв");
+    res.status(400).send("???� ?????�?�?????? ?�?????,?? ???�?�?�????");
 
   }
 
@@ -1143,15 +1143,15 @@ async function updateFinalPrice(req, res) {
 
     const order = await Order.findByPk(orderId);
 
-    if (!order) return res.status(404).send("Замовлення не знайдено");
+    if (!order) return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
 
 
 
-    // 👇 Лише замовник може змінювати ціну, поки не підтвердив водія
+    // ??'? ?>?????� ?�?�???????????? ?????�?� ?�???-???????�?,?? ???-????, ???????? ???� ???-???,???�???????? ???????-??
 
     if (order.customerId !== req.user.id || !["CREATED", "PENDING"].includes(order.status)) {
 
-      return res.status(400).send("Не можна редагувати фінальну ціну на цьому етапі");
+      return res.status(400).send("\u041d\u0435 \u043c\u043e\u0436\u043d\u0430 \u043e\u043d\u043e\u0432\u0438\u0442\u0438 \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443 \u0434\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u0443");
 
     }
 
@@ -1167,7 +1167,7 @@ async function updateFinalPrice(req, res) {
 
     if (!Number.isFinite(n) || n <= 0) {
 
-      return res.status(400).send("Некоректна сума");
+      return res.status(400).send("???�???????�???,???� ???????�");
 
     }
 
@@ -1209,7 +1209,7 @@ async function updateFinalPrice(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося змінити фінальну ціну");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0437\u044f\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -1229,7 +1229,7 @@ async function acceptOrder(req, res) {
 
     if (!order || order.status !== "CREATED") {
 
-      res.status(400).send("Замовлення недоступне");
+      res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
 
 
 
@@ -1243,15 +1243,15 @@ async function acceptOrder(req, res) {
 
 
 
-    // 👇 водій може виставити/уточнити фінальну ціну при взятті ТІЛЬКИ якщо agreedPrice === true
+    // ??'? ???????-?? ?????�?� ???????,?�?????,??/???,?????????,?? ?"?-???�?�?????? ???-???? ?????? ???�???,?,?- ?????>?�???� ???????? agreedPrice === true
 
     if (req.body && req.body.finalPrice != null) {
 
-      // Перевірка: водій може встановлювати фінальну ціну тільки якщо замовлення з договірною ціною
+      // ???�???�???-?????�: ???????-?? ?????�?� ?????,?�???????�?????�?,?? ?"?-???�?�?????? ???-???? ?,?-?�?????? ???????? ?�?�???????�?�?????? ?� ???????????-???????? ???-??????
 
       if (!order.agreedPrice) {
 
-        return res.status(400).send("Не можна встановлювати фінальну ціну для замовлення без договірної ціни");
+        return res.status(400).send("\u041d\u0435 \u043c\u043e\u0436\u043d\u0430 \u0432\u0438\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443 \u0434\u043b\u044f \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0456\u0437 \u0444\u0456\u043a\u0441\u043e\u0432\u0430\u043d\u043e\u044e \u0446\u0456\u043d\u043e\u044e");
 
       }
 
@@ -1309,7 +1309,7 @@ async function acceptOrder(req, res) {
 
       ...(order.history || []),
 
-      { status: "PENDING", at: new Date() },
+      { status: "PENDING", at: new Date(), changedByRole: req.user?.role, changedById: req.user?.id },
 
     ];
 
@@ -1339,9 +1339,9 @@ async function acceptOrder(req, res) {
 
         updated.customer.pushToken,
 
-        "Замовлення прийнято",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0440\u0438\u0439\u043d\u044f\u0442\u043e",
 
-        "Водій взяв ваш вантаж",
+        "\u0412\u043e\u0434\u0456\u0439 \u0432\u0437\u044f\u0432 \u0432\u0430\u0448 \u0432\u0430\u043d\u0442\u0430\u0436",
 
         { orderId: updated.id, navigateTo: "orderDetail" }
 
@@ -1353,7 +1353,7 @@ async function acceptOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося прийняти замовлення");
+    res.status(400).send("???� ?????�?�?????? ?????????????,?? ?�?�???????�?�??????");
 
   }
 
@@ -1379,7 +1379,7 @@ async function confirmDriver(req, res) {
 
     ) {
 
-      return res.status(400).send("Неможливо підтвердити");
+      return res.status(400).send("???�?????�?�?????? ???-???,???�???????,??");
 
     }
 
@@ -1399,7 +1399,7 @@ async function confirmDriver(req, res) {
 
     order.status = "ACCEPTED";
 
-    // Якщо водій узгодив фінальну ціну — фіксуємо її як основну
+    // ???????? ???????-?? ???�?????????? ?"?-???�?�?????? ???-???? ??" ?"?-???????"???? ?-?- ???? ??????????????
 
     const fp = Number(order.finalPrice);
 
@@ -1429,7 +1429,7 @@ async function confirmDriver(req, res) {
 
       ...(order.history || []),
 
-      { status: "ACCEPTED", at: new Date() },
+      { status: "ACCEPTED", at: new Date(), changedByRole: req.user?.role, changedById: req.user?.id },
 
     ];
 
@@ -1479,9 +1479,9 @@ async function confirmDriver(req, res) {
 
         updated.driver.pushToken,
 
-        "Замовлення підтверджено",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
 
-        "Замовник прийняв ваше замовлення",
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u0438\u0439\u043d\u044f\u0432 \u0432\u0430\u0448\u0435 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f",
 
         { orderId: updated.id, navigateTo: "orderDetail" }
 
@@ -1493,7 +1493,7 @@ async function confirmDriver(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося підтвердити водія");
+    res.status(400).send("???� ?????�?�?????? ???-???,???�???????,?? ???????-??");
 
   }
 
@@ -1519,7 +1519,7 @@ async function rejectDriver(req, res) {
 
     ) {
 
-      return res.status(400).send("Неможливо відхилити");
+      return res.status(400).send("???�?????�?�?????? ???-???.???�???,??");
 
     }
 
@@ -1539,7 +1539,7 @@ async function rejectDriver(req, res) {
 
       ...(order.history || []),
 
-      { status: OrderStatus.REJECTED, at: new Date() },
+      { status: OrderStatus.REJECTED, at: new Date(), changedByRole: req.user?.role, changedById: req.user?.id },
 
       // { status: OrderStatus.CREATED, at: new Date() },
 
@@ -1563,9 +1563,9 @@ async function rejectDriver(req, res) {
 
         driver.pushToken,
 
-        "Замовлення відхилено",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0456\u0434\u0445\u0438\u043b\u0435\u043d\u043e",
 
-        "Замовник відхилив ваш пропозицію",
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e",
 
         { orderId: updated.id, navigateTo: "driverOrders" }
 
@@ -1577,7 +1577,7 @@ async function rejectDriver(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося відхилити водія");
+    res.status(400).send("???� ?????�?�?????? ???-???.???�???,?? ???????-??");
 
   }
 
@@ -1593,21 +1593,44 @@ async function updateStatus(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order) {
-      res.status(404).send("Замовлення не знайдено");
+      res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
 
       return;
     }
     order.status = status;
     const historyEntry = { status, at: new Date() };
+    if (req.user?.id) {
+      historyEntry.changedById = req.user.id;
+    }
+    if (req.user?.role) {
+      historyEntry.changedByRole = req.user.role;
+    }
+    const uploadedFiles = [];
     if (req.file) {
-      const photoPath = `/uploads/${req.file.filename}`;
+      uploadedFiles.push(req.file);
+    }
+    if (Array.isArray(req.files)) {
+      uploadedFiles.push(...req.files);
+    } else if (req.files && typeof req.files === "object") {
+      Object.values(req.files).forEach((group) => {
+        if (Array.isArray(group)) uploadedFiles.push(...group);
+      });
+    }
+    const photoPaths = uploadedFiles
+      .map((file) => (file?.filename ? `/uploads/${file.filename}` : null))
+      .filter(Boolean);
+    if (photoPaths.length > 0) {
       const currentPhotos = Array.isArray(order.photos)
         ? order.photos.filter(Boolean)
         : order.photos
         ? [order.photos].filter(Boolean)
         : [];
-      order.photos = [...currentPhotos, photoPath];
-      historyEntry.photo = photoPath;
+      order.photos = [...currentPhotos, ...photoPaths];
+      historyEntry.photos = photoPaths;
+      // Backward-compatible field used by some existing clients/parsers.
+      if (photoPaths.length === 1) {
+        historyEntry.photo = photoPaths[0];
+      }
       if (req.user?.id) {
         historyEntry.uploadedBy = req.user.id;
       }
@@ -1628,9 +1651,9 @@ async function updateStatus(req, res) {
 
           customer.pushToken,
 
-          "Водій отримав вантаж",
+          "\u0412\u043e\u0434\u0456\u0439 \u043e\u0442\u0440\u0438\u043c\u0430\u0432 \u0432\u0430\u043d\u0442\u0430\u0436",
 
-          "Водій підтвердив отримання вантажу",
+          "\u0412\u043e\u0434\u0456\u0439 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u0432\u0430\u043d\u0442\u0430\u0436\u0443",
 
           { orderId: order.id, navigateTo: "orderDetail" }
 
@@ -1652,9 +1675,9 @@ async function updateStatus(req, res) {
 
           customer.pushToken,
 
-          "Доставку підтверджено",
+          "\u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0443 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
 
-          "Водій повідомив про доставку",
+          "\u0412\u043e\u0434\u0456\u0439 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u0438\u0432 \u043f\u0440\u043e \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443",
 
           { orderId: order.id, navigateTo: "orderDetail" }
 
@@ -1704,9 +1727,9 @@ async function updateStatus(req, res) {
 
             driver.pushToken,
 
-            "Замовник підтвердив доставку",
+            "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443",
 
-            "Замовник підтвердив отримання вантажу",
+            "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u0432\u0430\u043d\u0442\u0430\u0436\u0443",
 
             { orderId: order.id, navigateTo: "driverHistory" }
 
@@ -1722,7 +1745,7 @@ async function updateStatus(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося оновити замовлення");
+    res.status(400).send("???� ?????�?�?????? ???????????,?? ?�?�???????�?�??????");
 
   }
 
@@ -1752,13 +1775,13 @@ async function updateOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("Замовлення не знайдено");
+      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
 
     }
 
     if (order.customerId !== req.user.id || order.status !== "CREATED") {
 
-      return res.status(400).send("Неможливо редагувати");
+      return res.status(400).send("???�?????�?�?????? ???�???�???????�?,??");
 
     }
 
@@ -1854,7 +1877,7 @@ async function updateOrder(req, res) {
 
 
 
-    // Нормалізації для спеціальних типів
+    // ?????????�?�?-?�?�???-?- ???�?? ?????�???-?�?�???????. ?,?????-??
 
     const normalizeNumber = (v) => {
 
@@ -2067,7 +2090,7 @@ async function updateOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Не вдалося оновити замовлення");
+    res.status(400).send("???� ?????�?�?????? ???????????,?? ?�?�???????�?�??????");
 
   }
 
@@ -2085,13 +2108,13 @@ async function deleteOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("Замовлення не знайдено");
+      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
 
     }
 
     if (order.customerId !== req.user.id || order.status !== "CREATED") {
 
-      return res.status(400).send("Неможливо видалити");
+      return res.status(400).send("???�?????�?�?????? ???????�?�???,??");
 
     }
 
@@ -2103,7 +2126,7 @@ async function deleteOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("Помилка видалення");
+    res.status(400).send("?????????�???� ???????�?�?�??????");
 
   }
 
@@ -2111,7 +2134,7 @@ async function deleteOrder(req, res) {
 
 
 
-// ── OrderResponse (new response flow) ──
+// ?"??"? OrderResponse (new response flow) ?"??"?
 
 const OrderResponse = require("../models/orderResponse");
 const { ResponseStatus, ArrivalEta } = require("../models/orderResponse");
@@ -2125,12 +2148,122 @@ const ACTIVE_RESPONSE_STATUSES = [
   ResponseStatus.CALL_MADE,
   ResponseStatus.PENDING_CONFIRM,
   ResponseStatus.DISCUSSING,
+  ResponseStatus.COUNTER_OFFERED,
 ];
 
 function normalizeOfferNumber(value) {
   if (value === null || value === undefined) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function resolveResponseFinalPrice(order, response) {
+  if (!order || !response) return null;
+  if (order.isIntraCity) {
+    const total = roundPriceValue(response.offerTotal);
+    return total && total > 0 ? total : null;
+  }
+  const offered = roundPriceValue(response.finalPriceOffer);
+  return offered && offered > 0 ? offered : null;
+}
+
+async function rejectOtherResponses(orderId, selectedResponseId) {
+  const { Op } = require("sequelize");
+  await OrderResponse.update(
+    { status: ResponseStatus.REJECTED },
+    {
+      where: {
+        orderId,
+        id: { [Op.ne]: selectedResponseId },
+        status: { [Op.in]: ACTIVE_RESPONSE_STATUSES },
+      },
+    }
+  );
+}
+
+async function notifyRejectedResponseDrivers(orderId, selectedResponseId, order) {
+  const rejectedResponses = await OrderResponse.findAll({
+    where: {
+      orderId,
+      status: ResponseStatus.REJECTED,
+      id: { [require("sequelize").Op.ne]: selectedResponseId },
+    },
+  });
+
+  for (const rr of rejectedResponses) {
+    const rejDriver = await User.findByPk(rr.driverId);
+    if (rejDriver?.pushToken && rejDriver.pushConsent) {
+      sendPush(
+        rejDriver.pushToken,
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043e\u0431\u0440\u0430\u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
+        { orderId: order.id }
+      );
+    }
+  }
+}
+
+async function finalizeOrderFromResponse({
+  order,
+  response,
+  actingUserRole,
+  actingUserId,
+  acceptedPushTitle = "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
+  acceptedPushBody = null,
+}) {
+  const finalPrice = resolveResponseFinalPrice(order, response);
+  if (!finalPrice || finalPrice <= 0) {
+    return { error: "\u041d\u0435\u043c\u0430\u0454 \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u043e\u0457 \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u043e\u0457 \u0446\u0456\u043d\u0438 \u0434\u043b\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f" };
+  }
+
+  response.status = ResponseStatus.CONFIRMED;
+  response.confirmedAt = new Date();
+  response.expiresAt = null;
+  response.customerCounterPrice = null;
+  await response.save();
+
+  const previousOrderPrice = roundPriceValue(order.price);
+  order.price = finalPrice;
+  order.finalPrice = finalPrice;
+  appendPriceHistory(order, previousOrderPrice, finalPrice, "price", actingUserRole, actingUserId);
+
+  order.driverId = response.driverId;
+  order.status = "ACCEPTED";
+  order.candidateDriverId = null;
+  order.candidateUntil = null;
+  order.reservedBy = null;
+  order.reservedUntil = null;
+  order.history = [
+    ...(order.history || []),
+    { status: "ACCEPTED", at: new Date(), changedByRole: actingUserRole, changedById: actingUserId },
+  ];
+  await order.save();
+
+  await rejectOtherResponses(order.id, response.id);
+
+  const driver = await User.findByPk(response.driverId);
+  if (driver?.pushToken && driver.pushConsent) {
+    sendPush(
+      driver.pushToken,
+      acceptedPushTitle,
+      acceptedPushBody || ("\u0412\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + ". \u041a\u043e\u043d\u0442\u0430\u043a\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u0432\u0436\u0435 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456."),
+      { orderId: order.id, navigateTo: "orderDetail" }
+    );
+  }
+
+  await notifyRejectedResponseDrivers(order.id, response.id, order);
+
+  const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
+  await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+
+  const updated = await Order.findByPk(order.id, {
+    include: [
+      { model: User, as: "customer" },
+      { model: User, as: "driver" },
+    ],
+  });
+  broadcastOrder(updated);
+  return { updated };
 }
 
 function canShareCustomerContacts(order, response) {
@@ -2166,7 +2299,7 @@ async function respondToOrder(req, res) {
       include: { model: User, as: "customer" },
     });
     if (!order || order.status !== "CREATED") {
-      return res.status(400).send("Замовлення недоступне");
+      return res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
     }
 
     const activeCount = await OrderResponse.count({
@@ -2176,14 +2309,14 @@ async function respondToOrder(req, res) {
       },
     });
     if (activeCount >= MAX_ACTIVE_RESPONSES) {
-      return res.status(400).send("Ліміт активних відгуків (MAX). Завершіть поточні обговорення.");
+      return res.status(400).send("?>?-???-?, ?�???,?????????. ???-?????????-?? (MAX). ?-?�???�?????-?,?? ?????,???????- ???�???????????�??????.");
     }
 
     const existing = await OrderResponse.findOne({
       where: { orderId, driverId: req.user.id, status: { [require("sequelize").Op.notIn]: ["DECLINED", "REJECTED", "EXPIRED"] } },
     });
     if (existing) {
-      return res.status(400).send("Ви вже відгукнулися на це замовлення");
+      return res.status(400).send("?'?? ???�?� ???-?????????????�?????? ???� ???� ?�?�???????�?�??????");
     }
 
     const isIntraCity = Boolean(order.isIntraCity);
@@ -2198,30 +2331,39 @@ async function respondToOrder(req, res) {
       arrivalEta = req.body?.arrivalEta;
 
       if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
-        return res.status(400).send("Р’РєР°Р¶С–С‚СЊ РєРѕСЂРµРєС‚РЅСѓ СЃС‚Р°РІРєСѓ Р·Р° РіРѕРґРёРЅСѓ");
+        return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0443 \u0441\u0442\u0430\u0432\u043a\u0443 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443");
       }
       if (!Number.isFinite(minHours) || minHours <= 0) {
-        return res.status(400).send("Р’РєР°Р¶С–С‚СЊ РєРѕСЂРµРєС‚РЅРёР№ РјС–РЅС–РјСѓРј РіРѕРґРёРЅ");
+        return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u043c\u0456\u043d\u0456\u043c\u0443\u043c \u0433\u043e\u0434\u0438\u043d");
       }
       if (!OFFER_ETA_VALUES.has(arrivalEta)) {
-        return res.status(400).send("РћР±РµСЂС–С‚СЊ С‡Р°СЃ РїСЂРёР±СѓС‚С‚СЏ");
+        return res.status(400).send("\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u0447\u0430\u0441 \u043f\u0440\u0438\u0431\u0443\u0442\u0442\u044f");
       }
 
       hourlyRate = roundPriceValue(hourlyRate);
       minHours = roundPriceValue(minHours);
       offerTotal = roundPriceValue(hourlyRate * minHours);
       if (!offerTotal || offerTotal <= 0) {
-        return res.status(400).send("РќРµРІР°Р»С–РґРЅР° СЃСѓРјР° РїСЂРѕРїРѕР·РёС†С–С—");
+        return res.status(400).send("\u041d\u0435\u0432\u0430\u043b\u0456\u0434\u043d\u0430 \u0441\u0443\u043c\u0430 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457");
       }
     }
-
-    if (!isIntraCity && req.body && req.body.finalPrice != null && order.agreedPrice) {
-      const normalized = roundPriceValue(req.body.finalPrice);
-      if (normalized !== null) {
-        appendPriceHistory(order, order.finalPrice ?? order.price, normalized, "finalPrice", "DRIVER", req.user.id);
-        order.finalPrice = normalized;
-        await order.save();
+    let finalPriceOffer = null;
+    if (isIntraCity) {
+      finalPriceOffer = null;
+    } else {
+      const rawFinalPrice = req.body?.finalPrice;
+      const hasExplicitFinalPrice =
+        rawFinalPrice !== undefined &&
+        rawFinalPrice !== null &&
+        String(rawFinalPrice).trim() !== "";
+      if (!hasExplicitFinalPrice) {
+        return res.status(400).send("??????? ???????? ???????? ????");
       }
+      const normalized = roundPriceValue(rawFinalPrice);
+      if (!normalized || normalized <= 0) {
+        return res.status(400).send("??????? ???????? ???????? ????");
+      }
+      finalPriceOffer = normalized;
     }
 
     const isImmediate = isIntraCity || (req.body && req.body.immediateConfirm === true);
@@ -2237,22 +2379,23 @@ async function respondToOrder(req, res) {
       minHours,
       arrivalEta,
       offerTotal,
+      finalPriceOffer,
     });
 
     if (order.customer && order.customer.pushToken && order.customer.pushConsent) {
       const { sendPush } = require("../utils/push");
       const driverUser = await User.findByPk(req.user.id);
       const pushTitle = isImmediate
-        ? "Водій готовий виконати замовлення"
-        : "Новий відгук на замовлення";
+        ? "\u0412\u043e\u0434\u0456\u0439 \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f"
+        : "\u041d\u043e\u0432\u0438\u0439 \u0432\u0456\u0434\u0433\u0443\u043a \u043d\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f";
       const pushBody = isImmediate
-        ? `Водій ${driverUser?.name || ""} хоче підтвердити замовлення №${order.id}`
-        : `Водій ${driverUser?.name || ""} зацікавлений у замовленні №${order.id}`;
+        ? `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0445\u043e\u0447\u0435 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`
+        : `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0437\u0430\u0446\u0456\u043a\u0430\u0432\u043b\u0435\u043d\u0438\u0439 \u0443 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u0456 \u2116${order.id}`;
       sendPush(
         order.customer.pushToken,
-        isIntraCity ? "Нова пропозиція від водія" : pushTitle,
+        isIntraCity ? "\u041d\u043e\u0432\u0430 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044f \u0432\u0456\u0434 \u0432\u043e\u0434\u0456\u044f" : pushTitle,
         isIntraCity
-          ? `Водій ${driverUser?.name || ""} надіслав пропозицію на замовлення №${order.id}`
+          ? `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0432 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e \u043d\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`
           : pushBody,
         { orderId: order.id, navigateTo: "orderDetail" }
       );
@@ -2267,7 +2410,7 @@ async function respondToOrder(req, res) {
     });
   } catch (err) {
     console.error("respondToOrder error:", err);
-    res.status(400).send("Не вдалося відгукнутися");
+    res.status(400).send("???� ?????�?�?????? ???-?????????????,??????");
   }
 }
 
@@ -2280,8 +2423,9 @@ async function getMyResponse(req, res) {
         driverId: req.user.id,
         status: { [require("sequelize").Op.notIn]: ["DECLINED", "REJECTED", "EXPIRED"] },
       },
+      order: [["updatedAt", "DESC"], ["id", "DESC"]],
     });
-    if (!response) return res.status(404).send("Немає відгуку");
+    if (!response) return res.status(404).send("\u041d\u0435\u043c\u0430\u0454 \u0432\u0456\u0434\u0433\u0443\u043a\u0443");
 
     const order = await Order.findByPk(orderId, {
       include: { model: User, as: "customer" },
@@ -2293,7 +2437,7 @@ async function getMyResponse(req, res) {
       customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
-    res.status(400).send("Помилка");
+    res.status(400).send("?????????�???�");
   }
 }
 
@@ -2302,16 +2446,16 @@ async function responseCallMade(req, res) {
   try {
     const orderPrimary = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
     let order = orderPrimary;
-    if (!order) return res.status(400).send("Замовлення не знайдено");
-    if (order.isIntraCity) return res.status(400).send("Для міських замовлень дзвінок не потрібен");
+    if (!order) return res.status(400).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+    if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0434\u0437\u0432\u0456\u043d\u043e\u043a \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
 
     order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
-    if (!order) return res.status(400).send("Замовлення не знайдено");
-    if (order.isIntraCity) return res.status(400).send("Для міських замовлень етап дзвінка не потрібен");
+    if (!order) return res.status(400).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+    if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0435\u0442\u0430\u043f \u0434\u0437\u0432\u0456\u043d\u043a\u0430 \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("Відгук не знайдено");
+      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
     }
     response.status = ResponseStatus.CALL_MADE;
     response.callMadeAt = new Date();
@@ -2323,7 +2467,7 @@ async function responseCallMade(req, res) {
       customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
-    res.status(400).send("Помилка");
+    res.status(400).send("?????????�???�");
   }
 }
 
@@ -2332,12 +2476,12 @@ async function responseResult(req, res) {
   const { result } = req.body;
   try {
     const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
-    if (!order) return res.status(400).send("Р—Р°РјРѕРІР»РµРЅРЅСЏ РЅРµ Р·РЅР°Р№РґРµРЅРѕ");
-    if (order.isIntraCity) return res.status(400).send("Р”Р»СЏ РјС–СЃСЊРєРёС… Р·Р°РјРѕРІР»РµРЅСЊ РµС‚Р°Рї РґР·РІС–РЅРєР° РЅРµ РїРѕС‚СЂС–Р±РµРЅ");
+    if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
+    if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0435\u0442\u0430\u043f \u0434\u0437\u0432\u0456\u043d\u043a\u0430 \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("Відгук не знайдено");
+      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
     }
 
     if (result === "agreed") {
@@ -2351,8 +2495,8 @@ async function responseResult(req, res) {
         const driverUser = await User.findByPk(req.user.id);
         sendPush(
           order.customer.pushToken,
-          "Водій готовий виконати замовлення",
-          `Водій ${driverUser?.name || ""} готовий виконати замовлення №${order.id}. Підтвердіть.`,
+          "\u0412\u043e\u0434\u0456\u0439 \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f",
+          `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}. \u041f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0456\u0442\u044c.`,
           { orderId: order.id, navigateTo: "orderDetail" }
         );
       }
@@ -2366,7 +2510,7 @@ async function responseResult(req, res) {
       response.resultSubmittedAt = new Date();
       await response.save();
     } else {
-      return res.status(400).send("Невідомий результат");
+      return res.status(400).send("???�???-?????????? ???�?�???�???,?�?,");
     }
 
     broadcastOrder(order);
@@ -2377,7 +2521,7 @@ async function responseResult(req, res) {
     });
   } catch (err) {
     console.error("responseResult error:", err);
-    res.status(400).send("Помилка");
+    res.status(400).send("?????????�???�");
   }
 }
 
@@ -2386,15 +2530,15 @@ async function responseConfirm(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.status !== ResponseStatus.PENDING_CONFIRM) {
-      return res.status(400).send("Неможливо підтвердити");
+      return res.status(400).send("???�?????�?�?????? ???-???,???�???????,??");
     }
 
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("Немає прав");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
     }
     if (order.status !== "CREATED") {
-      return res.status(400).send("Замовлення вже зайняте");
+      return res.status(400).send("?-?�???????�?�?????? ???�?� ?�?�???????,?�");
     }
 
     response.status = ResponseStatus.CONFIRMED;
@@ -2406,7 +2550,7 @@ async function responseConfirm(req, res) {
     if (order.isIntraCity) {
       const total = roundPriceValue(response.offerTotal);
       if (!total || total <= 0) {
-        return res.status(400).send("Немає коректної пропозиції для підтвердження");
+        return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u043e\u0457 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457 \u0434\u043b\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f");
       }
       order.price = total;
       order.finalPrice = total;
@@ -2415,7 +2559,7 @@ async function responseConfirm(req, res) {
 
     order.driverId = response.driverId;
     order.status = "ACCEPTED";
-    order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date() }];
+    order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date(), changedByRole: req.user?.role, changedById: req.user?.id }];
     await order.save();
 
     const { Op } = require("sequelize");
@@ -2435,8 +2579,8 @@ async function responseConfirm(req, res) {
       const { sendPush } = require("../utils/push");
       sendPush(
         driver.pushToken,
-        "Замовник підтвердив!",
-        `Замовлення №${order.id} за вами.`,
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432!",
+        `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id} \u0437\u0430 \u0432\u0430\u043c\u0438.`,
         { orderId: order.id, navigateTo: "orderDetail" }
       );
     }
@@ -2448,7 +2592,7 @@ async function responseConfirm(req, res) {
       const rejDriver = await User.findByPk(rr.driverId);
       if (rejDriver?.pushToken && rejDriver.pushConsent) {
         const { sendPush } = require("../utils/push");
-        sendPush(rejDriver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
+        sendPush(rejDriver.pushToken, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043e\u0431\u0440\u0430\u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
       }
     }
 
@@ -2465,7 +2609,7 @@ async function responseConfirm(req, res) {
     res.json(updated);
   } catch (err) {
     console.error("responseConfirm error:", err);
-    res.status(400).send("Помилка підтвердження");
+    res.status(400).send("?????????�???� ???-???,???�?????�?�??????");
   }
 }
 
@@ -2473,87 +2617,169 @@ async function responseConfirmCityAware(req, res) {
   const { id: orderId, responseId } = req.params;
   try {
     const response = await OrderResponse.findByPk(responseId);
-    if (!response || response.orderId !== parseInt(orderId) || response.status !== ResponseStatus.PENDING_CONFIRM) {
-      return res.status(400).send("Неможливо підтвердити");
+    if (!response || response.orderId !== parseInt(orderId) || !ACTIVE_RESPONSE_STATUSES.includes(response.status)) {
+      return res.status(400).send("????????? ??????????? ?? ??????????");
     }
 
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("Немає прав");
+      return res.status(400).send("????? ???????");
     }
     if (order.status !== "CREATED") {
-      return res.status(400).send("Замовлення вже зайняте");
+      return res.status(400).send("?????????? ??? ???????");
     }
 
-    response.status = ResponseStatus.CONFIRMED;
-    response.confirmedAt = new Date();
-    response.expiresAt = null;
+    const result = await finalizeOrderFromResponse({
+      order,
+      response,
+      actingUserRole: "CUSTOMER",
+      actingUserId: req.user.id,
+      acceptedPushTitle: "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
+      acceptedPushBody: "\u0412\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + ". \u041a\u043e\u043d\u0442\u0430\u043a\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u0432\u0436\u0435 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456.",
+    });
+
+    if (result.error) {
+      return res.status(400).send(result.error);
+    }
+
+    return res.json(result.updated);
+  } catch (err) {
+    console.error("responseConfirm error:", err);
+    return res.status(400).send("?? ??????? ???????????");
+  }
+}
+
+async function customerCounterOffer(req, res) {
+  const { id: orderId, responseId } = req.params;
+  const normalized = roundPriceValue(req.body?.finalPrice);
+  if (!normalized || normalized <= 0) {
+    return res.status(400).send("??????? ???????? ???????? ????");
+  }
+
+  try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.customerId !== req.user.id) {
+      return res.status(400).send("????? ???????");
+    }
+    if (order.status !== "CREATED") {
+      return res.status(400).send("?????????? ?????? ??????????");
+    }
+    if (order.isIntraCity) {
+      return res.status(400).send("??????????????? ???????? ???? ??? ?????????? ?????????");
+    }
+
+    const response = await OrderResponse.findByPk(responseId);
+    if (!response || response.orderId !== parseInt(orderId) || !ACTIVE_RESPONSE_STATUSES.includes(response.status)) {
+      return res.status(400).send("??? ???? ?????????? ??????????????? ??????????");
+    }
+
+    const previousOffer = roundPriceValue(response.finalPriceOffer ?? order.finalPrice ?? order.price);
+    response.status = ResponseStatus.COUNTER_OFFERED;
+    response.customerCounterPrice = normalized;
+    response.expiresAt = new Date(Date.now() + DISCUSSING_TIMEOUT_MS);
+    response.resultSubmittedAt = new Date();
     await response.save();
 
-    const previousOrderPrice = roundPriceValue(order.price);
-    if (order.isIntraCity) {
-      const total = roundPriceValue(response.offerTotal);
-      if (!total || total <= 0) {
-        return res.status(400).send("Немає коректної пропозиції для підтвердження");
-      }
-      order.price = total;
-      order.finalPrice = total;
-      appendPriceHistory(order, previousOrderPrice, total, "price", "CUSTOMER", req.user.id);
-    }
-
-    order.driverId = response.driverId;
-    order.status = "ACCEPTED";
-    order.history = [...(order.history || []), { status: "ACCEPTED", at: new Date() }];
+    appendPriceHistory(order, previousOffer, normalized, "finalPrice", "CUSTOMER", req.user.id);
     await order.save();
-
-    const { Op } = require("sequelize");
-    await OrderResponse.update(
-      { status: ResponseStatus.REJECTED },
-      {
-        where: {
-          orderId,
-          id: { [Op.ne]: response.id },
-          status: { [Op.in]: ACTIVE_RESPONSE_STATUSES },
-        },
-      }
-    );
 
     const driver = await User.findByPk(response.driverId);
     if (driver?.pushToken && driver.pushConsent) {
-      const { sendPush } = require("../utils/push");
       sendPush(
         driver.pushToken,
-        "Замовлення підтверджено",
-        `Ви отримали замовлення №${order.id}. Контакти замовника вже доступні.`,
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
         { orderId: order.id, navigateTo: "orderDetail" }
       );
     }
 
-    const rejectedResponses = await OrderResponse.findAll({
-      where: { orderId, status: ResponseStatus.REJECTED, id: { [require("sequelize").Op.ne]: response.id } },
-    });
-    for (const rr of rejectedResponses) {
-      const rejDriver = await User.findByPk(rr.driverId);
-      if (rejDriver?.pushToken && rejDriver.pushConsent) {
-        const { sendPush } = require("../utils/push");
-        sendPush(rejDriver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
-      }
+    broadcastOrder(order);
+    return res.json(response);
+  } catch (err) {
+    console.error("customerCounterOffer error:", err);
+    return res.status(400).send("?? ??????? ????????? ???????????????");
+  }
+}
+
+async function responseCounterDecision(req, res) {
+  const { id: orderId, responseId } = req.params;
+  const decision = String(req.body?.decision || "").toLowerCase();
+  if (!["accept", "reject"].includes(decision)) {
+    return res.status(400).send("?????????? ???????");
+  }
+
+  try {
+    const response = await OrderResponse.findByPk(responseId);
+    if (
+      !response ||
+      response.orderId !== parseInt(orderId) ||
+      response.driverId !== req.user.id ||
+      response.status !== ResponseStatus.COUNTER_OFFERED
+    ) {
+      return res.status(400).send("????? ???????? ??????????????? ??? ???? ??????????");
     }
 
-    const serviceFee = (order.price * SERVICE_FEE_PERCENT) / 100;
-    await Transaction.create({ orderId: order.id, driverId: order.driverId, amount: order.price, serviceFee });
+    const order = await Order.findByPk(orderId, { include: [{ model: User, as: "customer" }] });
+    if (!order || order.status !== "CREATED") {
+      return res.status(400).send("?????????? ?????? ??????????");
+    }
+    if (order.isIntraCity) {
+      return res.status(400).send("??????????????? ???????? ???? ??? ?????????? ?????????");
+    }
 
-    const updated = await Order.findByPk(orderId, {
-      include: [
-        { model: User, as: "customer" },
-        { model: User, as: "driver" },
-      ],
+    if (decision === "reject") {
+      response.status = ResponseStatus.DECLINED;
+      response.resultSubmittedAt = new Date();
+      response.expiresAt = null;
+      response.customerCounterPrice = null;
+      await response.save();
+
+      if (order.customer?.pushToken && order.customer.pushConsent) {
+        sendPush(
+          order.customer.pushToken,
+          "\u0412\u043e\u0434\u0456\u0439 \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e",
+          "\u0412\u043e\u0434\u0456\u0439 \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e \u0434\u043b\u044f \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
+          { orderId: order.id, navigateTo: "orderDetail" }
+        );
+      }
+
+      broadcastOrder(order);
+      return res.json(response);
+    }
+
+    const counterPrice = roundPriceValue(response.customerCounterPrice);
+    if (!counterPrice || counterPrice <= 0) {
+      return res.status(400).send("?????????? ???? ???????????????");
+    }
+
+    response.finalPriceOffer = counterPrice;
+
+    const result = await finalizeOrderFromResponse({
+      order,
+      response,
+      actingUserRole: "DRIVER",
+      actingUserId: req.user.id,
+      acceptedPushTitle: "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
+      acceptedPushBody: "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + " \u0437\u0430\u043a\u0440\u0456\u043f\u043b\u0435\u043d\u043e \u0437\u0430 \u0432\u0430\u043c\u0438.",
     });
-    broadcastOrder(updated);
-    res.json(updated);
+
+    if (result.error) {
+      return res.status(400).send(result.error);
+    }
+
+    if (order.customer?.pushToken && order.customer.pushConsent) {
+      sendPush(
+        order.customer.pushToken,
+        "\u0412\u043e\u0434\u0456\u0439 \u043f\u043e\u0433\u043e\u0434\u0438\u0432\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0443 \u0446\u0456\u043d\u0443",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + " \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e \u0437\u0430 \u0446\u0456\u043d\u043e\u044e " + counterPrice + " \u0433\u0440\u043d.",
+        { orderId: order.id, navigateTo: "orderDetail" }
+      );
+    }
+
+    return res.json(result.updated);
   } catch (err) {
-    console.error("responseConfirm error:", err);
-    res.status(400).send("Помилка підтвердження");
+    console.error("responseCounterDecision error:", err);
+    return res.status(400).send("?? ??????? ???????? ??????? ?? ???????????????");
   }
 }
 
@@ -2562,11 +2788,11 @@ async function responseReject(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId)) {
-      return res.status(400).send("Відгук не знайдено");
+      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
     }
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("Немає прав");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
     }
 
     response.status = ResponseStatus.REJECTED;
@@ -2575,13 +2801,13 @@ async function responseReject(req, res) {
     const driver = await User.findByPk(response.driverId);
     if (driver?.pushToken && driver.pushConsent) {
       const { sendPush } = require("../utils/push");
-      sendPush(driver.pushToken, "Замовник обрав іншого водія", `Замовлення №${order.id}`, { orderId: order.id });
+      sendPush(driver.pushToken, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
     }
 
     broadcastOrder(order);
     res.json(response);
   } catch (err) {
-    res.status(400).send("Помилка відхилення");
+    res.status(400).send("?????????�???� ???-???.???�?�??????");
   }
 }
 
@@ -2590,13 +2816,13 @@ async function responseWithdraw(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("Відгук не знайдено");
+      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
     }
     response.status = ResponseStatus.DECLINED;
     await response.save();
-    res.json({ message: "Відгук відкликано" });
+    res.json({ message: "?'?-???????? ???-?????�?????�????" });
   } catch (err) {
-    res.status(400).send("Помилка");
+    res.status(400).send("?????????�???�");
   }
 }
 
@@ -2605,7 +2831,7 @@ async function getOrderResponses(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("Немає прав");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
     }
     const responses = await OrderResponse.findAll({
       where: { orderId },
@@ -2620,7 +2846,7 @@ async function getOrderResponses(req, res) {
     }));
     res.json(result);
   } catch (err) {
-    res.status(400).send("Помилка");
+    res.status(400).send("?????????�???�");
   }
 }
 
@@ -2643,6 +2869,8 @@ module.exports = {
   responseCallMade,
   responseResult,
   responseConfirm: responseConfirmCityAware,
+  customerCounterOffer,
+  responseCounterDecision,
   responseReject,
   responseWithdraw,
   getOrderResponses,

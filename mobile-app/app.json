@@ -2,7 +2,7 @@
   "expo": {
     "name": "mobile",
     "slug": "mobile",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
@@ -38,7 +38,8 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
-      "versionCode": 9,
+      "versionCode": 10,
+      "defaultChannel": "orders_v2",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs"
@@ -68,7 +69,14 @@
     "owner": "pashagr",
     "plugins": [
       "@react-native-community/datetimepicker",
-       ["expo-notifications", { "sounds": ["./assets/sounds/miraclei-sample_input_typing01_kofi_by_miraclei-363634.mp3"] }]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2A8F57",
+          "sounds": ["./assets/sounds/notification_sound.mp3"]
+        }
+      ]
     ]
   }
 }

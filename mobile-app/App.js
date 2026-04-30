@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -29,14 +29,47 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingLogoWrap: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingLogo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  loadingSpinnerWrap: {
+    position: 'absolute',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+});
 
 function RootNavigator() {
   const { token, role, needsProfileSetup, loading } = useAuth();
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" />
+      <View style={styles.loadingContainer}>
+        <View style={styles.loadingLogoWrap}>
+          <Image source={require('./assets/Frame1.png')} style={styles.loadingLogo} />
+          <View style={styles.loadingSpinnerWrap}>
+            <ActivityIndicator size="small" color="#2A8F57" />
+          </View>
+        </View>
       </View>
     );
   }

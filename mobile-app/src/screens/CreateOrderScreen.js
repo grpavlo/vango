@@ -34,6 +34,21 @@ function normalizeCityName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function parseLocaleNumber(value) {
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(",", ".");
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function normalizeNumericForApi(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.replace(/\s+/g, "").replace(",", ".");
+}
+
 function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCityName(pickupCity);
   const dropoff = normalizeCityName(dropoffCity);
@@ -138,9 +153,9 @@ export default function CreateOrderScreen({ navigation }) {
   }, [pickup, dropoff]);
 
   useEffect(() => {
-    const l = parseFloat(cargoLength) || 0;
-    const w = parseFloat(cargoWidth) || 0;
-    const h = parseFloat(cargoHeight) || 0;
+    const l = parseLocaleNumber(cargoLength);
+    const w = parseLocaleNumber(cargoWidth);
+    const h = parseLocaleNumber(cargoHeight);
     const volume = l * w * h;
     setCargoVolume(volume > 0 ? volume.toFixed(2) : "0");
   }, [cargoLength, cargoWidth, cargoHeight]);
@@ -214,11 +229,16 @@ export default function CreateOrderScreen({ navigation }) {
       }
 
       fd.append("cargoType", description);
-      if (cargoLength) fd.append("cargoLength", cargoLength);
-      if (cargoWidth) fd.append("cargoWidth", cargoWidth);
-      if (cargoHeight) fd.append("cargoHeight", cargoHeight);
-      if (cargoWeight) fd.append("cargoWeight", cargoWeight);
-      if (parseFloat(cargoVolume) > 0) fd.append("cargoVolume", cargoVolume);
+      if (cargoLength)
+        fd.append("cargoLength", normalizeNumericForApi(cargoLength));
+      if (cargoWidth)
+        fd.append("cargoWidth", normalizeNumericForApi(cargoWidth));
+      if (cargoHeight)
+        fd.append("cargoHeight", normalizeNumericForApi(cargoHeight));
+      if (cargoWeight)
+        fd.append("cargoWeight", normalizeNumericForApi(cargoWeight));
+      if (parseLocaleNumber(cargoVolume) > 0)
+        fd.append("cargoVolume", normalizeNumericForApi(cargoVolume));
       if (distance !== null) fd.append("distance", String(distance));
 
       fd.append("loadFrom", schedule.loadFrom.toISOString());
@@ -494,7 +514,7 @@ export default function CreateOrderScreen({ navigation }) {
 
           <View style={styles.section}>
             <Ionicons name="cube" size={20} color={colors.green} />
-            <AppText style={styles.label}>Габарити (Д x Ш x В, м)</AppText>
+            <AppText style={styles.label}>Габарити (Д x Ш x В, метри)</AppText>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <AppInput
@@ -519,7 +539,7 @@ export default function CreateOrderScreen({ navigation }) {
               placeholder="В"
             />
           </View>
-          {parseFloat(cargoVolume) > 0 && (
+          {parseLocaleNumber(cargoVolume) > 0 && (
             <AppText style={{ marginTop: 4, color: "#6B7280" }}>
               Об'єм: {cargoVolume} м3
             </AppText>
