@@ -39,6 +39,7 @@
     },
     "android": {
       "versionCode": 10,
+      "usesCleartextTraffic": true,
       "defaultChannel": "orders_v2",
       "config": {
         "googleMaps": {

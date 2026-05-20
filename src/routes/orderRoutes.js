@@ -58,7 +58,7 @@ router.get('/:id/respond/mine', authenticate, authorize([UserRole.DRIVER]), getM
 router.post('/:id/respond/:responseId/call-made', authenticate, authorize([UserRole.DRIVER]), responseCallMade);
 router.post('/:id/respond/:responseId/result', authenticate, authorize([UserRole.DRIVER]), responseResult);
 router.post('/:id/respond/:responseId/confirm', authenticate, authorize([UserRole.CUSTOMER]), responseConfirm);
-router.post('/:id/respond/:responseId/counter', authenticate, authorize([UserRole.CUSTOMER]), customerCounterOffer);
+router.post('/:id/respond/:responseId/counter', authenticate, authorize([UserRole.CUSTOMER, UserRole.DRIVER]), customerCounterOffer);
 router.post('/:id/respond/:responseId/counter-decision', authenticate, authorize([UserRole.DRIVER]), responseCounterDecision);
 router.post('/:id/respond/:responseId/reject', authenticate, authorize([UserRole.CUSTOMER]), responseReject);
 router.delete('/:id/respond/:responseId', authenticate, authorize([UserRole.DRIVER]), responseWithdraw);

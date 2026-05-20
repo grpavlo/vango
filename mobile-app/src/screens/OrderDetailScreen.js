@@ -877,7 +877,13 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   function openCounterOfferModal(response) {
-    const initial = response?.finalPriceOffer ? String(Math.round(Number(response.finalPriceOffer))) : '';
+    const baseValue = Number(response?.customerCounterPrice);
+    const fallbackValue = Number(response?.finalPriceOffer);
+    const initial = Number.isFinite(baseValue) && baseValue > 0
+      ? String(Math.round(baseValue))
+      : Number.isFinite(fallbackValue) && fallbackValue > 0
+      ? String(Math.round(fallbackValue))
+      : '';
     setCounterOfferResponse(response || null);
     setCounterOfferValue(initial);
     setCounterOfferModalVisible(true);
@@ -900,7 +906,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       setCounterOfferLoading(true);
       await submitCounterOffer(order.id, counterOfferResponse.id, token, String(Math.round(value)));
       closeCounterOfferModal();
-      await loadResponses();
+      await refreshOrderState();
     } catch (err) {
       Alert.alert('Помилка', err?.message || 'Не вдалося надіслати контрпропозицію');
     } finally {
@@ -1384,6 +1390,16 @@ export default function OrderDetailScreen({ route, navigation }) {
                 style={styles.smallBtn}
               />
             </View>
+          );
+          buttons.push(
+            <AppButton
+              key="counter-offer-propose"
+              title="Запропонувати свою ціну"
+              onPress={() => openCounterOfferModal(myResponse)}
+              color="transparent"
+              style={{ height: 44, borderWidth: 1, borderColor: colors.green, marginTop: 8 }}
+              textStyle={{ color: colors.green, fontSize: 15 }}
+            />
           );
           return buttons;
         }

@@ -2653,51 +2653,89 @@ async function customerCounterOffer(req, res) {
   const { id: orderId, responseId } = req.params;
   const normalized = roundPriceValue(req.body?.finalPrice);
   if (!normalized || normalized <= 0) {
-    return res.status(400).send("??????? ???????? ???????? ????");
+    return res.status(400).send("Invalid final price");
   }
 
   try {
     const order = await Order.findByPk(orderId);
-    if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("????? ???????");
-    }
+    if (!order) return res.status(400).send("Order not found");
     if (order.status !== "CREATED") {
-      return res.status(400).send("?????????? ?????? ??????????");
+      return res.status(400).send("Order is not in CREATED state");
     }
     if (order.isIntraCity) {
-      return res.status(400).send("??????????????? ???????? ???? ??? ?????????? ?????????");
+      return res.status(400).send("Counter offer is unavailable for intra-city orders");
     }
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || !ACTIVE_RESPONSE_STATUSES.includes(response.status)) {
-      return res.status(400).send("??? ???? ?????????? ??????????????? ??????????");
+      return res.status(400).send("Response is not available for counter offer");
     }
 
-    const previousOffer = roundPriceValue(response.finalPriceOffer ?? order.finalPrice ?? order.price);
-    response.status = ResponseStatus.COUNTER_OFFERED;
-    response.customerCounterPrice = normalized;
-    response.expiresAt = new Date(Date.now() + DISCUSSING_TIMEOUT_MS);
-    response.resultSubmittedAt = new Date();
-    await response.save();
+    if (req.user.role === "CUSTOMER") {
+      if (order.customerId !== req.user.id) {
+        return res.status(400).send("No access");
+      }
 
-    appendPriceHistory(order, previousOffer, normalized, "finalPrice", "CUSTOMER", req.user.id);
-    await order.save();
+      const previousOffer = roundPriceValue(response.finalPriceOffer ?? order.finalPrice ?? order.price);
+      response.status = ResponseStatus.COUNTER_OFFERED;
+      response.customerCounterPrice = normalized;
+      response.expiresAt = new Date(Date.now() + DISCUSSING_TIMEOUT_MS);
+      response.resultSubmittedAt = new Date();
+      await response.save();
 
-    const driver = await User.findByPk(response.driverId);
-    if (driver?.pushToken && driver.pushConsent) {
-      sendPush(
-        driver.pushToken,
-        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
-        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
-        { orderId: order.id, navigateTo: "orderDetail" }
+      appendPriceHistory(order, previousOffer, normalized, "finalPrice", "CUSTOMER", req.user.id);
+      await order.save();
+
+      const driver = await User.findByPk(response.driverId);
+      if (driver?.pushToken && driver.pushConsent) {
+        sendPush(
+          driver.pushToken,
+          "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
+          "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
+          { orderId: order.id, navigateTo: "orderDetail" }
+        );
+      }
+
+      broadcastOrder(order);
+      return res.json(response);
+    }
+
+    if (req.user.role === "DRIVER") {
+      if (response.driverId !== req.user.id) {
+        return res.status(400).send("No access");
+      }
+
+      const previousOffer = roundPriceValue(
+        response.customerCounterPrice ?? response.finalPriceOffer ?? order.finalPrice ?? order.price
       );
+      response.status = ResponseStatus.DISCUSSING;
+      response.finalPriceOffer = normalized;
+      response.customerCounterPrice = null;
+      response.expiresAt = new Date(Date.now() + DISCUSSING_TIMEOUT_MS);
+      response.resultSubmittedAt = new Date();
+      await response.save();
+
+      appendPriceHistory(order, previousOffer, normalized, "finalPrice", "DRIVER", req.user.id);
+      await order.save();
+
+      const customer = await User.findByPk(order.customerId);
+      if (customer?.pushToken && customer.pushConsent) {
+        sendPush(
+          customer.pushToken,
+          "\u0412\u043e\u0434\u0456\u0439 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
+          "\u0412\u043e\u0434\u0456\u0439 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
+          { orderId: order.id, navigateTo: "orderDetail" }
+        );
+      }
+
+      broadcastOrder(order);
+      return res.json(response);
     }
 
-    broadcastOrder(order);
-    return res.json(response);
+    return res.status(400).send("No access");
   } catch (err) {
     console.error("customerCounterOffer error:", err);
-    return res.status(400).send("?? ??????? ????????? ???????????????");
+    return res.status(400).send("Failed to send counter offer");
   }
 }
 
