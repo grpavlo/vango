@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>mobile</string>
+    <string>VanGo</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -100,3 +100,4 @@
     <string>AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc</string>
   </dict>
 </plist>
+

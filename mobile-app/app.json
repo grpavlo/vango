@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "VanGo",
     "slug": "mobile",
     "version": "1.0.10",
     "orientation": "portrait",
@@ -81,3 +81,4 @@
     ]
   }
 }
+

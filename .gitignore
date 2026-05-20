@@ -4,6 +4,12 @@ dist
 .envprod
 mobile-app/vango-dev-43727-firebase-adminsdk-fbsvc-3c689e881e.json
 *.firebase-adminsdk-*.json
+
+# Local build caches
+mobile-app/.gradle-home/
+
+# Temporary generated image source
+mobile-app/assets/vango-icon-source.png
 *.service-account*.json
 # Firebase / GCP service account keys
 mobile-app/*firebase-adminsdk-*.json
