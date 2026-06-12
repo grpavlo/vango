@@ -1,5 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config({ path: '.env' });
+
 const path = require('path');
 const http = require('http');
 const db = require('./config/db');
@@ -23,9 +25,6 @@ const { Op } = require('sequelize');
 const PORT = process.env.NODE_ENV === 'production'
     ? Number(process.env.PORT_PROD ?? 3000)
     : Number(process.env.PORT ?? 3000)
-
-
-dotenv.config({ path: '.env' });
 
 const app = express();
 app.use(express.json());

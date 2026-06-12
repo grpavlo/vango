@@ -4,6 +4,13 @@ dist
 .envprod
 mobile-app/vango-dev-43727-firebase-adminsdk-fbsvc-3c689e881e.json
 *.firebase-adminsdk-*.json
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.provisionprofile
+Distribution Certificates/
+mobile-app/credentials.json
 
 # Local build caches
 mobile-app/.gradle-home/

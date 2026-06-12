@@ -2,7 +2,7 @@
   "expo": {
     "name": "VanGo",
     "slug": "mobile",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,25 +11,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "expo": {
-      "updates": {
-        "enabled": false
-      },
-      "assetBundlePatterns": [
-        "**/*"
-      ]
+    "updates": {
+      "enabled": false
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true,
-      "buildNumber": "10",
+      "supportsTablet": false,
+      "buildNumber": "11",
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-        "UIBackgroundModes": [
-          "fetch",
-          "remote-notification"
-        ],
+        "NSLocationWhenInUseUsageDescription": "Доступ до геолокації потрібен, щоб показати ваше місце на карті та підібрати адреси поруч",
+        "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "waze"
@@ -38,7 +33,7 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
-      "versionCode": 10,
+      "versionCode": 11,
       "usesCleartextTraffic": true,
       "defaultChannel": "orders_v2",
       "config": {
@@ -64,10 +59,10 @@
     "extra": {
       "googlePlacesApiKey": "AIzaSyA8Gs9cDcKHTrC83D_GaBVeP2yCfA_Doxs",
       "eas": {
-        "projectId": "13e10178-3db7-42e7-811c-796768a59e41"
+        "projectId": "4e30dc6f-5208-49d8-b7fc-811652df312b"
       }
     },
-    "owner": "pashagr",
+    "owner": "ba-group",
     "plugins": [
       "@react-native-community/datetimepicker",
       [
@@ -75,10 +70,11 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#2A8F57",
-          "sounds": ["./assets/sounds/notification_sound.mp3"]
+          "sounds": [
+            "./assets/sounds/notification_sound.mp3"
+          ]
         }
       ]
     ]
   }
 }
-

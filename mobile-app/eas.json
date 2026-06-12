@@ -14,10 +14,20 @@
     },
     "production": {
       "developmentClient": false,
-      "android": { "buildType": "app-bundle" } 
+      "android": { "buildType": "app-bundle" },
+      "ios": {
+        "credentialsSource": "local",
+        "image": "macos-tahoe-26.4-xcode-26.4"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "../AuthKey_624D79HDDR.p8",
+        "ascApiKeyId": "624D79HDDR",
+        "ascApiKeyIssuerId": "3de95217-9d7c-4f26-a80f-259431493070"
+      }
+    }
   }
 }

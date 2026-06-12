@@ -1,8 +1,29 @@
+import java.util.Properties
+
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def readSigningProperty = { key, envKey ->
+    def value = keystoreProperties.getProperty(key)
+    if (value == null || value.trim().isEmpty()) {
+        value = System.getenv(envKey)
+    }
+    return value?.trim()
+}
+
+def releaseStoreFile = readSigningProperty("storeFile", "ANDROID_UPLOAD_STORE_FILE")
+def releaseStorePassword = readSigningProperty("storePassword", "ANDROID_UPLOAD_STORE_PASSWORD")
+def releaseKeyAlias = readSigningProperty("keyAlias", "ANDROID_UPLOAD_KEY_ALIAS")
+def releaseKeyPassword = readSigningProperty("keyPassword", "ANDROID_UPLOAD_KEY_PASSWORD")
+def hasReleaseSigning = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].every { it }
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -102,15 +123,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -124,6 +153,16 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def isReleaseTask = graph.allTasks.any { task ->
+        def name = task.name.toLowerCase()
+        name.contains("release") || name.contains("bundle")
+    }
+    if (isReleaseTask && !hasReleaseSigning) {
+        throw new GradleException("Missing Android release signing config. Provide android/key.properties or ANDROID_UPLOAD_* environment variables.")
     }
 }
 

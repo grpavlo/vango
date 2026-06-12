@@ -15,7 +15,13 @@
       "autoIncrement": true
     }
   },
-  "submit": {
-    "production": {}
+ "submit": {
+  "production": {
+    "ios": {
+      "ascApiKeyPath": "./AuthKey_624D79HDDR.p8",
+      "ascApiKeyId": "624D79HDDR",
+      "ascApiKeyIssuerId": "3de95217-9d7c-4f26-a80f-259431493070"
+    }
   }
+}
 }
