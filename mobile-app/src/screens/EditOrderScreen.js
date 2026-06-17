@@ -24,6 +24,7 @@ import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
 import { GOOGLE_PLACES_API_KEY } from "../config";
+import { formatPointAddress } from "../addressFormat";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FREE_DATE_TTL_DAYS = 7;
@@ -53,6 +54,17 @@ function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCityName(pickupCity);
   const dropoff = normalizeCityName(dropoffCity);
   return Boolean(pickup && dropoff && pickup === dropoff);
+}
+
+function formatSavedOrderPoint(order, prefix) {
+  const point = {
+    text: order?.[`${prefix}Location`],
+    city: order?.[`${prefix}City`],
+    address: order?.[`${prefix}Address`],
+    country: order?.[`${prefix}Country`],
+    postcode: order?.[`${prefix}Postcode`],
+  };
+  return formatPointAddress(point) || point.text || "";
 }
 
 function buildDefaultSchedule() {
@@ -99,35 +111,33 @@ export default function EditOrderScreen({ route, navigation }) {
   const toast = useToast();
   const { order } = route.params;
   const hasFooter = AppButton.length > 0;
+  const initialPickupPoint = order.pickupLat
+    ? {
+        text: order.pickupLocation,
+        lat: order.pickupLat,
+        lon: order.pickupLon,
+        city: order.pickupCity,
+        address: order.pickupAddress,
+        country: order.pickupCountry,
+        postcode: order.pickupPostcode,
+      }
+    : null;
+  const initialDropoffPoint = order.dropoffLat
+    ? {
+        text: order.dropoffLocation,
+        lat: order.dropoffLat,
+        lon: order.dropoffLon,
+        city: order.dropoffCity,
+        address: order.dropoffAddress,
+        country: order.dropoffCountry,
+        postcode: order.dropoffPostcode,
+      }
+    : null;
 
-  const [pickupQuery, setPickupQuery] = useState(order.pickupLocation || "");
-  const [pickup, setPickup] = useState(
-    order.pickupLat
-      ? {
-          text: order.pickupLocation,
-          lat: order.pickupLat,
-          lon: order.pickupLon,
-          city: order.pickupCity,
-          address: order.pickupAddress,
-          country: order.pickupCountry,
-          postcode: order.pickupPostcode,
-        }
-      : null
-  );
-  const [dropoffQuery, setDropoffQuery] = useState(order.dropoffLocation || "");
-  const [dropoff, setDropoff] = useState(
-    order.dropoffLat
-      ? {
-          text: order.dropoffLocation,
-          lat: order.dropoffLat,
-          lon: order.dropoffLon,
-          city: order.dropoffCity,
-          address: order.dropoffAddress,
-          country: order.dropoffCountry,
-          postcode: order.dropoffPostcode,
-        }
-      : null
-  );
+  const [pickupQuery, setPickupQuery] = useState(() => formatSavedOrderPoint(order, "pickup"));
+  const [pickup, setPickup] = useState(initialPickupPoint);
+  const [dropoffQuery, setDropoffQuery] = useState(() => formatSavedOrderPoint(order, "dropoff"));
+  const [dropoff, setDropoff] = useState(initialDropoffPoint);
   const [cargoLength, setCargoLength] = useState(
     order.cargoLength ? String(order.cargoLength) : ""
   );
@@ -375,7 +385,7 @@ export default function EditOrderScreen({ route, navigation }) {
             }}
             onSelect={(point) => {
               setPickup(point);
-              setPickupQuery(point?.text || "");
+              setPickupQuery(formatPointAddress(point));
             }}
             navigation={navigation}
             lat={pickup?.lat}
@@ -397,7 +407,7 @@ export default function EditOrderScreen({ route, navigation }) {
             }}
             onSelect={(point) => {
               setDropoff(point);
-              setDropoffQuery(point?.text || "");
+              setDropoffQuery(formatPointAddress(point));
             }}
             navigation={navigation}
             lat={dropoff?.lat}

@@ -42,6 +42,9 @@ import AppText from '../components/AppText';
 import Screen from '../components/Screen';
 import { markOrderUpdatesSeen } from '../orderUpdates';
 import { openLocationInMaps } from '../maps';
+import DriverCompletionCelebration, {
+  getOrderCompletionEarnings,
+} from '../components/DriverCompletionCelebration';
 
 const MAX_ACTIVE_RESPONSES = 5;
 
@@ -52,6 +55,12 @@ const FEATURE_FLAGS = {
   SECONDARY_CTA: true,
   DISCUSSING_STATE: true,
 };
+
+const CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
+const MOVE_TO_HISTORY_TITLE =
+  "\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432 \u0456\u0441\u0442\u043e\u0440\u0456\u044e";
+const MOVE_TO_HISTORY_WAIT_TEXT =
+  "\u041a\u043d\u043e\u043f\u043a\u0430 \u043f\u0435\u0440\u0435\u043c\u0456\u0449\u0435\u043d\u043d\u044f \u0432 \u0456\u0441\u0442\u043e\u0440\u0456\u044e \u0437'\u044f\u0432\u0438\u0442\u044c\u0441\u044f";
 
 const statusLabels = {
   CREATED: 'Створено',
@@ -196,6 +205,39 @@ function toLocalDate(value) {
   return value instanceof Date ? new Date(value.getTime()) : new Date(value);
 }
 
+function parseBooleanLike(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+  }
+  return null;
+}
+
+function isOrderDateOutdated(order) {
+  const backendOutdated = parseBooleanLike(order?.isDateOutdated);
+  if (backendOutdated === true) return true;
+
+  const staleDays = Number(order?.staleDays);
+  if (Number.isFinite(staleDays) && staleDays > 0) return true;
+
+  const staleSince = toLocalDate(order?.staleSince);
+  if (!Number.isNaN(staleSince.getTime()) && new Date() >= staleSince) return true;
+
+  const referenceValue = order?.freeDate
+    ? order?.freeDateUntil || order?.unloadTo || order?.loadTo || order?.loadFrom
+    : order?.unloadTo || order?.loadTo || order?.loadFrom;
+  const referenceDate = toLocalDate(referenceValue);
+  if (Number.isNaN(referenceDate.getTime())) return false;
+
+  const staleStart = new Date(referenceDate);
+  staleStart.setHours(0, 0, 0, 0);
+  staleStart.setDate(staleStart.getDate() + 1);
+  return new Date() >= staleStart;
+}
+
 function formatDateTimeLocal(value) {
   const d = toLocalDate(value);
   if (Number.isNaN(d.getTime())) return '';
@@ -225,9 +267,28 @@ function formatPriceValue(value) {
   return `${Math.round(num).toLocaleString('uk-UA')} грн`;
 }
 
+function shouldShowAgreedPriceOnly(order) {
+  const price = Number(order?.price);
+  return Boolean(order?.agreedPrice) && (!Number.isFinite(price) || price <= 0);
+}
+
+function formatOrderPriceValue(order) {
+  const price = Number(order?.price);
+  if (shouldShowAgreedPriceOnly(order)) return 'Договірна';
+  if (!Number.isFinite(price)) return order?.agreedPrice ? 'Договірна' : '-';
+  return `${Math.round(price)} грн${order?.agreedPrice ? ' (Договірна)' : ''}`;
+}
+
 function formatHistoryEntries(history) {
   if (!Array.isArray(history)) return [];
-  return history.map((entry) => {
+  const acceptedEntry = history.find((entry) => entry?.status === 'ACCEPTED' && entry?.at);
+  const acceptedAtMs = acceptedEntry ? new Date(acceptedEntry.at).getTime() : null;
+  return history.filter((entry) => {
+    if (entry?.status !== 'PRICE_UPDATED' || entry?.field !== 'finalPrice') return true;
+    if (!acceptedAtMs || !Number.isFinite(acceptedAtMs)) return false;
+    const entryAtMs = new Date(entry.at).getTime();
+    return Number.isFinite(entryAtMs) && entryAtMs >= acceptedAtMs;
+  }).map((entry) => {
     if (entry.status === 'PRICE_UPDATED') {
       const actor =
         historyActorLabels[entry.changedByRole] ||
@@ -279,6 +340,51 @@ function getHistoryPhotosByStatus(history, targetStatus) {
     photos.push(...toPhotoArray(entry?.photo));
   });
   return uniqPhotos(photos);
+}
+
+function parseOrderHistory(order) {
+  if (Array.isArray(order?.history)) return order.history;
+  if (typeof order?.history === 'string') {
+    try {
+      const parsed = JSON.parse(order.history);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function getLatestStatusTimeMs(order, status) {
+  const history = parseOrderHistory(order);
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (!entry || entry.status !== status || !entry.at) continue;
+    const ms = new Date(entry.at).getTime();
+    if (Number.isFinite(ms) && ms > 0) return ms;
+  }
+  const fallbackMs = new Date(order?.updatedAt || 0).getTime();
+  return Number.isFinite(fallbackMs) && fallbackMs > 0 ? fallbackMs : 0;
+}
+
+function canCustomerMoveInProgressOrderToHistory(order, role, currentTimeMs = Date.now()) {
+  if (role !== 'CUSTOMER' || order?.status !== 'IN_PROGRESS') return false;
+  const inProgressAtMs = getLatestStatusTimeMs(order, 'IN_PROGRESS');
+  if (!inProgressAtMs) return false;
+  return currentTimeMs - inProgressAtMs >= CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS;
+}
+
+function getMoveToHistoryWaitText(order, role, currentTimeMs = Date.now()) {
+  if (role !== 'CUSTOMER' || order?.status !== 'IN_PROGRESS') return '';
+  const inProgressAtMs = getLatestStatusTimeMs(order, 'IN_PROGRESS');
+  if (!inProgressAtMs) return '';
+  const remainingMs = CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS - (currentTimeMs - inProgressAtMs);
+  if (remainingMs <= 0) return '';
+  const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+  if (remainingHours >= 24) {
+    return `${MOVE_TO_HISTORY_WAIT_TEXT} через ${Math.ceil(remainingHours / 24)} дн.`;
+  }
+  return `${MOVE_TO_HISTORY_WAIT_TEXT} через ${remainingHours} год.`;
 }
 
 function normalizeText(value) {
@@ -353,8 +459,38 @@ export default function OrderDetailScreen({ route, navigation }) {
   const params = route?.params ?? {};
   const initialOrder = params.order ?? null;
   const orderId = params.orderId ?? params.order?.id ?? null;
+  const notificationReminderStep = params.notificationReminderStep ?? null;
   const [order, setOrder] = useState(initialOrder);
   const [previewPhotoUri, setPreviewPhotoUri] = useState(null);
+  const photoPreviewTouchStartRef = useRef(null);
+  const closePhotoPreview = useCallback(() => setPreviewPhotoUri(null), []);
+
+  function handlePhotoPreviewTouchStart(event) {
+    const touch = event.nativeEvent?.touches?.[0] || event.nativeEvent;
+    photoPreviewTouchStartRef.current = {
+      x: touch?.pageX || 0,
+      y: touch?.pageY || 0,
+      at: Date.now(),
+    };
+  }
+
+  function handlePhotoPreviewTouchEnd(event) {
+    const start = photoPreviewTouchStartRef.current;
+    photoPreviewTouchStartRef.current = null;
+    if (!start) return;
+    const touch =
+      event.nativeEvent?.changedTouches?.[0] ||
+      event.nativeEvent?.touches?.[0] ||
+      event.nativeEvent;
+    const dx = (touch?.pageX || 0) - start.x;
+    const dy = (touch?.pageY || 0) - start.y;
+    const elapsed = Math.max(Date.now() - start.at, 1);
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    const velocity = distance / elapsed;
+    if (distance > 45 || velocity > 0.35) {
+      closePhotoPreview();
+    }
+  }
   const { token, role } = useAuth();
 
   // Legacy reserve state (kept for old flow fallback)
@@ -383,6 +519,8 @@ export default function OrderDetailScreen({ route, navigation }) {
   const [counterOfferValue, setCounterOfferValue] = useState('');
   const [counterOfferResponse, setCounterOfferResponse] = useState(null);
   const [counterOfferLoading, setCounterOfferLoading] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [completionCelebration, setCompletionCelebration] = useState(null);
   const wsRef = useRef(null);
   const wsShouldReconnectRef = useRef(true);
   const wsReconnectTimerRef = useRef(null);
@@ -392,6 +530,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const useNewFlow = FEATURE_FLAGS.NEW_RESPONSE_FLOW;
   const HALF_FINAL_PRICE_INPUT_HEIGHT = 0;
+  const actionAreaBottom = Platform.OS === 'ios' ? keyboardHeight + 20 : 20;
   const isCityOrder = Boolean(order?.isIntraCity);
   const cityOrderKey = useMemo(() => getOrderCityKey(order), [order?.pickupCity, order?.dropoffCity, order?.id]);
   const cityTemplateStorageKey = useMemo(
@@ -544,6 +683,11 @@ export default function OrderDetailScreen({ route, navigation }) {
       console.log('mark order updates seen error', err)
     );
   }, [order?.id, order?.status, order?.history, order?.updatedAt, role, token]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (role !== 'DRIVER' || !isCityOrder || !cityTemplateStorageKey) return;
@@ -1145,11 +1289,10 @@ export default function OrderDetailScreen({ route, navigation }) {
     if (wantsPhoto) {
       const photoUris = await captureStatusPhotos();
       if (photoUris.length > 0) {
-        await updateStatus(id, status, { photoUris });
-        return;
+        return updateStatus(id, status, { photoUris });
       }
     }
-    await updateStatus(id, status);
+    return updateStatus(id, status);
   }
 
   async function markReceived(id) {
@@ -1158,14 +1301,31 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
-  async function markDelivered(id) {
+  function showCompletionCelebration(orderLike) {
+    setCompletionCelebration({
+      id: orderLike?.id ?? Date.now(),
+      earnings: getOrderCompletionEarnings(orderLike),
+    });
+  }
+
+  async function markDelivered(orderOrId) {
+    const id = typeof orderOrId === 'object' ? orderOrId?.id : orderOrId;
     if (await confirmAction('Підтвердити передачу вантажу?')) {
-      await changeStatusWithOptionalPhoto(id, 'DELIVERED', 'Бажаєте додати фото виданого вантажу?');
+      const updated = await changeStatusWithOptionalPhoto(id, 'DELIVERED', 'Бажаєте додати фото виданого вантажу?');
+      if (updated) {
+        showCompletionCelebration(updated || orderOrId);
+      }
     }
   }
 
   async function confirmDelivery(id) {
     if (await confirmAction('Підтвердити виконання замовлення?')) {
+      await updateStatus(id, 'COMPLETED');
+    }
+  }
+
+  async function moveOrderToHistory(id) {
+    if (await confirmAction('Перемістити замовлення в історію?')) {
       await updateStatus(id, 'COMPLETED');
     }
   }
@@ -1221,7 +1381,7 @@ export default function OrderDetailScreen({ route, navigation }) {
           <Text style={styles.resultRouteText}>
             {order.pickupCity || order.pickupLocation} → {order.dropoffCity || order.dropoffLocation}
           </Text>
-          <Text style={styles.resultPriceText}>{Math.round(order.price)} грн</Text>
+          <Text style={styles.resultPriceText}>{formatOrderPriceValue(order)}</Text>
         </View>
 
         <View style={styles.responseBadge}>
@@ -1452,7 +1612,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
       if (order.status === 'IN_PROGRESS') {
         buttons.push(
-          <AppButton key="delivered" title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+          <AppButton key="delivered" title="Віддав вантаж" onPress={() => markDelivered(order)} />
         );
       }
     } else if (!useNewFlow && role === 'DRIVER') {
@@ -1478,7 +1638,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
       if (order.status === 'IN_PROGRESS') {
         buttons.push(
-          <AppButton key="delivered" title="Вантаж доставлено" onPress={() => markDelivered(order.id)} />
+          <AppButton key="delivered" title="Вантаж доставлено" onPress={() => markDelivered(order)} />
         );
       }
     }
@@ -1488,6 +1648,22 @@ export default function OrderDetailScreen({ route, navigation }) {
         buttons.push(
           <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
         );
+      } else if (canCustomerMoveInProgressOrderToHistory(order, role, nowMs)) {
+        buttons.push(
+          <AppButton
+            key="move-to-history"
+            title={MOVE_TO_HISTORY_TITLE}
+            onPress={() => moveOrderToHistory(order.id)}
+            color="#6B7280"
+          />
+        );
+      } else if (order.status === 'IN_PROGRESS') {
+        const waitText = getMoveToHistoryWaitText(order, role, nowMs);
+        if (waitText) {
+          buttons.push(
+            <Text key="move-to-history-wait" style={styles.ctaHint}>{waitText}</Text>
+          );
+        }
       } else if (!useNewFlow && order.status === 'PENDING') {
         buttons.push(
           <View key="pending" style={styles.actionRow}>
@@ -1625,7 +1801,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
     if (order.status === 'IN_PROGRESS') {
       buttons.push(
-        <AppButton key="delivered-city" title="Віддав вантаж" onPress={() => markDelivered(order.id)} />
+        <AppButton key="delivered-city" title="Віддав вантаж" onPress={() => markDelivered(order)} />
       );
       return buttons;
     }
@@ -1697,6 +1873,17 @@ export default function OrderDetailScreen({ route, navigation }) {
                 )}
               </View>
 
+              {!isCityOrder && canSelect && (
+                <TouchableOpacity
+                  style={styles.counterOfferButton}
+                  onPress={() => openCounterOfferModal(resp)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="pricetag-outline" size={18} color={colors.green} />
+                  <Text style={styles.counterOfferButtonText}>Запропонувати іншу ціну</Text>
+                </TouchableOpacity>
+              )}
+
               {canSelect && (
                 <View style={styles.actionRow}>
                   <AppButton
@@ -1765,6 +1952,20 @@ export default function OrderDetailScreen({ route, navigation }) {
   }
 
   const actions = renderActionsV2();
+  const openedFromDateReminder = Boolean(notificationReminderStep);
+  const orderDateOutdated = isOrderDateOutdated(order);
+  const showDateUpdateHint =
+    role === 'CUSTOMER' &&
+    order.status === 'CREATED' &&
+    !order.driverId &&
+    (orderDateOutdated || openedFromDateReminder);
+  const dateUpdateHintText = orderDateOutdated
+    ? order.freeDate
+      ? 'Термін актуальності вільної дати минув. Оновіть його, щоб водії знову бачили замовлення вище у списку.'
+      : 'Дата завантаження вже минула. Замовлення опускається нижче у списку пошуку, доки ви не оновите дату.'
+    : order.freeDate
+      ? 'Перевірте, чи вільна дата ще актуальна. Якщо потрібно, оновіть її, щоб замовлення залишалось помітним для водіїв.'
+      : 'Перевірте, чи дата завантаження ще актуальна. Якщо потрібно, оновіть її, щоб замовлення залишалось вище у списку.';
 
   return (
     <Screen disableKeyboardAvoiding>
@@ -1818,6 +2019,24 @@ export default function OrderDetailScreen({ route, navigation }) {
           </Text>
         )}
       </View>
+
+      {showDateUpdateHint && (
+        <View style={styles.dateUpdateHintCard}>
+          <View style={styles.dateUpdateHintHeader}>
+            <Ionicons name="calendar-outline" size={22} color="#B45309" />
+            <Text style={styles.dateUpdateHintTitle}>Оновіть дату замовлення</Text>
+          </View>
+          <Text style={styles.dateUpdateHintText}>{dateUpdateHintText}</Text>
+          <TouchableOpacity
+            style={styles.dateUpdateHintButton}
+            onPress={edit}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.dateUpdateHintButtonText}>Оновити дату</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {renderResponseBadge()}
 
@@ -2003,7 +2222,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       <View style={styles.row}>
         <Ionicons name="pricetag-outline" size={20} color="#555" style={styles.rowIcon} />
         <Text style={styles.label}>Ціна:</Text>
-        <Text style={styles.value}>{Math.round(order.price)} грн</Text>
+        <Text style={styles.value}>{formatOrderPriceValue(order)}</Text>
       </View>
 
       <View style={styles.row}>
@@ -2023,16 +2242,21 @@ export default function OrderDetailScreen({ route, navigation }) {
       {photoSections.map((section) => renderPhotoSection(section.title, section.photos))}
 
       {previewPhotoUri !== null && (
-        <Modal visible transparent>
+        <Modal visible transparent onRequestClose={closePhotoPreview}>
           <View style={styles.modal}>
-            <TouchableOpacity style={styles.close} onPress={() => setPreviewPhotoUri(null)}>
-              <Ionicons name="close" size={32} color="#fff" />
-            </TouchableOpacity>
             <Image
               source={{ uri: previewPhotoUri }}
               style={styles.full}
               resizeMode="contain"
             />
+            <View
+              style={styles.swipeCloseLayer}
+              onTouchStart={handlePhotoPreviewTouchStart}
+              onTouchEnd={handlePhotoPreviewTouchEnd}
+            />
+            <TouchableOpacity style={styles.close} onPress={closePhotoPreview}>
+              <Ionicons name="close" size={32} color="#fff" />
+            </TouchableOpacity>
           </View>
         </Modal>
       )}
@@ -2080,7 +2304,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       </ScrollView>
 
       <View
-        style={[styles.actionAreaWrapper, { bottom: keyboardHeight + 20 }]}
+        style={[styles.actionAreaWrapper, { bottom: actionAreaBottom }]}
       >
         <View style={styles.actionArea} onLayout={(e) => setActionHeight(e.nativeEvent.layout.height)}>
 
@@ -2142,6 +2366,12 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       </View>
 
+      <DriverCompletionCelebration
+        visible={Boolean(completionCelebration)}
+        earnings={completionCelebration?.earnings}
+        onClose={() => setCompletionCelebration(null)}
+      />
+
       </SafeAreaView>
     </Screen>
   );
@@ -2184,7 +2414,11 @@ const styles = StyleSheet.create({
   },
   modal: { flex: 1, backgroundColor: 'black', justifyContent: 'center', alignItems: 'center' },
   full: { width: '100%', height: '100%' },
-  close: { position: 'absolute', top: 40, right: 20, zIndex: 1 },
+  swipeCloseLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  close: { position: 'absolute', top: 40, right: 20, zIndex: 2 },
   driverCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -2240,6 +2474,47 @@ const styles = StyleSheet.create({
   statusRowCard: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 10 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   statusValue: { fontSize: 18, fontWeight: '600' },
+  dateUpdateHintCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 10,
+    marginBottom: 14,
+  },
+  dateUpdateHintHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dateUpdateHintTitle: {
+    marginLeft: 8,
+    color: '#92400E',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dateUpdateHintText: {
+    color: '#78350F',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  dateUpdateHintButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: colors.orange,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  dateUpdateHintButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    marginLeft: 8,
+  },
   scrollContent: { paddingBottom: 24 },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
   smallBtn: { flex: 1, marginHorizontal: 4 },
@@ -2441,6 +2716,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#166534',
     fontWeight: '700',
+  },
+  counterOfferButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.green,
+    backgroundColor: '#F0FDF4',
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterOfferButtonText: {
+    marginLeft: 8,
+    color: colors.green,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   counterPendingText: {
     marginTop: 8,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,10 @@ import { useAuth } from "../AuthContext";
 import OrderCardSkeleton from "../components/OrderCardSkeleton";
 import { markOrderUpdatesSeen, reconcileOrderUpdates } from "../orderUpdates";
 import { openLocationInMaps } from "../maps";
+import DriverCompletionCelebration, {
+  getOrderCompletionEarnings,
+} from "../components/DriverCompletionCelebration";
+import NotificationBell from "../components/NotificationBell";
 
 const statusLabels = {
   CREATED: "Створено",
@@ -35,6 +39,12 @@ const statusLabels = {
   REJECTED: "Відмовлено",
 };
 
+const CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
+const MOVE_TO_HISTORY_TITLE =
+  "\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432 \u0456\u0441\u0442\u043e\u0440\u0456\u044e";
+const MOVE_TO_HISTORY_WAIT_TEXT =
+  "\u041a\u043d\u043e\u043f\u043a\u0430 \u043f\u0435\u0440\u0435\u043c\u0456\u0449\u0435\u043d\u043d\u044f \u0432 \u0456\u0441\u0442\u043e\u0440\u0456\u044e \u0437'\u044f\u0432\u0438\u0442\u044c\u0441\u044f";
+
 export default function MyOrdersScreen({ navigation, route }) {
   const { token, role } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -47,7 +57,15 @@ export default function MyOrdersScreen({ navigation, route }) {
   const [tabsContentWidth, setTabsContentWidth] = useState(0);
   const [tabsScrollX, setTabsScrollX] = useState(0);
   const [unreadUpdatesByOrder, setUnreadUpdatesByOrder] = useState({});
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [completionCelebration, setCompletionCelebration] = useState(null);
   const lastPresetFilterRequestRef = useRef(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <NotificationBell />,
+    });
+  }, [navigation]);
 
   async function load() {
     try {
@@ -75,6 +93,11 @@ export default function MyOrdersScreen({ navigation, route }) {
     const unsubscribe = navigation.addListener("focus", load);
     return unsubscribe;
   }, [role, navigation]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     connectWs();
@@ -243,15 +266,17 @@ export default function MyOrdersScreen({ navigation, route }) {
       } else {
         body = JSON.stringify({ status });
       }
-      await apiFetch(`/orders/${id}/status`, {
+      const updated = await apiFetch(`/orders/${id}/status`, {
         method: "PATCH",
         headers,
         body,
       });
       load();
+      return updated;
     } catch (err) {
       console.log(err);
       Alert.alert("Помилка", err?.message || "Не вдалося оновити статус");
+      return null;
     }
   }
 
@@ -305,11 +330,10 @@ export default function MyOrdersScreen({ navigation, route }) {
     if (wantsPhoto) {
       const photoUris = await captureStatusPhotos();
       if (photoUris.length > 0) {
-        await updateStatus(id, status, { photoUris });
-        return;
+        return updateStatus(id, status, { photoUris });
       }
     }
-    await updateStatus(id, status);
+    return updateStatus(id, status);
   }
 
   async function markReceived(id) {
@@ -322,13 +346,24 @@ export default function MyOrdersScreen({ navigation, route }) {
     }
   }
 
-  async function markDelivered(id) {
+  function showCompletionCelebration(orderLike) {
+    setCompletionCelebration({
+      id: orderLike?.id ?? Date.now(),
+      earnings: getOrderCompletionEarnings(orderLike),
+    });
+  }
+
+  async function markDelivered(orderOrId) {
+    const id = typeof orderOrId === "object" ? orderOrId?.id : orderOrId;
     if (await confirmAction("Підтвердити передачу вантажу?")) {
-      await changeStatusWithOptionalPhoto(
+      const updated = await changeStatusWithOptionalPhoto(
         id,
         "DELIVERED",
         "Бажаєте додати фото виданого вантажу?"
       );
+      if (updated) {
+        showCompletionCelebration(updated || orderOrId);
+      }
     }
   }
 
@@ -337,6 +372,13 @@ export default function MyOrdersScreen({ navigation, route }) {
       await updateStatus(id, "COMPLETED");
     }
   }
+
+  async function moveOrderToHistory(id) {
+    if (await confirmAction("Перемістити замовлення в історію?")) {
+      await updateStatus(id, "COMPLETED");
+    }
+  }
+
   function editOrder(order) {
     navigation.navigate("EditOrder", { order });
   }
@@ -417,7 +459,7 @@ export default function MyOrdersScreen({ navigation, route }) {
     const dropoffQuery =
       item.dropoffLocation ||
       [dropoffAddress, dropoffCity].filter(Boolean).join(", ");
-    const now = new Date();
+    const now = new Date(nowMs);
     const reserved =
       item.reservedBy &&
       item.reservedUntil &&
@@ -438,6 +480,10 @@ export default function MyOrdersScreen({ navigation, route }) {
     const unreadUpdate = unreadUpdatesByOrder[String(item.id)] || {};
     const showStatusChangedBadge = filter === "active" && Boolean(unreadUpdate.status);
     const showNewPhotoBadge = filter === "active" && Boolean(unreadUpdate.photo);
+    const canMoveToHistory = canCustomerMoveInProgressOrderToHistory(item, nowMs);
+    const moveToHistoryWaitText = getMoveToHistoryWaitText(item, nowMs);
+    const showAgreedPriceOnly = shouldShowAgreedPriceOnly(item);
+    const orderPriceText = formatOrderPriceValue(item);
     return (
       <TouchableOpacity
         onPress={() => openOrderDetail(item)}
@@ -543,12 +589,13 @@ export default function MyOrdersScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
           <Text style={styles.field}>
-            <Text style={styles.fieldLabel}>Дата створення: </Text>
-            {formatDateLocal(item.createdAt)}
+            <Text style={styles.fieldLabel}>Дата завантаження: </Text>
+            {formatLoadDateLocal(item)}
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Ціна:</Text>
-            <Text style={styles.info}>
+            {showAgreedPriceOnly && <Text style={styles.info}> {orderPriceText}</Text>}
+            <Text style={[styles.info, showAgreedPriceOnly && styles.hiddenPrice]}>
               {` ${Math.round(item.price)} грн${
                 item.agreedPrice ? " (Договірна)" : ""
               }`}
@@ -687,7 +734,7 @@ export default function MyOrdersScreen({ navigation, route }) {
           {role === "DRIVER" && item.status === "IN_PROGRESS" && (
             <AppButton
               title="Віддав вантаж"
-              onPress={() => markDelivered(item.id)}
+              onPress={() => markDelivered(item)}
             />
           )}
           {role === "CUSTOMER" && item.status === "DELIVERED" && (
@@ -695,6 +742,16 @@ export default function MyOrdersScreen({ navigation, route }) {
               title="Підтвердити доставку"
               onPress={() => confirmDelivery(item.id)}
             />
+          )}
+          {canMoveToHistory && (
+            <AppButton
+              title={MOVE_TO_HISTORY_TITLE}
+              onPress={() => moveOrderToHistory(item.id)}
+              color="#6B7280"
+            />
+          )}
+          {!canMoveToHistory && moveToHistoryWaitText && (
+            <Text style={styles.moveToHistoryHint}>{moveToHistoryWaitText}</Text>
           )}
         </View>
       </TouchableOpacity>
@@ -730,6 +787,32 @@ export default function MyOrdersScreen({ navigation, route }) {
       if (Number.isFinite(ms) && ms > 0) return ms;
     }
     return 0;
+  }
+
+  function canCustomerMoveInProgressOrderToHistory(order, currentTimeMs = Date.now()) {
+    if (role !== "CUSTOMER" || order?.status !== "IN_PROGRESS") return false;
+    const inProgressAtMs =
+      getStatusTimeMs(order, "IN_PROGRESS") ||
+      new Date(order?.updatedAt || 0).getTime() ||
+      0;
+    if (!Number.isFinite(inProgressAtMs) || inProgressAtMs <= 0) return false;
+    return currentTimeMs - inProgressAtMs >= CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS;
+  }
+
+  function getMoveToHistoryWaitText(order, currentTimeMs = Date.now()) {
+    if (role !== "CUSTOMER" || order?.status !== "IN_PROGRESS") return "";
+    const inProgressAtMs =
+      getStatusTimeMs(order, "IN_PROGRESS") ||
+      new Date(order?.updatedAt || 0).getTime() ||
+      0;
+    if (!Number.isFinite(inProgressAtMs) || inProgressAtMs <= 0) return "";
+    const remainingMs = CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS - (currentTimeMs - inProgressAtMs);
+    if (remainingMs <= 0) return "";
+    const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+    if (remainingHours >= 24) {
+      return `${MOVE_TO_HISTORY_WAIT_TEXT} через ${Math.ceil(remainingHours / 24)} дн.`;
+    }
+    return `${MOVE_TO_HISTORY_WAIT_TEXT} через ${remainingHours} год.`;
   }
 
   function getSortTimeMs(order, currentFilter) {
@@ -926,6 +1009,11 @@ export default function MyOrdersScreen({ navigation, route }) {
         extraScrollHeight={120}
         enableOnAndroid
       />
+      <DriverCompletionCelebration
+        visible={Boolean(completionCelebration)}
+        earnings={completionCelebration?.earnings}
+        onClose={() => setCompletionCelebration(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -983,6 +1071,8 @@ const styles = StyleSheet.create({
   itemNumber: { fontSize: 18, fontWeight: "600", color: "#111827" },
   field: { marginTop: 4, fontSize: 15, color: "#111827" },
   fieldLabel: { fontWeight: "600", color: "#374151" },
+  info: { color: "#111827" },
+  hiddenPrice: { display: "none" },
   statusRow: { marginTop: 12, flexDirection: "row", alignItems: "center" },
   statusValue: { fontWeight: "600", color: colors.green },
   updateBadgesRow: {
@@ -1156,6 +1246,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#065F46",
   },
+  moveToHistoryHint: {
+    marginTop: 10,
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+  },
 });
 
 function formatDateLocal(value) {
@@ -1166,3 +1262,22 @@ function formatDateLocal(value) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
+function formatLoadDateLocal(order) {
+  if (!order) return '';
+  if (order.freeDate) {
+    const until = formatDateLocal(order.freeDateUntil);
+    return until ? `Вільна до ${until}` : 'Вільна дата';
+  }
+  return formatDateLocal(order.loadFrom) || '-';
+}
+function shouldShowAgreedPriceOnly(order) {
+  const price = Number(order?.price);
+  return Boolean(order?.agreedPrice) && (!Number.isFinite(price) || price <= 0);
+}
+
+function formatOrderPriceValue(order) {
+  const price = Number(order?.price);
+  if (shouldShowAgreedPriceOnly(order)) return "Договірна";
+  if (!Number.isFinite(price)) return order?.agreedPrice ? "Договірна" : "—";
+  return `${Math.round(price)} грн${order?.agreedPrice ? " (Договірна)" : ""}`;
+}

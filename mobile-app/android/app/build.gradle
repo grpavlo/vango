@@ -159,7 +159,7 @@ android {
 gradle.taskGraph.whenReady { graph ->
     def isReleaseTask = graph.allTasks.any { task ->
         def name = task.name.toLowerCase()
-        name.contains("release") || name.contains("bundle")
+        name.contains("release") || name == "bundle"
     }
     if (isReleaseTask && !hasReleaseSigning) {
         throw new GradleException("Missing Android release signing config. Provide android/key.properties or ANDROID_UPLOAD_* environment variables.")

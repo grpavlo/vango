@@ -14,6 +14,7 @@ import AppInput from './AppInput';
 import AppText from './AppText';
 import { colors } from './Colors';
 import { registerCallback } from '../callbackRegistry';
+import { formatPointAddress } from '../addressFormat';
 
 const DROPDOWN_MAX_HEIGHT = 240;
 const DROPDOWN_MARGIN = 8;
@@ -688,7 +689,7 @@ export default function AddressSearchInput({
         postcode: postalComponent?.long_name || postalComponent?.short_name || '',
       };
       onSelect?.(point);
-      onChangeText?.(point.text);
+      onChangeText?.(formatPointAddress(point) || point.text);
       jumpCaretToStart();
       setSuggestions([]);
       // новий токен на наступну сесію
@@ -755,7 +756,7 @@ export default function AddressSearchInput({
                 const LOG = '[AddressSearchInput]';
                 console.log(LOG, 'Map callback викликано, p.text:', p?.text ?? '(немає)');
                 onSelect?.(p);
-                const textToSet = p?.text || value;
+                const textToSet = formatPointAddress(p) || p?.text || value;
                 console.log(LOG, 'onChangeText з:', textToSet || '(порожньо)');
                 onChangeText?.(textToSet);
               });

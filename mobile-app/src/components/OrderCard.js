@@ -142,6 +142,17 @@ function formatMeasureValue(value) {
     .replace(/\.0+$/, "");
 }
 
+function formatOrderPriceLabel(order) {
+  const price = Number(order?.price);
+  if (order?.agreedPrice && (!Number.isFinite(price) || price <= 0)) {
+    return "Ціна: Договірна";
+  }
+  if (!Number.isFinite(price)) {
+    return order?.agreedPrice ? "Ціна: Договірна" : "Ціна: —";
+  }
+  return `Ціна: ${Math.round(price)} грн${order?.agreedPrice ? " (Договірна)" : ""}`;
+}
+
 export default function OrderCard({
   order,
   onPress,
@@ -201,6 +212,11 @@ export default function OrderCard({
   const cargoWeight = parseMeasureNumber(order?.cargoWeight);
   const hasCargoVolume = Number.isFinite(cargoVolume) && cargoVolume > 0;
   const hasCargoWeight = Number.isFinite(cargoWeight) && cargoWeight > 0;
+  const orderDisplayNumber = order?.orderNumber || order?.id;
+  const shouldShowAgreedPriceOnly =
+    order?.agreedPrice &&
+    (!Number.isFinite(Number(order?.price)) || Number(order?.price) <= 0);
+  const priceText = formatOrderPriceLabel(order);
 
   const freeDateLabel = order.freeDate
     ? order.freeDateUntil
@@ -251,6 +267,11 @@ export default function OrderCard({
         activeOpacity={0.8}
         style={styles.infoContainer}
       >
+        {orderDisplayNumber && (
+          <Text style={[styles.orderNumber, isDateOutdated && styles.mutedText]}>
+            {"\u2116"} замовлення: {orderDisplayNumber}
+          </Text>
+        )}
         <Text style={[styles.route, isDateOutdated && styles.mutedText]}>
           {pickupCity} {"->"} {dropoffCity}
 
@@ -258,10 +279,17 @@ export default function OrderCard({
         <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
           {freeDateLabel}
         </Text>
+        {shouldShowAgreedPriceOnly && (
+          <Text style={[styles.info, styles.priceInfo, isDateOutdated && styles.mutedText]}>
+            {priceText}
+          </Text>
+        )}
         <Text
           style={[
             styles.info,
+            styles.priceInfo,
             isDateOutdated && styles.mutedText,
+            shouldShowAgreedPriceOnly && styles.hiddenPrice,
             isIntraCityOrder && styles.hiddenPrice,
           ]}
         >
@@ -356,8 +384,15 @@ const styles = StyleSheet.create({
   },
   mapContainer: { height: 120, borderRadius: 8, overflow: "hidden" },
   infoContainer: { paddingVertical: 4 },
+  orderNumber: {
+    marginTop: 8,
+    color: colors.gray900,
+    fontSize: 15,
+    fontWeight: "800",
+  },
   route: { fontWeight: "bold", marginTop: 8 },
   info: { marginTop: 2, color: "#333" },
+  priceInfo: { fontWeight: "800" },
   hiddenPrice: { height: 0, opacity: 0, marginTop: 0, fontSize: 1 },
   mutedText: { color: colors.gray600 },
   iconRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },

@@ -18,6 +18,7 @@ class Order extends Model {}
 Order.init(
   {
     id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
+    orderNumber: { type: DataTypes.INTEGER.UNSIGNED, unique: true },
     customerId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
     driverId: { type: DataTypes.INTEGER.UNSIGNED },
     pickupLocation: { type: DataTypes.STRING, allowNull: false },

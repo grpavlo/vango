@@ -55,7 +55,7 @@ export default function MainTabs() {
         tabBarIcon: ({ color, size }) => {
           let name = 'list';
           if (route.name === 'Create') name = 'add-circle';
-          if (route.name === 'All') name = 'list';
+          if (route.name === 'All') name = 'map';
           if (route.name === 'MyOrders') name = 'briefcase';
           if (route.name === 'Settings') name = 'settings';
           return <Ionicons name={name} size={size} color={color} />;
@@ -78,7 +78,7 @@ export default function MainTabs() {
           <Tab.Screen
             name="All"
             component={AllOrdersScreen}
-            options={{ headerShown: false, title: 'Всі', tabBarLabel: 'Всі' }}
+            options={{ headerShown: false, title: 'Мапа', tabBarLabel: 'Мапа' }}
           />
           <Tab.Screen name="MyOrders" component={MyOrdersScreen} options={myOrdersOptions} />
         </>

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
@@ -24,11 +25,17 @@ import CheckBox from "../components/CheckBox";
 import { apiFetch } from "../api";
 import { useAuth } from "../AuthContext";
 import { useToast } from "../components/Toast";
+import { formatPointAddress } from "../addressFormat";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FREE_DATE_TTL_DAYS = 7;
 const INTRA_CITY_HINT_TEXT =
   "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
+const FREE_DATE_TITLE = "\u0412\u0456\u043b\u044c\u043d\u0430 \u0434\u0430\u0442\u0430";
+const FREE_DATE_INFO_TEXT =
+  "\u042f\u043a\u0449\u043e \u0434\u0430\u0442\u0430 \u0440\u043e\u0437\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u0432\u0456\u043b\u044c\u043d\u0430, \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0443\u0434\u0435 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u0438\u043c 7 \u0434\u043d\u0456\u0432 \u0456 \u043f\u043e\u043a\u0430\u0437\u0443\u0432\u0430\u0442\u0438\u043c\u0435\u0442\u044c\u0441\u044f \u0432\u043e\u0434\u0456\u044f\u043c \u0443 \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u043c\u0443 \u043c\u0456\u0441\u0442\u0456 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f.";
+const FREE_DATE_INLINE_TEXT =
+  "\u041f\u043e\u043b\u044f \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u0442\u0430 \u0440\u043e\u0437\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u043c\u043e\u0436\u043d\u0430 \u043d\u0435 \u0437\u0430\u043f\u043e\u0432\u043d\u044e\u0432\u0430\u0442\u0438.\n\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0443\u0434\u0435 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u043c 7 \u0434\u043d\u0456\u0432.";
 
 function normalizeCityName(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
@@ -189,11 +196,12 @@ export default function CreateOrderScreen({ navigation }) {
   function handleFreeDateChange(value) {
     setFreeDate(value);
     if (value) {
-      Alert.alert(
-        "Вільна дата",
-        "Якщо дата розвантаження вільна, замовлення буде актуальним 7 днів і показуватиметься водіям у вибраному місті завантаження."
-      );
+      Alert.alert(FREE_DATE_TITLE, FREE_DATE_INFO_TEXT);
     }
+  }
+
+  function showFreeDateInfo() {
+    Alert.alert(FREE_DATE_TITLE, FREE_DATE_INFO_TEXT);
   }
 
   async function create() {
@@ -255,7 +263,9 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
       if (!isIntraCityOrder) {
-        const finalPrice = Math.round((systemPrice || 0) * (1 + adjust / 100));
+        const finalPrice = agreedPrice
+          ? 0
+          : Math.round((systemPrice || 0) * (1 + adjust / 100));
         fd.append("price", String(finalPrice));
         fd.append("agreedPrice", agreedPrice ? "true" : "false");
       } else {
@@ -301,7 +311,7 @@ export default function CreateOrderScreen({ navigation }) {
       toast.show("Вкажіть опис вантажу");
       return;
     }
-    if (!isIntraCityOrder && systemPrice === null) {
+    if (!isIntraCityOrder && !agreedPrice && parseLocaleNumber(systemPrice) <= 0) {
       toast.show("Потрібно вказати ціну");
       return;
     }
@@ -363,7 +373,7 @@ export default function CreateOrderScreen({ navigation }) {
             }}
             onSelect={(point) => {
               setPickup(point);
-              setPickupQuery(point?.text || "");
+              setPickupQuery(formatPointAddress(point));
             }}
             navigation={navigation}
             lat={pickup?.lat}
@@ -391,7 +401,7 @@ export default function CreateOrderScreen({ navigation }) {
             }}
             onSelect={(point) => {
               setDropoff(point);
-              setDropoffQuery(point?.text || "");
+              setDropoffQuery(formatPointAddress(point));
             }}
             navigation={navigation}
             lat={dropoff?.lat}
@@ -407,15 +417,25 @@ export default function CreateOrderScreen({ navigation }) {
           />
 
           <View style={styles.freeDateBox}>
-            <CheckBox
-              value={freeDate}
-              onChange={handleFreeDateChange}
-              label="Вільна дата"
-            />
+            <View style={styles.freeDateHeader}>
+              <CheckBox
+                value={freeDate}
+                onChange={handleFreeDateChange}
+                label="Вільна дата"
+              />
+              <TouchableOpacity
+                style={styles.freeDateInfoButton}
+                onPress={showFreeDateInfo}
+                accessibilityRole="button"
+                accessibilityLabel="Інформація про вільну дату"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="information-circle-outline" size={22} color={colors.green} />
+              </TouchableOpacity>
+            </View>
             {freeDate && (
               <AppText style={styles.freeDateHint}>
-                Поля завантаження та розвантаження можна не заповнювати.
-                Замовлення буде активним 7 днів.
+                {FREE_DATE_INLINE_TEXT}
               </AppText>
             )}
           </View>
@@ -607,10 +627,14 @@ export default function CreateOrderScreen({ navigation }) {
                 <AppText style={styles.labelStandalone}>Ціна</AppText>
                 <View style={styles.priceRow}>
                   <AppInput
-                    style={{ marginRight: 8, flex: 1 }}
-                    value={systemPrice ? String(systemPrice) : ""}
+                    style={[
+                      { marginRight: 8, flex: 1 },
+                      agreedPrice && styles.disabledPriceInput,
+                    ]}
+                    value={agreedPrice ? "" : systemPrice ? String(systemPrice) : ""}
                     onChangeText={setSystemPrice}
                     keyboardType="number-pad"
+                    editable={!agreedPrice}
                   />
                   <CheckBox
                     value={agreedPrice}
@@ -660,9 +684,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#F0FDF4",
   },
+  freeDateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  freeDateInfoButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
   freeDateHint: {
     marginTop: 8,
     color: "#166534",
+    lineHeight: 20,
   },
   suggestionsBoxWrapper: {
     backgroundColor: "#fff",
@@ -683,6 +723,10 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  disabledPriceInput: {
+    backgroundColor: "#F3F4F6",
+    color: "#9CA3AF",
   },
   intraCityHintBox: {
     borderRadius: 12,

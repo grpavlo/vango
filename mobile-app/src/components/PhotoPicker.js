@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -23,6 +23,35 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
     : [];
   const [previewIndex, setPreviewIndex] = useState(null);
   const toast = useToast();
+  const previewTouchStartRef = useRef(null);
+  const closePreview = useCallback(() => setPreviewIndex(null), []);
+
+  function handlePreviewTouchStart(event) {
+    const touch = event.nativeEvent?.touches?.[0] || event.nativeEvent;
+    previewTouchStartRef.current = {
+      x: touch?.pageX || 0,
+      y: touch?.pageY || 0,
+      at: Date.now(),
+    };
+  }
+
+  function handlePreviewTouchEnd(event) {
+    const start = previewTouchStartRef.current;
+    previewTouchStartRef.current = null;
+    if (!start) return;
+    const touch =
+      event.nativeEvent?.changedTouches?.[0] ||
+      event.nativeEvent?.touches?.[0] ||
+      event.nativeEvent;
+    const dx = (touch?.pageX || 0) - start.x;
+    const dy = (touch?.pageY || 0) - start.y;
+    const elapsed = Math.max(Date.now() - start.at, 1);
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    const velocity = distance / elapsed;
+    if (distance > 45 || velocity > 0.35) {
+      closePreview();
+    }
+  }
 
   const makeNextPhotos = (newUri) => {
     if (!newUri) return list;
@@ -95,11 +124,21 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
         </ScrollView>
       )}
       {previewIndex !== null && list.length > 0 && (
-        <Modal visible transparent>
+        <Modal visible transparent onRequestClose={closePreview}>
           <View style={styles.modal}>
+            <Image
+              source={{ uri: list[previewIndex] }}
+              style={styles.full}
+              resizeMode="contain"
+            />
+            <View
+              style={styles.swipeCloseLayer}
+              onTouchStart={handlePreviewTouchStart}
+              onTouchEnd={handlePreviewTouchEnd}
+            />
             <TouchableOpacity
               style={styles.close}
-              onPress={() => setPreviewIndex(null)}
+              onPress={closePreview}
             >
               <Ionicons name="close" size={32} color="#fff" />
             </TouchableOpacity>
@@ -110,16 +149,11 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
                   (_, idx) => idx !== previewIndex
                 );
                 onChange(newPhotos);
-                setPreviewIndex(null);
+                closePreview();
               }}
             >
               <Ionicons name="trash" size={32} color="#fff" />
             </TouchableOpacity>
-            <Image
-              source={{ uri: list[previewIndex] }}
-              style={styles.full}
-              resizeMode="contain"
-            />
           </View>
         </Modal>
       )}
@@ -149,6 +183,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   full: { width: "100%", height: "100%" },
-  close: { position: "absolute", top: 40, right: 20, zIndex: 1 },
-  delete: { position: "absolute", top: 40, left: 20, zIndex: 1 },
+  swipeCloseLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  close: { position: "absolute", top: 40, right: 20, zIndex: 2 },
+  delete: { position: "absolute", top: 40, left: 20, zIndex: 2 },
 });

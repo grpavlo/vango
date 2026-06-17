@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { View, ActivityIndicator, Image, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Host } from 'react-native-portalize';
 import { ToastProvider } from './src/components/Toast';
+import StartupAnimation from './src/components/StartupAnimation';
 import { AuthProvider, useAuth } from './src/AuthContext';
 import PhoneAuthScreen from './src/screens/PhoneAuthScreen';
 import RoleScreen from './src/screens/RoleScreen';
@@ -17,8 +17,10 @@ import EditProfile from './src/screens/EditProfile';
 import EditCustomerProfileScreen from './src/screens/EditCustomerProfileScreen';
 import DriverProfileScreen from './src/screens/DriverProfileScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { addStoredNotification } from './src/notificationCenter';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -29,48 +31,17 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  loadingLogoWrap: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingLogo: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  loadingSpinnerWrap: {
-    position: 'absolute',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-  },
-});
 
-function RootNavigator() {
+function RootNavigator({ introComplete, onIntroComplete }) {
   const { token, role, needsProfileSetup, loading } = useAuth();
 
-  if (loading) {
+  if (!introComplete || loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.loadingLogoWrap}>
-          <Image source={require('./assets/Frame1.png')} style={styles.loadingLogo} />
-          <View style={styles.loadingSpinnerWrap}>
-            <ActivityIndicator size="small" color="#2A8F57" />
-          </View>
-        </View>
-      </View>
+      <StartupAnimation
+        play={!introComplete}
+        showSpinner={introComplete && loading}
+        onFinish={onIntroComplete}
+      />
     );
   }
 
@@ -92,7 +63,23 @@ function RootNavigator() {
           <Stack.Screen name="CustomerProfileScreen" component={EditCustomerProfileScreen} />
           <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
           <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-          
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{
+              headerShown: true,
+              title: 'Сповіщення',
+              headerTitleAlign: 'center',
+              headerStyle: { backgroundColor: '#f9fafb' },
+              headerTitleStyle: {
+                color: '#273033',
+                fontSize: 20,
+                fontWeight: '800',
+              },
+              headerTintColor: '#273033',
+              headerShadowVisible: true,
+            }}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -101,6 +88,7 @@ function RootNavigator() {
 export default function App() {
   const pendingNavigationActionRef = useRef(null);
   const handledNotificationIdsRef = useRef(new Set());
+  const [introComplete, setIntroComplete] = useState(false);
 
   const executeNavigationAction = useCallback((action) => {
     if (!action) {
@@ -109,7 +97,11 @@ export default function App() {
     switch (action.type) {
       case 'orderDetail':
         if (action.orderId) {
-          navigationRef.navigate('OrderDetail', { orderId: action.orderId });
+          navigationRef.navigate('OrderDetail', {
+            orderId: action.orderId,
+            notificationReminderStep: action.reminderStep,
+            notificationOpenedAt: action.requestId,
+          });
         }
         break;
       case 'driverOrders':
@@ -146,6 +138,7 @@ export default function App() {
   const buildNavigationAction = useCallback((data = {}) => {
     const target = data?.navigateTo;
     const orderId = data?.orderId;
+    const reminderStep = data?.reminderStep;
     const requestId = Date.now();
     switch (target) {
       case 'driverOrders':
@@ -154,12 +147,12 @@ export default function App() {
         return { type: 'driverHistory', orderId, requestId };
       case 'orderDetail':
         if (orderId) {
-          return { type: 'orderDetail', orderId, requestId };
+          return { type: 'orderDetail', orderId, reminderStep, requestId };
         }
         return null;
       default:
         if (orderId) {
-          return { type: 'orderDetail', orderId, requestId };
+          return { type: 'orderDetail', orderId, reminderStep, requestId };
         }
         return null;
     }
@@ -190,7 +183,23 @@ export default function App() {
   }, [executeNavigationAction]);
 
   useEffect(() => {
+    const storeNotification = (notification, read = false) => {
+      const request = notification?.request;
+      const content = request?.content;
+      if (!request || !content) return;
+      addStoredNotification({
+        id: request.identifier,
+        content,
+        read,
+      }).catch(() => {});
+    };
+
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      storeNotification(notification, false);
+    });
+
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      storeNotification(response?.notification, true);
       const notificationId = response?.notification?.request?.identifier;
       const data = response?.notification?.request?.content?.data;
       handleNotificationNavigation(data, notificationId);
@@ -198,12 +207,16 @@ export default function App() {
     (async () => {
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (lastResponse) {
+        storeNotification(lastResponse?.notification, true);
         const notificationId = lastResponse?.notification?.request?.identifier;
         const data = lastResponse?.notification?.request?.content?.data;
         handleNotificationNavigation(data, notificationId);
       }
     })();
-    return () => sub.remove();
+    return () => {
+      receivedSub.remove();
+      sub.remove();
+    };
   }, [handleNotificationNavigation]);
 
   return (
@@ -211,7 +224,10 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
-            <RootNavigator />
+            <RootNavigator
+              introComplete={introComplete}
+              onIntroComplete={() => setIntroComplete(true)}
+            />
           </NavigationContainer>
         </AuthProvider>
       </ToastProvider>

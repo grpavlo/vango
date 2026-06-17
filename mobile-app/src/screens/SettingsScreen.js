@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { View, Image, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -10,11 +10,31 @@ import { apiFetch, HOST_URL } from "../api";
 import ListItem from "../components/ListItem";
 import { colors } from "../components/Colors";
 import ProfileCardSkeleton from "../components/ProfileCardSkeleton";
+import NotificationBell from "../components/NotificationBell";
+import appConfig from "../../app.json";
+
+const appVersion = appConfig?.expo?.version;
+
+function CargoBoxesIcon({ color = colors.primary500 }) {
+  return (
+    <View style={styles.cargoIconWrap}>
+      <Ionicons name="cube" size={17} color={color} style={styles.cargoIconBackLeft} />
+      <Ionicons name="cube" size={17} color={color} style={styles.cargoIconBackRight} />
+      <Ionicons name="cube" size={21} color={color} style={styles.cargoIconFront} />
+    </View>
+  );
+}
 
 export default function SettingsScreen({ navigation }) {
   const { logout, role, selectRole, token } = useAuth();
   const [user, setUser] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <NotificationBell />,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     async function load() {
@@ -169,7 +189,11 @@ export default function SettingsScreen({ navigation }) {
                 </AppText>
               </View>
               <View style={styles.badgeRight}>
-                <Ionicons name="bus" size={20} color={colors.primary500} />
+                {role === "CUSTOMER" ? (
+                  <CargoBoxesIcon />
+                ) : (
+                  <Ionicons name="bus" size={20} color={colors.primary500} />
+                )}
               </View>
             </View>
 
@@ -195,6 +219,9 @@ export default function SettingsScreen({ navigation }) {
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View> */}
+      {appVersion ? (
+        <AppText style={styles.versionText}>v{appVersion}</AppText>
+      ) : null}
     </ScrollView>
   );
 }
@@ -278,6 +305,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: 12,
   },
+  cargoIconWrap: {
+    width: 30,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cargoIconBackLeft: {
+    position: "absolute",
+    left: 2,
+    top: 1,
+    opacity: 0.72,
+  },
+  cargoIconBackRight: {
+    position: "absolute",
+    right: 2,
+    top: 1,
+    opacity: 0.72,
+  },
+  cargoIconFront: {
+    position: "absolute",
+    top: 8,
+  },
   roleTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -304,5 +353,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     paddingHorizontal: 24,
     paddingBottom: 16,
+  },
+  versionText: {
+    color: colors.gray500,
+    fontSize: 12,
+    textAlign: "center",
   },
 });

@@ -101,6 +101,20 @@ export default function AllOrdersScreen({ navigation }) {
   const canUseDropoffRadius = hasRadius && hasDropoff;
   const hasCorridor = Boolean(originPoint && dropoffPoint);
   const shouldUseRadiusQuery = canUsePickupRadius && !hasCorridor;
+  const corridorDistanceKm =
+    hasOrigin && hasDropoff
+      ? haversine(
+          originPoint.latitude,
+          originPoint.longitude,
+          dropoffPointRad.latitude,
+          dropoffPointRad.longitude
+        )
+      : null;
+  const shouldShowCorridorPolygon =
+    hasOrigin &&
+    hasDropoff &&
+    Number.isFinite(corridorDistanceKm) &&
+    corridorDistanceKm >= 40;
 
  
   const pickupCityFilter = (pickupPoint?.city || pickupCity || "").trim();
@@ -948,13 +962,13 @@ export default function AllOrdersScreen({ navigation }) {
         }));
         coords = coords.concat(corners);
       }
-      if (corridorCorners) coords = coords.concat(corridorCorners);
+      if (shouldShowCorridorPolygon && corridorCorners) coords = coords.concat(corridorCorners);
       mapRef.current.fitToCoordinates(coords, {
         edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
         animated: true,
       });
     }
-  }, [orders, radius, pickupPoint, dropoffPoint, location]);
+  }, [orders, radius, pickupPoint, dropoffPoint, location, shouldShowCorridorPolygon]);
 
   const region = originPoint
     ? {
@@ -1039,7 +1053,7 @@ export default function AllOrdersScreen({ navigation }) {
             )
         )}
 
-        {hasOrigin && hasDropoff && (
+        {shouldShowCorridorPolygon && (
           <Polygon
             coordinates={rectCornersFromAB(
               { lat: originPoint.latitude, lon: originPoint.longitude },

@@ -19,6 +19,7 @@ mobile-app/.gradle-home/
 mobile-app/assets/vango-icon-source.png
 *.service-account*.json
 # Firebase / GCP service account keys
+*firebase-adminsdk-*.json
 mobile-app/*firebase-adminsdk-*.json
 # or even:
 *.service-account.json
