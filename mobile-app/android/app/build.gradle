@@ -113,8 +113,8 @@ android {
         applicationId 'com.pashagr.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "1.0.10"
+        versionCode 11
+        versionName "1.0.11"
     }
     signingConfigs {
         debug {
@@ -125,7 +125,7 @@ android {
         }
         if (hasReleaseSigning) {
             release {
-                storeFile file(releaseStoreFile)
+                storeFile rootProject.file(releaseStoreFile)
                 storePassword releaseStorePassword
                 keyAlias releaseKeyAlias
                 keyPassword releaseKeyPassword

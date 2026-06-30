@@ -482,7 +482,6 @@ export default function MyOrdersScreen({ navigation, route }) {
     const showNewPhotoBadge = filter === "active" && Boolean(unreadUpdate.photo);
     const canMoveToHistory = canCustomerMoveInProgressOrderToHistory(item, nowMs);
     const moveToHistoryWaitText = getMoveToHistoryWaitText(item, nowMs);
-    const showAgreedPriceOnly = shouldShowAgreedPriceOnly(item);
     const orderPriceText = formatOrderPriceValue(item);
     return (
       <TouchableOpacity
@@ -521,7 +520,7 @@ export default function MyOrdersScreen({ navigation, route }) {
               </View>
               <View style={styles.candidateRight}>
                 <Ionicons name="call" size={20} color={colors.green} />
-                <Text style={styles.timeLabel}>{candidateTime} хв</Text>
+                <Text style={styles.timeLabel}>Буде {candidateTime} хв</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -594,12 +593,7 @@ export default function MyOrdersScreen({ navigation, route }) {
           </Text>
           <Text style={styles.field}>
             <Text style={styles.fieldLabel}>Ціна:</Text>
-            {showAgreedPriceOnly && <Text style={styles.info}> {orderPriceText}</Text>}
-            <Text style={[styles.info, showAgreedPriceOnly && styles.hiddenPrice]}>
-              {` ${Math.round(item.price)} грн${
-                item.agreedPrice ? " (Договірна)" : ""
-              }`}
-            </Text>
+            <Text style={styles.info}> {orderPriceText}</Text>
           </Text>
           <Text style={styles.statusRow}>
             <Text style={styles.fieldLabel}>Статус: </Text>
@@ -1072,7 +1066,6 @@ const styles = StyleSheet.create({
   field: { marginTop: 4, fontSize: 15, color: "#111827" },
   fieldLabel: { fontWeight: "600", color: "#374151" },
   info: { color: "#111827" },
-  hiddenPrice: { display: "none" },
   statusRow: { marginTop: 12, flexDirection: "row", alignItems: "center" },
   statusValue: { fontWeight: "600", color: colors.green },
   updateBadgesRow: {
@@ -1264,6 +1257,12 @@ function formatDateLocal(value) {
 
 function formatLoadDateLocal(order) {
   if (!order) return '';
+  if (order.timingOption === 'ASAP') {
+    return '\u042f\u043a\u043d\u0430\u0439\u0448\u0432\u0438\u0434\u0448\u0435';
+  }
+  if (order.timingOption === 'WITHIN_1_HOUR') {
+    return '\u0414\u043e 1 \u0433\u043e\u0434';
+  }
   if (order.freeDate) {
     const until = formatDateLocal(order.freeDateUntil);
     return until ? `Вільна до ${until}` : 'Вільна дата';
@@ -1275,8 +1274,18 @@ function shouldShowAgreedPriceOnly(order) {
   return Boolean(order?.agreedPrice) && (!Number.isFinite(price) || price <= 0);
 }
 
+function shouldShowDriverProposedPrice(order) {
+  return (
+    Boolean(order?.isIntraCity) &&
+    !["ACCEPTED", "IN_PROGRESS", "DELIVERED", "COMPLETED"].includes(order?.status)
+  );
+}
+
 function formatOrderPriceValue(order) {
   const price = Number(order?.price);
+  if (shouldShowDriverProposedPrice(order)) {
+    return "\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454\u0442\u044c\u0441\u044f \u0432\u043e\u0434\u0456\u0454\u043c";
+  }
   if (shouldShowAgreedPriceOnly(order)) return "Договірна";
   if (!Number.isFinite(price)) return order?.agreedPrice ? "Договірна" : "—";
   return `${Math.round(price)} грн${order?.agreedPrice ? " (Договірна)" : ""}`;

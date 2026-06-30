@@ -198,24 +198,7 @@ export default function EditOrderScreen({ route, navigation }) {
 
   async function save() {
     try {
-      const freeDateSchedule = freeDate
-        ? order.freeDate && order.freeDateUntil
-          ? {
-              loadFrom: new Date(order.loadFrom || new Date()),
-              loadTo: new Date(
-                order.loadTo || new Date(Date.now() + 60 * 60 * 1000)
-              ),
-              unloadFrom: new Date(order.unloadFrom || order.freeDateUntil),
-              unloadTo: new Date(
-                order.unloadTo ||
-                  new Date(
-                    new Date(order.freeDateUntil).getTime() + 60 * 60 * 1000
-                  )
-              ),
-              freeDateUntil: new Date(order.freeDateUntil),
-            }
-          : buildFlexibleSchedule()
-        : null;
+      const freeDateSchedule = freeDate ? buildFlexibleSchedule() : null;
 
       const fd = new FormData();
 

@@ -10,7 +10,9 @@ export default function OptionSwitch({ options, value, onChange, style }) {
           key={opt.value}
           style={[
             styles.option,
-            value === opt.value && (idx === 0 ? styles.activeLeft : styles.activeRight),
+            value === opt.value && styles.active,
+            value === opt.value && idx === 0 && styles.activeLeft,
+            value === opt.value && idx === options.length - 1 && styles.activeRight,
           ]}
           onPress={() => onChange(opt.value)}
         >
@@ -36,12 +38,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   activeLeft: {
-    backgroundColor: colors.green,
     borderTopLeftRadius: 24,
     borderBottomLeftRadius: 24,
   },
-  activeRight: {
+  active: {
     backgroundColor: colors.green,
+  },
+  activeRight: {
     borderTopRightRadius: 24,
     borderBottomRightRadius: 24,
   },

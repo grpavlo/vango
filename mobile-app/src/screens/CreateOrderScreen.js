@@ -29,8 +29,19 @@ import { formatPointAddress } from "../addressFormat";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FREE_DATE_TTL_DAYS = 7;
+const ORDER_TYPE_LOCAL = "LOCAL";
+const ORDER_TYPE_LONG_DISTANCE = "LONG_DISTANCE";
+const TIMING_ASAP = "ASAP";
+const TIMING_WITHIN_1_HOUR = "WITHIN_1_HOUR";
+const TIMING_SCHEDULED = "SCHEDULED";
 const INTRA_CITY_HINT_TEXT =
   "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
+const LOCAL_ORDER_HINT_TEXT =
+  "\u0412\u043e\u0434\u0456\u0457 \u0437\u0430\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u044e\u0442\u044c \u0446\u0456\u043d\u0443 \u0442\u0430 \u0443\u043c\u043e\u0432\u0438";
+const LOCAL_DISTANCE_HINT_TEXT =
+  "\u041c\u0456\u0441\u0446\u0435\u0432\u0456 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0430\u0439\u043a\u0440\u0430\u0449\u0435 \u043f\u0456\u0434\u0445\u043e\u0434\u044f\u0442\u044c \u0434\u043b\u044f \u043c\u0456\u0441\u0442\u0430 \u0442\u0430 \u043f\u0435\u0440\u0435\u0434\u043c\u0456\u0441\u0442\u044c";
+const LOCAL_PRICE_HINT_TEXT =
+  "\u0412\u043e\u0434\u0456\u0457 \u043d\u0430\u0434\u0456\u0448\u043b\u044e\u0442\u044c \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457 \u0437 \u043f\u043e\u0433\u043e\u0434\u0438\u043d\u043d\u043e\u044e \u043e\u043f\u043b\u0430\u0442\u043e\u044e";
 const FREE_DATE_TITLE = "\u0412\u0456\u043b\u044c\u043d\u0430 \u0434\u0430\u0442\u0430";
 const FREE_DATE_INFO_TEXT =
   "\u042f\u043a\u0449\u043e \u0434\u0430\u0442\u0430 \u0440\u043e\u0437\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u0432\u0456\u043b\u044c\u043d\u0430, \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0443\u0434\u0435 \u0430\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u0438\u043c 7 \u0434\u043d\u0456\u0432 \u0456 \u043f\u043e\u043a\u0430\u0437\u0443\u0432\u0430\u0442\u0438\u043c\u0435\u0442\u044c\u0441\u044f \u0432\u043e\u0434\u0456\u044f\u043c \u0443 \u0432\u0438\u0431\u0440\u0430\u043d\u043e\u043c\u0443 \u043c\u0456\u0441\u0442\u0456 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f.";
@@ -101,10 +112,26 @@ function buildFlexibleSchedule(baseDate = new Date()) {
   return { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil };
 }
 
+function buildQuickSchedule(timingOption = TIMING_ASAP) {
+  const now = new Date();
+  const loadFrom =
+    timingOption === TIMING_WITHIN_1_HOUR
+      ? new Date(now.getTime() + 60 * 60 * 1000)
+      : now;
+  const loadTo = new Date(loadFrom.getTime() + 60 * 60 * 1000);
+  const unloadFrom = new Date(loadTo);
+  const unloadTo = new Date(unloadFrom.getTime() + 60 * 60 * 1000);
+
+  return { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil: null };
+}
+
 export default function CreateOrderScreen({ navigation }) {
   const { token } = useAuth();
   const toast = useToast();
 
+  const [selectedOrderType, setSelectedOrderType] = useState(null);
+  const [localTiming, setLocalTiming] = useState(TIMING_ASAP);
+  const [additionalInfoExpanded, setAdditionalInfoExpanded] = useState(false);
   const [pickupQuery, setPickupQuery] = useState("");
   const [pickup, setPickup] = useState(null);
   const [dropoffQuery, setDropoffQuery] = useState("");
@@ -134,7 +161,11 @@ export default function CreateOrderScreen({ navigation }) {
   const [systemPrice, setSystemPrice] = useState(null);
   const [adjust] = useState(0);
   const [agreedPrice, setAgreedPrice] = useState(false);
-  const isIntraCityOrder = isIntraCityRoute(pickup?.city, dropoff?.city);
+  const isSameCityRoute = isIntraCityRoute(pickup?.city, dropoff?.city);
+  const isLocalSelected = selectedOrderType === ORDER_TYPE_LOCAL;
+  const isLocalQuickOrder =
+    isLocalSelected && localTiming !== TIMING_SCHEDULED;
+  const isEffectiveLocalOrder = isLocalSelected || isSameCityRoute;
 
   useEffect(() => {
     async function calcDistance() {
@@ -169,6 +200,9 @@ export default function CreateOrderScreen({ navigation }) {
 
   function resetForm() {
     const defaults = buildDefaultSchedule();
+    setSelectedOrderType(null);
+    setLocalTiming(TIMING_ASAP);
+    setAdditionalInfoExpanded(false);
     setPickupQuery("");
     setPickup(null);
     setDropoffQuery("");
@@ -206,11 +240,19 @@ export default function CreateOrderScreen({ navigation }) {
 
   async function create() {
     try {
-      const schedule = freeDate
+      const shouldUseQuickSchedule = isLocalQuickOrder;
+      const effectiveFreeDate = shouldUseQuickSchedule ? false : freeDate;
+      const schedule = shouldUseQuickSchedule
+        ? buildQuickSchedule(localTiming)
+        : effectiveFreeDate
         ? buildFlexibleSchedule()
         : { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil: null };
 
       const fd = new FormData();
+      fd.append("requestedOrderType", selectedOrderType);
+      if (isLocalSelected) {
+        fd.append("timingOption", localTiming);
+      }
 
       if (pickup) {
         fd.append("pickupLocation", pickup.text);
@@ -253,7 +295,7 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append("loadTo", schedule.loadTo.toISOString());
       fd.append("unloadFrom", schedule.unloadFrom.toISOString());
       fd.append("unloadTo", schedule.unloadTo.toISOString());
-      fd.append("freeDate", freeDate ? "true" : "false");
+      fd.append("freeDate", effectiveFreeDate ? "true" : "false");
       if (schedule.freeDateUntil) {
         fd.append("freeDateUntil", schedule.freeDateUntil.toISOString());
       }
@@ -262,7 +304,7 @@ export default function CreateOrderScreen({ navigation }) {
       fd.append("loadHelp", loadHelp ? "true" : "false");
       fd.append("unloadHelp", unloadHelp ? "true" : "false");
       fd.append("payment", payment);
-      if (!isIntraCityOrder) {
+      if (!isEffectiveLocalOrder) {
         const finalPrice = agreedPrice
           ? 0
           : Math.round((systemPrice || 0) * (1 + adjust / 100));
@@ -295,6 +337,14 @@ export default function CreateOrderScreen({ navigation }) {
   }
 
   async function confirmCreate() {
+    if (!selectedOrderType) {
+      toast.show("\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0442\u0438\u043f \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f");
+      return;
+    }
+    if (isLocalSelected && !localTiming) {
+      toast.show("\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0447\u0430\u0441 \u043f\u043e\u0434\u0430\u0447\u0456 \u0430\u0432\u0442\u043e");
+      return;
+    }
     if (!pickup || !dropoff) {
       toast.show("Вкажіть адреси завантаження та розвантаження");
       return;
@@ -311,12 +361,12 @@ export default function CreateOrderScreen({ navigation }) {
       toast.show("Вкажіть опис вантажу");
       return;
     }
-    if (!isIntraCityOrder && !agreedPrice && parseLocaleNumber(systemPrice) <= 0) {
+    if (!isEffectiveLocalOrder && !agreedPrice && parseLocaleNumber(systemPrice) <= 0) {
       toast.show("Потрібно вказати ціну");
       return;
     }
 
-    if (!freeDate) {
+    if (!freeDate && !isLocalQuickOrder) {
       if (loadFrom < new Date()) {
         toast.show("Дата завантаження не може бути в минулому");
         return;
@@ -347,6 +397,135 @@ export default function CreateOrderScreen({ navigation }) {
     ]);
   }
 
+  function chooseOrderType(type) {
+    setSelectedOrderType(type);
+    if (type === ORDER_TYPE_LOCAL) {
+      setLocalTiming(TIMING_ASAP);
+      setAdditionalInfoExpanded(false);
+    }
+  }
+
+  function renderAdditionalFields() {
+    return (
+      <>
+        <View style={styles.section}>
+          <Ionicons name="cube" size={20} color={colors.green} />
+          <AppText style={styles.label}>
+            {"\u0413\u0430\u0431\u0430\u0440\u0438\u0442\u0438 (\u0414 x \u0428 x \u0412, \u043c\u0435\u0442\u0440\u0438)"}
+          </AppText>
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <AppInput
+            style={styles.dim}
+            value={cargoLength}
+            onChangeText={setCargoLength}
+            keyboardType="numeric"
+            placeholder={"\u0414"}
+          />
+          <AppInput
+            style={styles.dim}
+            value={cargoWidth}
+            onChangeText={setCargoWidth}
+            keyboardType="numeric"
+            placeholder={"\u0428"}
+          />
+          <AppInput
+            style={styles.dim}
+            value={cargoHeight}
+            onChangeText={setCargoHeight}
+            keyboardType="numeric"
+            placeholder={"\u0412"}
+          />
+        </View>
+        {parseLocaleNumber(cargoVolume) > 0 && (
+          <AppText style={{ marginTop: 4, color: "#6B7280" }}>
+            {"\u041e\u0431'\u0454\u043c"}: {cargoVolume} {"\u043c3"}
+          </AppText>
+        )}
+
+        <AppText style={styles.labelStandalone}>{"\u0412\u0430\u0433\u0430, \u043a\u0433"}</AppText>
+        <AppInput
+          value={cargoWeight}
+          onChangeText={setCargoWeight}
+          keyboardType="numeric"
+          placeholder={"\u0412\u0430\u0433\u0430 \u0432\u0430\u043d\u0442\u0430\u0436\u0443"}
+        />
+
+        {distance !== null && (
+          <AppText style={{ marginTop: 8, color: "#6B7280" }}>
+            ~{distance} {"\u043a\u043c \u043f\u043e \u0434\u043e\u0440\u043e\u0437\u0456"}
+          </AppText>
+        )}
+
+        <View>
+          <AppText style={styles.labelStandalone}>{"\u0414\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0456 \u043f\u043e\u0441\u043b\u0443\u0433\u0438"}</AppText>
+          <View style={styles.serviceRow}>
+            <CheckBox
+              value={loadHelp}
+              onChange={setLoadHelp}
+              label={"\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f"}
+            />
+            <CheckBox
+              value={unloadHelp}
+              onChange={setUnloadHelp}
+              label={"\u0420\u043e\u0437\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f"}
+            />
+          </View>
+        </View>
+
+        <AppText style={styles.labelStandalone}>{"\u041e\u043f\u043b\u0430\u0442\u0430"}</AppText>
+        <OptionSwitch
+          options={[
+            { label: "\u0413\u043e\u0442\u0456\u0432\u043a\u0430", value: "cash" },
+            { label: "\u041a\u0430\u0440\u0442\u0430", value: "card" },
+          ]}
+          value={payment}
+          onChange={setPayment}
+        />
+      </>
+    );
+  }
+
+  if (!selectedOrderType) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <AppText style={styles.choiceTitle}>{"\u042f\u043a\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0435?"}</AppText>
+        <AppText style={styles.choiceSubtitle}>
+          {"\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0444\u043e\u0440\u043c\u0430\u0442, \u0449\u043e\u0431 \u043c\u0438 \u043f\u043e\u043a\u0430\u0437\u0430\u043b\u0438 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0456 \u043f\u043e\u043b\u044f."}
+        </AppText>
+
+        <TouchableOpacity
+          style={styles.choiceCard}
+          activeOpacity={0.85}
+          onPress={() => chooseOrderType(ORDER_TYPE_LOCAL)}
+        >
+          <View style={styles.choiceIcon}>
+            <Ionicons name="time-outline" size={24} color={colors.green} />
+          </View>
+          <AppText style={styles.choiceCardTitle}>{"\u041c\u0456\u0441\u0446\u0435\u0432\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"}</AppText>
+          <AppText style={styles.choiceCardText}>{LOCAL_ORDER_HINT_TEXT}</AppText>
+          <AppText style={styles.choiceCardText}>{"\u041c\u0456\u0441\u0442\u043e \u0442\u0430 \u043f\u0435\u0440\u0435\u0434\u043c\u0456\u0441\u0442\u044f"}</AppText>
+          <AppText style={styles.choiceCardText}>{"\u041f\u043e\u0433\u043e\u0434\u0438\u043d\u043d\u0430 \u043e\u043f\u043b\u0430\u0442\u0430"}</AppText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.choiceCard}
+          activeOpacity={0.85}
+          onPress={() => chooseOrderType(ORDER_TYPE_LONG_DISTANCE)}
+        >
+          <View style={[styles.choiceIcon, styles.choiceIconOrange]}>
+            <Ionicons name="trail-sign-outline" size={24} color={colors.orange} />
+          </View>
+          <AppText style={styles.choiceCardTitle}>{"\u0414\u0430\u043b\u0435\u043a\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"}</AppText>
+          <AppText style={styles.choiceCardText}>
+            {"\u0412\u0438 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454\u0442\u0435 \u0446\u0456\u043d\u0443 \u0430\u0431\u043e \u043e\u0431\u0438\u0440\u0430\u0454\u0442\u0435 \u00ab\u0414\u043e\u0433\u043e\u0432\u0456\u0440\u043d\u0430\u00bb"}
+          </AppText>
+          <AppText style={styles.choiceCardText}>{"\u0414\u043b\u044f \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0456\u0432 \u043f\u043e\u0437\u0430 \u043c\u0456\u0441\u0442\u043e\u043c"}</AppText>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
   return (
     <KeyboardAwareScrollView
       keyboardShouldPersistTaps="handled"
@@ -360,6 +539,23 @@ export default function CreateOrderScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
+          <View style={styles.selectedTypeHeader}>
+            <View>
+              <AppText style={styles.selectedTypeEyebrow}>{"\u0422\u0438\u043f \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f"}</AppText>
+              <AppText style={styles.selectedTypeTitle}>
+                {isLocalSelected
+                  ? "\u041c\u0456\u0441\u0446\u0435\u0432\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"
+                  : "\u0414\u0430\u043b\u0435\u043a\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"}
+              </AppText>
+            </View>
+            <TouchableOpacity
+              style={styles.changeTypeButton}
+              onPress={() => setSelectedOrderType(null)}
+            >
+              <AppText style={styles.changeTypeText}>{"\u0417\u043c\u0456\u043d\u0438\u0442\u0438"}</AppText>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.section}>
             <Ionicons name="location" size={20} color={colors.green} />
             <AppText style={styles.label}>Звідки</AppText>
@@ -416,6 +612,35 @@ export default function CreateOrderScreen({ navigation }) {
             }}
           />
 
+          {isLocalSelected && (
+            <>
+              <View style={styles.section}>
+                <Ionicons name="timer-outline" size={20} color={colors.green} />
+                <AppText style={styles.label}>{"\u041a\u043e\u043b\u0438 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0435 \u0430\u0432\u0442\u043e"}</AppText>
+              </View>
+              <OptionSwitch
+                style={styles.timingSwitch}
+                options={[
+                  { label: "\u042f\u043a\u043d\u0430\u0439\u0448\u0432\u0438\u0434\u0448\u0435", value: TIMING_ASAP },
+                  { label: "\u0414\u043e 1 \u0433\u043e\u0434", value: TIMING_WITHIN_1_HOUR },
+                  { label: "\u0417\u0430\u043f\u043b\u0430\u043d\u0443\u0432\u0430\u0442\u0438", value: TIMING_SCHEDULED },
+                ]}
+                value={localTiming}
+                onChange={(value) => {
+                  setLocalTiming(value);
+                  if (value !== TIMING_SCHEDULED) {
+                    setAdditionalInfoExpanded(false);
+                    setFreeDate(false);
+                  }
+                }}
+              />
+              {isLocalSelected && !isSameCityRoute && pickup && dropoff && (
+                <AppText style={styles.localDistanceHint}>{LOCAL_DISTANCE_HINT_TEXT}</AppText>
+              )}
+            </>
+          )}
+
+          {!isLocalQuickOrder && (
           <View style={styles.freeDateBox}>
             <View style={styles.freeDateHeader}>
               <CheckBox
@@ -439,8 +664,9 @@ export default function CreateOrderScreen({ navigation }) {
               </AppText>
             )}
           </View>
+          )}
 
-          {!freeDate && (
+          {!freeDate && !isLocalQuickOrder && (
             <>
               <View style={styles.section}>
                 <Ionicons
@@ -532,6 +758,27 @@ export default function CreateOrderScreen({ navigation }) {
             </>
           )}
 
+          {isLocalQuickOrder ? (
+            <View style={styles.additionalInfoBox}>
+              <TouchableOpacity
+                style={styles.additionalInfoHeader}
+                onPress={() => setAdditionalInfoExpanded((value) => !value)}
+                accessibilityRole="button"
+              >
+                <View>
+                  <AppText style={styles.additionalInfoTitle}>{"\u0414\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u044f"}</AppText>
+                  <AppText style={styles.additionalInfoSubtitle}>{"\u0413\u0430\u0431\u0430\u0440\u0438\u0442\u0438, \u0432\u0430\u0433\u0430, \u043f\u043e\u0441\u043b\u0443\u0433\u0438 \u0442\u0430 \u043e\u043f\u043b\u0430\u0442\u0430"}</AppText>
+                </View>
+                <Ionicons
+                  name={additionalInfoExpanded ? "remove-circle-outline" : "add-circle-outline"}
+                  size={28}
+                  color={colors.green}
+                />
+              </TouchableOpacity>
+              {additionalInfoExpanded && renderAdditionalFields()}
+            </View>
+          ) : (
+            <>
           <View style={styles.section}>
             <Ionicons name="cube" size={20} color={colors.green} />
             <AppText style={styles.label}>Габарити (Д x Ш x В, метри)</AppText>
@@ -614,12 +861,28 @@ export default function CreateOrderScreen({ navigation }) {
             style={{ height: 100, textAlignVertical: "top" }}
           />
 
+            </>
+          )}
+
+          {isLocalQuickOrder && (
+            <>
+              <AppText style={styles.labelStandalone}>{"\u041e\u043f\u0438\u0441 \u0432\u0430\u043d\u0442\u0430\u0436\u0443"}</AppText>
+              <AppInput
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+                style={{ height: 100, textAlignVertical: "top" }}
+              />
+            </>
+          )}
+
           <PhotoPicker photos={photos} onChange={setPhotos} />
           <View style={{ marginTop: 16 }}>
-            {isIntraCityOrder ? (
+            {isEffectiveLocalOrder ? (
               <View style={styles.intraCityHintBox}>
                 <AppText style={styles.intraCityHintText}>
-                  {INTRA_CITY_HINT_TEXT}
+                  {isLocalSelected ? LOCAL_PRICE_HINT_TEXT : INTRA_CITY_HINT_TEXT}
                 </AppText>
               </View>
             ) : (
@@ -663,6 +926,111 @@ export default function CreateOrderScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 24 },
   dim: { flex: 1, textAlign: "center" },
+  choiceTitle: {
+    marginTop: 24,
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  choiceSubtitle: {
+    marginTop: 8,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  choiceCard: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  choiceIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary100,
+    marginBottom: 12,
+  },
+  choiceIconOrange: {
+    backgroundColor: "#FFEDD5",
+  },
+  choiceCardTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  choiceCardText: {
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  selectedTypeHeader: {
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectedTypeEyebrow: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  selectedTypeTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  changeTypeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.primary100,
+  },
+  changeTypeText: {
+    color: colors.green,
+    fontWeight: "800",
+  },
+  timingSwitch: {
+    marginTop: 10,
+  },
+  localDistanceHint: {
+    marginTop: 8,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  additionalInfoBox: {
+    marginTop: 24,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  additionalInfoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  additionalInfoTitle: {
+    color: colors.text,
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  additionalInfoSubtitle: {
+    color: colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 18,
+  },
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,

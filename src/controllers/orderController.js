@@ -1,6 +1,6 @@
 const Order = require("../models/order");
 
-const { OrderStatus } = require("../models/order");
+const { OrderStatus, RequestedOrderType, TimingOption } = require("../models/order");
 
 const Transaction = require("../models/transaction");
 
@@ -291,6 +291,21 @@ function isIntraCityRoute(pickupCity, dropoffCity) {
   return Boolean(pickup && dropoff && pickup === dropoff);
 }
 
+function normalizeRequestedOrderType(value) {
+  return Object.values(RequestedOrderType).includes(value) ? value : null;
+}
+
+function normalizeTimingOption(value) {
+  return Object.values(TimingOption).includes(value) ? value : null;
+}
+
+function isEffectiveIntraCity(requestedOrderType, pickupCity, dropoffCity) {
+  return (
+    requestedOrderType === RequestedOrderType.LOCAL ||
+    isIntraCityRoute(pickupCity, dropoffCity)
+  );
+}
+
 function orderMatchesSavedSearch(order, savedSearch) {
   const orderCity = normalizeCity(order.pickupCity);
   const searchCity = normalizeCity(savedSearch.pickupCity);
@@ -434,6 +449,10 @@ async function createOrder(req, res) {
 
     freeDate,
 
+    requestedOrderType,
+
+    timingOption,
+
     payment,
 
     agreedPrice,
@@ -446,7 +465,16 @@ async function createOrder(req, res) {
 
   let price = 0;
   const isAgreedPrice = normalizeBoolean(agreedPrice);
-  const intraCity = isIntraCityRoute(pickupCity, dropoffCity);
+  const normalizedRequestedOrderType = normalizeRequestedOrderType(requestedOrderType);
+  const normalizedTimingOption =
+    normalizedRequestedOrderType === RequestedOrderType.LOCAL
+      ? normalizeTimingOption(timingOption) || TimingOption.ASAP
+      : null;
+  const intraCity = isEffectiveIntraCity(
+    normalizedRequestedOrderType,
+    pickupCity,
+    dropoffCity
+  );
   const submittedPrice = parseFloat(req.body.price);
   if (!intraCity && !isAgreedPrice && Number.isFinite(submittedPrice)) {
     price = submittedPrice;
@@ -500,6 +528,10 @@ async function createOrder(req, res) {
       pickupCity,
 
       isIntraCity: intraCity,
+
+      requestedOrderType: normalizedRequestedOrderType,
+
+      timingOption: normalizedTimingOption,
 
       pickupAddress,
 
@@ -1913,6 +1945,10 @@ async function updateOrder(req, res) {
 
       "freeDate",
 
+      "requestedOrderType",
+
+      "timingOption",
+
       "payment",
 
       "loadFrom",
@@ -1956,6 +1992,14 @@ async function updateOrder(req, res) {
         if (f === "agreedPrice") {
 
           order.agreedPrice = normalizeBoolean(req.body.agreedPrice);
+
+        } else if (f === "requestedOrderType") {
+
+          order.requestedOrderType = normalizeRequestedOrderType(req.body.requestedOrderType);
+
+        } else if (f === "timingOption") {
+
+          order.timingOption = normalizeTimingOption(req.body.timingOption);
 
         } else if (f === "freeDate") {
 
@@ -2017,9 +2061,23 @@ async function updateOrder(req, res) {
 
     if (order.freeDate) {
 
-      if (!order.freeDateUntil || Number.isNaN(new Date(order.freeDateUntil).getTime())) {
+      if (req.body.freeDate !== undefined) {
 
-        order.freeDateUntil = buildFreeDateSchedule().freeDateUntil;
+        const freeDateSchedule = buildFreeDateSchedule();
+        order.loadFrom = freeDateSchedule.loadFrom;
+        order.loadTo = freeDateSchedule.loadTo;
+        order.unloadFrom = freeDateSchedule.unloadFrom;
+        order.unloadTo = freeDateSchedule.unloadTo;
+        order.freeDateUntil = freeDateSchedule.freeDateUntil;
+
+      } else if (!order.freeDateUntil || Number.isNaN(new Date(order.freeDateUntil).getTime())) {
+
+        const freeDateSchedule = buildFreeDateSchedule();
+        order.loadFrom = freeDateSchedule.loadFrom;
+        order.loadTo = freeDateSchedule.loadTo;
+        order.unloadFrom = freeDateSchedule.unloadFrom;
+        order.unloadTo = freeDateSchedule.unloadTo;
+        order.freeDateUntil = freeDateSchedule.freeDateUntil;
 
       }
 
@@ -2029,7 +2087,17 @@ async function updateOrder(req, res) {
 
     }
 
-    order.isIntraCity = isIntraCityRoute(order.pickupCity, order.dropoffCity);
+    if (order.requestedOrderType !== RequestedOrderType.LOCAL) {
+      order.timingOption = null;
+    } else if (!order.timingOption) {
+      order.timingOption = TimingOption.ASAP;
+    }
+
+    order.isIntraCity = isEffectiveIntraCity(
+      order.requestedOrderType,
+      order.pickupCity,
+      order.dropoffCity
+    );
 
 
 
@@ -2115,7 +2183,11 @@ async function updateOrder(req, res) {
 
           order.systemPrice = km * 50;
 
-          if (req.body.price === undefined) {
+          if (order.isIntraCity) {
+
+            order.price = 0;
+
+          } else if (req.body.price === undefined && !order.agreedPrice) {
 
             order.price = order.systemPrice;
 

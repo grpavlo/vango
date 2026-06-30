@@ -750,6 +750,8 @@ export default function AddressSearchInput({
         {navigation && (
           <TouchableOpacity
             style={styles.mapBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Відкрити мапу"
             onPress={() => {
               onOpenMap?.();
               const onSelectId = registerCallback((p) => {
@@ -772,7 +774,8 @@ export default function AddressSearchInput({
               });
             }}
           >
-            <Ionicons name="map" size={24} color={colors.green} />
+            <Ionicons name="map-outline" size={18} color={colors.green} />
+            <AppText style={styles.mapBtnText}>МАПА</AppText>
           </TouchableOpacity>
         )}
       </View>
@@ -921,9 +924,21 @@ const styles = StyleSheet.create({
   },
   mapBtn: {
     marginLeft: 8,
+    minHeight: 44,
+    paddingHorizontal: 10,
     borderColor: colors.green,
     borderWidth: 1,
-    padding: 5,
-    borderRadius: 12,
+    borderRadius: 10,
+    backgroundColor: colors.primary100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  mapBtnText: {
+    color: colors.green,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0,
   },
 });

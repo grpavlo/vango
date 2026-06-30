@@ -150,7 +150,7 @@ function formatCityOfferSummary(response) {
   const minHours = Number(response.minHours);
   const eta = CITY_ARRIVAL_ETA_LABELS[response.arrivalEta] || response.arrivalEta || '';
   if (!Number.isFinite(hourly) || !Number.isFinite(minHours)) return null;
-  return `${Math.round(hourly)} грн/год • мін ${Math.round(minHours)} год • ${eta}`;
+  return `${Math.round(hourly)} грн/год • мін ${Math.round(minHours)} год • Буде ${eta}`;
 }
 
 function formatResponseFinalPrice(response) {
@@ -247,6 +247,17 @@ function formatDateTimeLocal(value) {
   return `${date} ${time}`;
 }
 
+function formatTimingOptionDetail(order) {
+  switch (order?.timingOption) {
+    case 'ASAP':
+      return '\u042f\u043a\u043d\u0430\u0439\u0448\u0432\u0438\u0434\u0448\u0435';
+    case 'WITHIN_1_HOUR':
+      return '\u0414\u043e 1 \u0433\u043e\u0434\u0438\u043d\u0438';
+    default:
+      return null;
+  }
+}
+
 function calcVolume(dimensions) {
   if (!dimensions) return null;
   const parts = dimensions.split('x').map((n) => parseFloat(n));
@@ -267,13 +278,41 @@ function formatPriceValue(value) {
   return `${Math.round(num).toLocaleString('uk-UA')} грн`;
 }
 
+function getPriceNumber(value) {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function isPriceAcceptanceEntry(entries, index, entry) {
+  const nextEntry = entries[index + 1];
+  if (!nextEntry || nextEntry.status !== 'ACCEPTED') return false;
+  if (entry.changedByRole && nextEntry.changedByRole && entry.changedByRole !== nextEntry.changedByRole) {
+    return false;
+  }
+  if (entry.changedById && nextEntry.changedById && entry.changedById !== nextEntry.changedById) {
+    return false;
+  }
+  return true;
+}
+
 function shouldShowAgreedPriceOnly(order) {
   const price = Number(order?.price);
   return Boolean(order?.agreedPrice) && (!Number.isFinite(price) || price <= 0);
 }
 
+function shouldShowDriverProposedPrice(order) {
+  return (
+    Boolean(order?.isIntraCity) &&
+    !['ACCEPTED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED'].includes(order?.status)
+  );
+}
+
 function formatOrderPriceValue(order) {
   const price = Number(order?.price);
+  if (shouldShowDriverProposedPrice(order)) {
+    return '\u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454\u0442\u044c\u0441\u044f \u0432\u043e\u0434\u0456\u0454\u043c';
+  }
   if (shouldShowAgreedPriceOnly(order)) return 'Договірна';
   if (!Number.isFinite(price)) return order?.agreedPrice ? 'Договірна' : '-';
   return `${Math.round(price)} грн${order?.agreedPrice ? ' (Договірна)' : ''}`;
@@ -283,24 +322,31 @@ function formatHistoryEntries(history) {
   if (!Array.isArray(history)) return [];
   const acceptedEntry = history.find((entry) => entry?.status === 'ACCEPTED' && entry?.at);
   const acceptedAtMs = acceptedEntry ? new Date(acceptedEntry.at).getTime() : null;
-  return history.filter((entry) => {
+  const visibleHistory = history.filter((entry) => {
     if (entry?.status !== 'PRICE_UPDATED' || entry?.field !== 'finalPrice') return true;
     if (!acceptedAtMs || !Number.isFinite(acceptedAtMs)) return false;
     const entryAtMs = new Date(entry.at).getTime();
     return Number.isFinite(entryAtMs) && entryAtMs >= acceptedAtMs;
-  }).map((entry) => {
+  });
+
+  return visibleHistory.map((entry, index) => {
     if (entry.status === 'PRICE_UPDATED') {
       const actor =
         historyActorLabels[entry.changedByRole] ||
         (entry.changedByRole ? 'Користувач' : 'Система');
       const fieldLabel = priceFieldLabels[entry.field] || priceFieldLabels.price;
+      const fromNum = getPriceNumber(entry.fromPrice);
       const from = formatPriceValue(entry.fromPrice);
       const to = formatPriceValue(entry.toPrice);
       let label;
-      if (from && to) {
+      if (to && isPriceAcceptanceEntry(visibleHistory, index, entry)) {
+        label = `${actor} погодив ${fieldLabel} ${to}`;
+      } else if (to && (!Number.isFinite(fromNum) || fromNum <= 0)) {
+        label = `${actor} запропонував ${fieldLabel} ${to}`;
+      } else if (from && to) {
         label = `${actor} змінив ${fieldLabel} з ${from} на ${to}`;
       } else if (to) {
-        label = `${actor} встановив ${fieldLabel} ${to}`;
+        label = `${actor} запропонував ${fieldLabel} ${to}`;
       } else {
         label = `${actor} змінив ${fieldLabel}`;
       }
@@ -1967,6 +2013,8 @@ export default function OrderDetailScreen({ route, navigation }) {
       ? 'Перевірте, чи вільна дата ще актуальна. Якщо потрібно, оновіть її, щоб замовлення залишалось помітним для водіїв.'
       : 'Перевірте, чи дата завантаження ще актуальна. Якщо потрібно, оновіть її, щоб замовлення залишалось вище у списку.';
 
+  const timingOptionDetail = formatTimingOptionDetail(order);
+
   return (
     <Screen disableKeyboardAvoiding>
       <SafeAreaView style={styles.container}>
@@ -2167,7 +2215,13 @@ export default function OrderDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {order.freeDate ? (
+      {timingOptionDetail ? (
+        <View style={styles.row}>
+          <Ionicons name="timer-outline" size={20} color="#555" style={styles.rowIcon} />
+          <Text style={styles.label}>{"\u041f\u043e\u0434\u0430\u0447\u0430 \u0430\u0432\u0442\u043e:"}</Text>
+          <Text style={styles.value}>{timingOptionDetail}</Text>
+        </View>
+      ) : order.freeDate ? (
         <View style={styles.row}>
           <Ionicons name="calendar-clear-outline" size={20} color="#555" style={styles.rowIcon} />
           <Text style={styles.label}>Вільна дата:</Text>

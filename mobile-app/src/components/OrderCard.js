@@ -153,6 +153,17 @@ function formatOrderPriceLabel(order) {
   return `Ціна: ${Math.round(price)} грн${order?.agreedPrice ? " (Договірна)" : ""}`;
 }
 
+function formatTimingOptionLabel(order) {
+  switch (order?.timingOption) {
+    case "ASAP":
+      return "\u041f\u043e\u0434\u0430\u0447\u0430: \u044f\u043a\u043d\u0430\u0439\u0448\u0432\u0438\u0434\u0448\u0435";
+    case "WITHIN_1_HOUR":
+      return "\u041f\u043e\u0434\u0430\u0447\u0430: \u0434\u043e 1 \u0433\u043e\u0434";
+    default:
+      return null;
+  }
+}
+
 export default function OrderCard({
   order,
   onPress,
@@ -218,7 +229,10 @@ export default function OrderCard({
     (!Number.isFinite(Number(order?.price)) || Number(order?.price) <= 0);
   const priceText = formatOrderPriceLabel(order);
 
-  const freeDateLabel = order.freeDate
+  const timingOptionLabel = formatTimingOptionLabel(order);
+  const freeDateLabel = timingOptionLabel
+    ? timingOptionLabel
+    : order.freeDate
     ? order.freeDateUntil
       ? `Вільна дата до ${formatDate(order.freeDateUntil)}`
       : "Вільна дата"
@@ -279,24 +293,11 @@ export default function OrderCard({
         <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
           {freeDateLabel}
         </Text>
-        {shouldShowAgreedPriceOnly && (
+        {!isIntraCityOrder && (
           <Text style={[styles.info, styles.priceInfo, isDateOutdated && styles.mutedText]}>
             {priceText}
           </Text>
         )}
-        <Text
-          style={[
-            styles.info,
-            styles.priceInfo,
-            isDateOutdated && styles.mutedText,
-            shouldShowAgreedPriceOnly && styles.hiddenPrice,
-            isIntraCityOrder && styles.hiddenPrice,
-          ]}
-        >
-          {`Ціна: ${Math.round(order.price)} грн${
-            order.agreedPrice ? " (Договірна)" : ""
-          }`}
-        </Text>
         {isIntraCityOrder && (
           <Text style={[styles.info, isDateOutdated && styles.mutedText]}>
             Водій пропонує ціну
@@ -393,7 +394,6 @@ const styles = StyleSheet.create({
   route: { fontWeight: "bold", marginTop: 8 },
   info: { marginTop: 2, color: "#333" },
   priceInfo: { fontWeight: "800" },
-  hiddenPrice: { height: 0, opacity: 0, marginTop: 0, fontSize: 1 },
   mutedText: { color: colors.gray600 },
   iconRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   responseCountRow: {

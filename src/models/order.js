@@ -13,6 +13,17 @@ const OrderStatus = {
   REJECTED: 'REJECTED',
 };
 
+const RequestedOrderType = {
+  LOCAL: 'LOCAL',
+  LONG_DISTANCE: 'LONG_DISTANCE',
+};
+
+const TimingOption = {
+  ASAP: 'ASAP',
+  WITHIN_1_HOUR: 'WITHIN_1_HOUR',
+  SCHEDULED: 'SCHEDULED',
+};
+
 class Order extends Model {}
 
 Order.init(
@@ -30,6 +41,8 @@ Order.init(
     dropoffCountry: { type: DataTypes.STRING },
     dropoffCity: { type: DataTypes.STRING },
     isIntraCity: { type: DataTypes.BOOLEAN, defaultValue: false },
+    requestedOrderType: { type: DataTypes.ENUM(...Object.values(RequestedOrderType)) },
+    timingOption: { type: DataTypes.ENUM(...Object.values(TimingOption)) },
     dropoffAddress: { type: DataTypes.STRING },
     dropoffPostcode: { type: DataTypes.STRING },
     cargoType: { type: DataTypes.STRING, allowNull: false },
@@ -83,3 +96,5 @@ Order.belongsTo(User, { foreignKey: 'candidateDriverId', as: 'candidateDriver' }
 
 module.exports = Order;
 module.exports.OrderStatus = OrderStatus;
+module.exports.RequestedOrderType = RequestedOrderType;
+module.exports.TimingOption = TimingOption;
