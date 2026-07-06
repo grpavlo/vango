@@ -2,7 +2,7 @@
   "expo": {
     "name": "VanGo",
     "slug": "mobile",
-    "version": "1.0.11",
+    "version": "1.0.13",
     "orientation": "portrait",
     "icon": "./assets/Frame1.png",
     "userInterfaceStyle": "light",
@@ -19,7 +19,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "11",
+      "buildNumber": "13",
       "infoPlist": {
         "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
         "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
@@ -33,7 +33,7 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
-      "versionCode": 11,
+      "versionCode": 13,
       "usesCleartextTraffic": true,
       "defaultChannel": "orders_v2",
       "config": {

@@ -18,6 +18,8 @@ import EditCustomerProfileScreen from './src/screens/EditCustomerProfileScreen';
 import DriverProfileScreen from './src/screens/DriverProfileScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import RateUserScreen from './src/screens/RateUserScreen';
+import RatingDetailScreen from './src/screens/RatingDetailScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { addStoredNotification } from './src/notificationCenter';
@@ -63,6 +65,8 @@ function RootNavigator({ introComplete, onIntroComplete }) {
           <Stack.Screen name="CustomerProfileScreen" component={EditCustomerProfileScreen} />
           <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
           <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+          <Stack.Screen name="RateUser" component={RateUserScreen} />
+          <Stack.Screen name="RatingDetail" component={RatingDetailScreen} />
           <Stack.Screen
             name="Notifications"
             component={NotificationsScreen}
@@ -116,6 +120,25 @@ export default function App() {
           },
         });
         break;
+      case 'rateOrder':
+        navigationRef.navigate('RateUser', {
+          orderId: action.orderId,
+          toUserId: action.toUserId,
+          targetName: action.targetName,
+          targetRole: action.targetRole,
+        });
+        break;
+      case 'ratingDetail':
+        navigationRef.navigate('RatingDetail', {
+          ratingId: action.ratingId,
+          orderId: action.orderId,
+          orderNumber: action.orderNumber,
+          rating: action.rating,
+          comment: action.comment,
+          fromUserName: action.fromUserName,
+          fromRoleLabel: action.fromRoleLabel,
+        });
+        break;
       default:
         break;
     }
@@ -150,6 +173,30 @@ export default function App() {
           return { type: 'orderDetail', orderId, reminderStep, requestId };
         }
         return null;
+      case 'rateOrder':
+        if (orderId && data?.toUserId) {
+          return {
+            type: 'rateOrder',
+            orderId,
+            toUserId: data.toUserId,
+            targetName: data.targetName,
+            targetRole: data.targetRole,
+            requestId,
+          };
+        }
+        return null;
+      case 'ratingDetail':
+        return {
+          type: 'ratingDetail',
+          ratingId: data.ratingId,
+          orderId,
+          orderNumber: data.orderNumber,
+          rating: data.rating,
+          comment: data.comment,
+          fromUserName: data.fromUserName,
+          fromRoleLabel: data.fromRoleLabel,
+          requestId,
+        };
       default:
         if (orderId) {
           return { type: 'orderDetail', orderId, reminderStep, requestId };

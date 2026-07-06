@@ -5,6 +5,7 @@ const User = require('../models/user');
 const { UserRole } = require('../models/user');
 const { JWT_SECRET } = require('../config');
 const DriverProfile = require('../models/driverProfile');
+const { getCompletedOrderCount, getRoleRating } = require('../utils/ratingStats');
 const { sendSms } = require('../services/turbosms');
 const { generateCode, set: setCode, verifyAndConsume, normalizePhone } = require('../services/authCodes');
 const { Op, fn, col, where } = require('sequelize');
@@ -156,6 +157,17 @@ async function login(req, res) {
 
 async function profile(req, res) {
   const u = req.user;
+  const [
+    driverRating,
+    customerRating,
+    driverCompletedOrders,
+    customerCompletedOrders,
+  ] = await Promise.all([
+    getRoleRating(u.id, UserRole.DRIVER),
+    getRoleRating(u.id, UserRole.CUSTOMER),
+    getCompletedOrderCount(u.id, UserRole.DRIVER),
+    getCompletedOrderCount(u.id, UserRole.CUSTOMER),
+  ]);
   res.json({
     id: u.id,
     name: u.name,
@@ -168,6 +180,10 @@ async function profile(req, res) {
     selfiePhoto: u.selfiePhoto,
     city: u.city,
     rating: u.rating,
+    driverRating,
+    customerRating,
+    driverCompletedOrders,
+    customerCompletedOrders,
     blocked: u.blocked,
     pushConsent: u.pushConsent,
   });

@@ -14,6 +14,7 @@ const { SERVICE_FEE_PERCENT } = require("../config");
 
 const { broadcastOrder, broadcastDelete } = require("../ws");
 const { sendPush } = require("../utils/push");
+const { getCompletedOrderCounts, getRoleRatings } = require("../utils/ratingStats");
 const {
   getOrderLifecycle,
   getLifecycleCutoffDate,
@@ -25,6 +26,53 @@ const {
 const PRICE_HISTORY_STATUS = "PRICE_UPDATED";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS = 3 * DAY_IN_MS;
+
+function collectUserRatingId(user, ids) {
+  if (!user?.id) return;
+  ids.push(user.id);
+}
+
+async function applyRoleRatingsToOrderJsons(orderJsons) {
+  const list = Array.isArray(orderJsons) ? orderJsons : [orderJsons].filter(Boolean);
+  const customerIds = [];
+  const driverIds = [];
+
+  list.forEach((order) => {
+    collectUserRatingId(order.customer, customerIds);
+    collectUserRatingId(order.driver, driverIds);
+    collectUserRatingId(order.candidateDriver, driverIds);
+    collectUserRatingId(order.reservedDriver, driverIds);
+  });
+
+  const [
+    customerRatings,
+    driverRatings,
+    customerCompletedOrders,
+    driverCompletedOrders,
+  ] = await Promise.all([
+    getRoleRatings(customerIds, "CUSTOMER"),
+    getRoleRatings(driverIds, "DRIVER"),
+    getCompletedOrderCounts(customerIds, "CUSTOMER"),
+    getCompletedOrderCounts(driverIds, "DRIVER"),
+  ]);
+
+  list.forEach((order) => {
+    if (order.customer?.id) {
+      order.customer.rating = customerRatings[order.customer.id] ?? 5;
+      order.customer.completedOrders = customerCompletedOrders[order.customer.id] ?? 0;
+      order.customerRating = order.customer.rating;
+      order.customerCompletedOrders = order.customer.completedOrders;
+    }
+    ["driver", "candidateDriver", "reservedDriver"].forEach((key) => {
+      if (order[key]?.id) {
+        order[key].rating = driverRatings[order[key].id] ?? 5;
+        order[key].completedOrders = driverCompletedOrders[order[key].id] ?? 0;
+      }
+    });
+  });
+
+  return Array.isArray(orderJsons) ? list : list[0];
+}
 
 
 
@@ -612,7 +660,7 @@ async function createOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???,?????????,?? ?�?�???????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0441\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -677,7 +725,10 @@ async function listAvailableOrders(req, res) {
 
   where[Op.and] = andConditions;
 
-  const orders = await Order.findAll({ where });
+  const orders = await Order.findAll({
+    where,
+    include: [{ model: User, as: "customer", attributes: ["id", "name", "rating"] }],
+  });
 
 
 
@@ -749,6 +800,7 @@ async function listAvailableOrders(req, res) {
     json.responseCount = responseCounts[json.id] || 0;
     return json;
   });
+  await applyRoleRatingsToOrderJsons(enriched);
   enriched.sort((a, b) => {
     if (Boolean(a.isLowPriority) !== Boolean(b.isLowPriority)) {
       return a.isLowPriority ? 1 : -1;
@@ -895,12 +947,12 @@ async function listMyOrders(req, res) {
     }
   }
 
-  const enrichedOrders = orders.map((o) => {
+  const enrichedOrders = await applyRoleRatingsToOrderJsons(orders.map((o) => {
     const json = o.toJSON();
     json.responseCount = myResponseCounts[json.id] || 0;
     json.myResponseStatus = myResponseStatuses[json.id] || null;
     return json;
-  });
+  }));
 
   res.json(enrichedOrders);
 
@@ -933,7 +985,7 @@ async function getOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+      return res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
     }
 
@@ -944,13 +996,13 @@ async function getOrder(req, res) {
       },
     });
 
-    const json = order.toJSON();
+    const json = await applyRoleRatingsToOrderJsons(order.toJSON());
     json.responseCount = responseCount;
     res.json(json);
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???,???????�?,?? ?�?�???????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -972,7 +1024,7 @@ async function reserveOrder(req, res) {
 
     if (!order || order.status !== "CREATED") {
 
-      return res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435");
 
     }
 
@@ -1046,7 +1098,7 @@ async function reserveOrder(req, res) {
 
     ) {
 
-      return res.status(400).send("?'?�?� ?�?�???�?�?�?????????�????");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u0437\u0430\u0440\u0435\u0437\u0435\u0440\u0432\u043e\u0432\u0430\u043d\u0435");
 
     }
 
@@ -1096,7 +1148,7 @@ async function reserveOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ?�?�???�?�?�?????????�?,??");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0430\u0440\u0435\u0437\u0435\u0440\u0432\u0443\u0432\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -1168,7 +1220,7 @@ async function cancelReserve(req, res) {
 
         ...(order.history || []),
 
-        { status: "CREATED", at: new Date(), note: "?????? ?????????", changedByRole: req.user?.role, changedById: req.user?.id },
+        { status: "CREATED", at: new Date(), note: "\u0420\u0435\u0437\u0435\u0440\u0432 \u0441\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e", changedByRole: req.user?.role, changedById: req.user?.id },
 
       ];
 
@@ -1202,7 +1254,7 @@ async function cancelReserve(req, res) {
 
     console.error("??? cancelReserve error:", err);
 
-    res.status(400).send("???� ?????�?�?????? ?�?????,?? ???�?�?�????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u0440\u0435\u0437\u0435\u0440\u0432");
 
   }
 
@@ -1222,7 +1274,7 @@ async function updateFinalPrice(req, res) {
 
     const order = await Order.findByPk(orderId);
 
-    if (!order) return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+    if (!order) return res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
 
 
@@ -1246,7 +1298,7 @@ async function updateFinalPrice(req, res) {
 
     if (!Number.isFinite(n) || n <= 0) {
 
-      return res.status(400).send("???�???????�???,???� ???????�");
+      return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0443 \u0446\u0456\u043d\u0443");
 
     }
 
@@ -1308,7 +1360,7 @@ async function acceptOrder(req, res) {
 
     if (!order || order.status !== "CREATED") {
 
-      res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
+      res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435");
 
 
 
@@ -1432,7 +1484,7 @@ async function acceptOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ?????????????,?? ?�?�???????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0440\u0438\u0439\u043d\u044f\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -1458,7 +1510,7 @@ async function confirmDriver(req, res) {
 
     ) {
 
-      return res.status(400).send("???�?????�?�?????? ???-???,???�???????,??");
+      return res.status(400).send("\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0434\u0456\u044f \u0434\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
     }
 
@@ -1572,7 +1624,7 @@ async function confirmDriver(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???-???,???�???????,?? ???????-??");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0438 \u0432\u043e\u0434\u0456\u044f");
 
   }
 
@@ -1598,7 +1650,7 @@ async function rejectDriver(req, res) {
 
     ) {
 
-      return res.status(400).send("???�?????�?�?????? ???-???.???�???,??");
+      return res.status(400).send("\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0434\u0456\u044f \u0434\u043b\u044f \u0446\u044c\u043e\u0433\u043e \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
     }
 
@@ -1656,7 +1708,7 @@ async function rejectDriver(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???-???.???�???,?? ???????-??");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0442\u0438 \u0432\u043e\u0434\u0456\u044f");
 
   }
 
@@ -1672,7 +1724,7 @@ async function updateStatus(req, res) {
   try {
     const order = await Order.findByPk(orderId);
     if (!order) {
-      res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+      res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
       return;
     }
@@ -1807,37 +1859,13 @@ async function updateStatus(req, res) {
 
       }
 
-      if (order.driverId) {
-
-        const driver = await User.findByPk(order.driverId);
-
-        if (driver && driver.pushToken && driver.pushConsent) {
-
-          const { sendPush } = require("../utils/push");
-
-          sendPush(
-
-            driver.pushToken,
-
-            "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443",
-
-            "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432 \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u0432\u0430\u043d\u0442\u0430\u0436\u0443",
-
-            { orderId: order.id, navigateTo: "driverHistory" }
-
-          );
-
-        }
-
-      }
-
     }
 
     res.json(order);
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???????????,?? ?�?�???????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u043d\u043e\u0432\u0438\u0442\u0438 \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -1867,13 +1895,13 @@ async function updateOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+      return res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
     }
 
     if (order.customerId !== req.user.id || order.status !== "CREATED") {
 
-      return res.status(400).send("???�?????�?�?????? ???�???�???????�?,??");
+      return res.status(400).send("\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043d\u043d\u044f \u0446\u044c\u043e\u0433\u043e \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
     }
 
@@ -2222,7 +2250,7 @@ async function updateOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("???� ?????�?�?????? ???????????,?? ?�?�???????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u043d\u043e\u0432\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -2240,13 +2268,13 @@ async function deleteOrder(req, res) {
 
     if (!order) {
 
-      return res.status(404).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+      return res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
     }
 
     if (order.customerId !== req.user.id || order.status !== "CREATED") {
 
-      return res.status(400).send("???�?????�?�?????? ???????�?�???,??");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432 \u043d\u0430 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u043d\u044f");
 
     }
 
@@ -2258,7 +2286,7 @@ async function deleteOrder(req, res) {
 
   } catch (err) {
 
-    res.status(400).send("?????????�???� ???????�?�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
 
   }
 
@@ -2431,7 +2459,7 @@ async function respondToOrder(req, res) {
       include: { model: User, as: "customer" },
     });
     if (!order || order.status !== "CREATED") {
-      return res.status(400).send("?-?�???????�?�?????? ???�???????,???????�");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435");
     }
 
     const activeCount = await OrderResponse.count({
@@ -2441,14 +2469,14 @@ async function respondToOrder(req, res) {
       },
     });
     if (activeCount >= MAX_ACTIVE_RESPONSES) {
-      return res.status(400).send("?>?-???-?, ?�???,?????????. ???-?????????-?? (MAX). ?-?�???�?????-?,?? ?????,???????- ???�???????????�??????.");
+      return res.status(400).send("\u041b\u0456\u043c\u0456\u0442 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0432\u0456\u0434\u0433\u0443\u043a\u0456\u0432 \u0432\u0438\u0447\u0435\u0440\u043f\u0430\u043d\u043e. \u0417\u0430\u0432\u0435\u0440\u0448\u0456\u0442\u044c \u043f\u043e\u0442\u043e\u0447\u043d\u0456 \u043e\u0431\u0433\u043e\u0432\u043e\u0440\u0435\u043d\u043d\u044f \u043f\u0435\u0440\u0435\u0434 \u043d\u043e\u0432\u0438\u043c\u0438 \u0432\u0456\u0434\u0433\u0443\u043a\u0430\u043c\u0438");
     }
 
     const existing = await OrderResponse.findOne({
       where: { orderId, driverId: req.user.id, status: { [require("sequelize").Op.notIn]: ["DECLINED", "REJECTED", "EXPIRED"] } },
     });
     if (existing) {
-      return res.status(400).send("?'?? ???�?� ???-?????????????�?????? ???� ???� ?�?�???????�?�??????");
+      return res.status(400).send("\u0412\u0438 \u0432\u0436\u0435 \u0437\u0430\u043b\u0438\u0448\u0438\u043b\u0438 \u0432\u0456\u0434\u0433\u0443\u043a \u043d\u0430 \u0446\u0435 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
     }
 
     const isIntraCity = Boolean(order.isIntraCity);
@@ -2489,11 +2517,11 @@ async function respondToOrder(req, res) {
         rawFinalPrice !== null &&
         String(rawFinalPrice).trim() !== "";
       if (!hasExplicitFinalPrice) {
-        return res.status(400).send("??????? ???????? ???????? ????");
+        return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443");
       }
       const normalized = roundPriceValue(rawFinalPrice);
       if (!normalized || normalized <= 0) {
-        return res.status(400).send("??????? ???????? ???????? ????");
+        return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443");
       }
       finalPriceOffer = normalized;
     }
@@ -2542,7 +2570,7 @@ async function respondToOrder(req, res) {
     });
   } catch (err) {
     console.error("respondToOrder error:", err);
-    res.status(400).send("???� ?????�?�?????? ???-?????????????,??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0430\u043b\u0438\u0448\u0438\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2569,7 +2597,7 @@ async function getMyResponse(req, res) {
       customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
-    res.status(400).send("?????????�???�");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2578,16 +2606,16 @@ async function responseCallMade(req, res) {
   try {
     const orderPrimary = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
     let order = orderPrimary;
-    if (!order) return res.status(400).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+    if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0434\u0437\u0432\u0456\u043d\u043e\u043a \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
 
     order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
-    if (!order) return res.status(400).send("?-?�???????�?�?????? ???� ?�???�?????�????");
+    if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0435\u0442\u0430\u043f \u0434\u0437\u0432\u0456\u043d\u043a\u0430 \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     }
     response.status = ResponseStatus.CALL_MADE;
     response.callMadeAt = new Date();
@@ -2599,7 +2627,7 @@ async function responseCallMade(req, res) {
       customerName: canShareCustomerContacts(order, response) ? order?.customer?.name || null : null,
     });
   } catch (err) {
-    res.status(400).send("?????????�???�");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u043e\u0437\u043d\u0430\u0447\u0438\u0442\u0438 \u0434\u0437\u0432\u0456\u043d\u043e\u043a");
   }
 }
 
@@ -2613,7 +2641,7 @@ async function responseResult(req, res) {
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     }
 
     if (result === "agreed") {
@@ -2642,7 +2670,7 @@ async function responseResult(req, res) {
       response.resultSubmittedAt = new Date();
       await response.save();
     } else {
-      return res.status(400).send("???�???-?????????? ???�?�???�???,?�?,");
+      return res.status(400).send("\u041d\u0435\u0432\u0456\u0434\u043e\u043c\u0438\u0439 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0434\u0437\u0432\u0456\u043d\u043a\u0430");
     }
 
     broadcastOrder(order);
@@ -2653,7 +2681,7 @@ async function responseResult(req, res) {
     });
   } catch (err) {
     console.error("responseResult error:", err);
-    res.status(400).send("?????????�???�");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u0434\u0437\u0432\u0456\u043d\u043a\u0430");
   }
 }
 
@@ -2662,7 +2690,7 @@ async function responseConfirm(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.status !== ResponseStatus.PENDING_CONFIRM) {
-      return res.status(400).send("???�?????�?�?????? ???-???,???�???????,??");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0438\u0439 \u0434\u043b\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f");
     }
 
     const order = await Order.findByPk(orderId);
@@ -2670,7 +2698,7 @@ async function responseConfirm(req, res) {
       return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
     }
     if (order.status !== "CREATED") {
-      return res.status(400).send("?-?�???????�?�?????? ???�?� ?�?�???????,?�");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u0435");
     }
 
     response.status = ResponseStatus.CONFIRMED;
@@ -2741,7 +2769,7 @@ async function responseConfirm(req, res) {
     res.json(updated);
   } catch (err) {
     console.error("responseConfirm error:", err);
-    res.status(400).send("?????????�???� ???-???,???�?????�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2750,15 +2778,15 @@ async function responseConfirmCityAware(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || !ACTIVE_RESPONSE_STATUSES.includes(response.status)) {
-      return res.status(400).send("????????? ??????????? ?? ??????????");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0438\u0439 \u0434\u043b\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f");
     }
 
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
-      return res.status(400).send("????? ???????");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
     }
     if (order.status !== "CREATED") {
-      return res.status(400).send("?????????? ??? ???????");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u0435");
     }
 
     const result = await finalizeOrderFromResponse({
@@ -2777,7 +2805,7 @@ async function responseConfirmCityAware(req, res) {
     return res.json(result.updated);
   } catch (err) {
     console.error("responseConfirm error:", err);
-    return res.status(400).send("?? ??????? ???????????");
+    return res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2785,27 +2813,27 @@ async function customerCounterOffer(req, res) {
   const { id: orderId, responseId } = req.params;
   const normalized = roundPriceValue(req.body?.finalPrice);
   if (!normalized || normalized <= 0) {
-    return res.status(400).send("Invalid final price");
+    return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0443 \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443");
   }
 
   try {
     const order = await Order.findByPk(orderId);
-    if (!order) return res.status(400).send("Order not found");
+    if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     if (order.status !== "CREATED") {
-      return res.status(400).send("Order is not in CREATED state");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u0435");
     }
     if (order.isIntraCity) {
-      return res.status(400).send("Counter offer is unavailable for intra-city orders");
+      return res.status(400).send("\u041a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044f \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0434\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c");
     }
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || !ACTIVE_RESPONSE_STATUSES.includes(response.status)) {
-      return res.status(400).send("Response is not available for counter offer");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0438\u0439 \u0434\u043b\u044f \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457");
     }
 
     if (req.user.role === "CUSTOMER") {
       if (order.customerId !== req.user.id) {
-        return res.status(400).send("No access");
+        return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
       }
 
       response.status = ResponseStatus.COUNTER_OFFERED;
@@ -2830,7 +2858,7 @@ async function customerCounterOffer(req, res) {
 
     if (req.user.role === "DRIVER") {
       if (response.driverId !== req.user.id) {
-        return res.status(400).send("No access");
+        return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
       }
 
       response.status = ResponseStatus.DISCUSSING;
@@ -2854,10 +2882,10 @@ async function customerCounterOffer(req, res) {
       return res.json(response);
     }
 
-    return res.status(400).send("No access");
+    return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
   } catch (err) {
     console.error("customerCounterOffer error:", err);
-    return res.status(400).send("Failed to send counter offer");
+    return res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e");
   }
 }
 
@@ -2865,7 +2893,7 @@ async function responseCounterDecision(req, res) {
   const { id: orderId, responseId } = req.params;
   const decision = String(req.body?.decision || "").toLowerCase();
   if (!["accept", "reject"].includes(decision)) {
-    return res.status(400).send("?????????? ???????");
+    return res.status(400).send("\u041d\u0435\u0432\u0456\u0434\u043e\u043c\u0435 \u0440\u0456\u0448\u0435\u043d\u043d\u044f");
   }
 
   try {
@@ -2876,15 +2904,15 @@ async function responseCounterDecision(req, res) {
       response.driverId !== req.user.id ||
       response.status !== ResponseStatus.COUNTER_OFFERED
     ) {
-      return res.status(400).send("????? ???????? ??????????????? ??? ???? ??????????");
+      return res.status(400).send("\u041a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044f \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430");
     }
 
     const order = await Order.findByPk(orderId, { include: [{ model: User, as: "customer" }] });
     if (!order || order.status !== "CREATED") {
-      return res.status(400).send("?????????? ?????? ??????????");
+      return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435 \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u0435");
     }
     if (order.isIntraCity) {
-      return res.status(400).send("??????????????? ???????? ???? ??? ?????????? ?????????");
+      return res.status(400).send("\u041a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044f \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0434\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c");
     }
 
     if (decision === "reject") {
@@ -2909,7 +2937,7 @@ async function responseCounterDecision(req, res) {
 
     const counterPrice = roundPriceValue(response.customerCounterPrice);
     if (!counterPrice || counterPrice <= 0) {
-      return res.status(400).send("?????????? ???? ???????????????");
+      return res.status(400).send("\u041d\u0435\u043c\u0430\u0454 \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u043e\u0457 \u0446\u0456\u043d\u0438 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457");
     }
 
     response.finalPriceOffer = counterPrice;
@@ -2939,7 +2967,7 @@ async function responseCounterDecision(req, res) {
     return res.json(result.updated);
   } catch (err) {
     console.error("responseCounterDecision error:", err);
-    return res.status(400).send("?? ??????? ???????? ??????? ?? ???????????????");
+    return res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0431\u0440\u043e\u0431\u0438\u0442\u0438 \u0440\u0456\u0448\u0435\u043d\u043d\u044f \u043f\u043e \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457");
   }
 }
 
@@ -2948,7 +2976,7 @@ async function responseReject(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId)) {
-      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     }
     const order = await Order.findByPk(orderId);
     if (!order || order.customerId !== req.user.id) {
@@ -2967,7 +2995,7 @@ async function responseReject(req, res) {
     broadcastOrder(order);
     res.json(response);
   } catch (err) {
-    res.status(400).send("?????????�???� ???-???.???�?�??????");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2976,13 +3004,13 @@ async function responseWithdraw(req, res) {
   try {
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
-      return res.status(400).send("?'?-???????? ???� ?�???�?????�????");
+      return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     }
     response.status = ResponseStatus.DECLINED;
     await response.save();
-    res.json({ message: "?'?-???????? ???-?????�?????�????" });
+    res.json({ message: "\u0412\u0456\u0434\u0433\u0443\u043a \u0432\u0456\u0434\u043a\u043b\u0438\u043a\u0430\u043d\u043e" });
   } catch (err) {
-    res.status(400).send("?????????�???�");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0432\u0456\u0434\u043a\u043b\u0438\u043a\u0430\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a");
   }
 }
 
@@ -2998,15 +3026,30 @@ async function getOrderResponses(req, res) {
       include: [{ model: User, as: "driver", include: [{ model: DriverProfile, as: "driverProfile" }] }],
       order: [["respondedAt", "DESC"]],
     });
-    const result = responses.map((r) => ({
-      ...r.toJSON(),
-      driverName: r.driver?.name || null,
-      driverPhone: canShareDriverContacts(order, r) ? r.driver?.phone || null : null,
-      driverRating: r.driver?.rating || null,
-    }));
+    const driverIds = responses.map((r) => r.driver?.id).filter(Boolean);
+    const [driverRatings, driverCompletedOrders] = await Promise.all([
+      getRoleRatings(driverIds, "DRIVER"),
+      getCompletedOrderCounts(driverIds, "DRIVER"),
+    ]);
+    const result = responses.map((r) => {
+      const json = r.toJSON();
+      const driverRating = r.driver?.id ? driverRatings[r.driver.id] : null;
+      const driverCompletedOrderCount = r.driver?.id ? driverCompletedOrders[r.driver.id] ?? 0 : 0;
+      if (json.driver && driverRating != null) {
+        json.driver.rating = driverRating;
+        json.driver.completedOrders = driverCompletedOrderCount;
+      }
+      return {
+        ...json,
+        driverName: r.driver?.name || null,
+        driverPhone: canShareDriverContacts(order, r) ? r.driver?.phone || null : null,
+        driverRating,
+        driverCompletedOrders: driverCompletedOrderCount,
+      };
+    });
     res.json(result);
   } catch (err) {
-    res.status(400).send("?????????�???�");
+    res.status(400).send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043e\u0442\u0440\u0438\u043c\u0430\u0442\u0438 \u0432\u0456\u0434\u0433\u0443\u043a\u0438");
   }
 }
 

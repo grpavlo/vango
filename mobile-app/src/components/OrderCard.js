@@ -228,6 +228,18 @@ export default function OrderCard({
     order?.agreedPrice &&
     (!Number.isFinite(Number(order?.price)) || Number(order?.price) <= 0);
   const priceText = formatOrderPriceLabel(order);
+  const parsedCustomerRating = Number(order?.customerRating ?? order?.customer?.rating);
+  const customerRating =
+    Number.isFinite(parsedCustomerRating) && parsedCustomerRating > 0
+      ? parsedCustomerRating
+      : 5;
+  const parsedCustomerCompletedOrders = Number(
+    order?.customerCompletedOrders ?? order?.customer?.completedOrders
+  );
+  const customerCompletedOrders =
+    Number.isFinite(parsedCustomerCompletedOrders) && parsedCustomerCompletedOrders >= 0
+      ? Math.floor(parsedCustomerCompletedOrders)
+      : 0;
 
   const timingOptionLabel = formatTimingOptionLabel(order);
   const freeDateLabel = timingOptionLabel
@@ -281,6 +293,17 @@ export default function OrderCard({
         activeOpacity={0.8}
         style={styles.infoContainer}
       >
+        <View style={styles.customerRatingBadge}>
+          <Text style={styles.customerRatingLabel}>Замовник</Text>
+          <View style={styles.customerRatingValueRow}>
+            <Ionicons name="star" size={16} color="#F59E0B" />
+            <Text style={styles.customerRatingText}>{customerRating.toFixed(1)}</Text>
+          </View>
+          <View style={styles.customerRatingValueRow}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.green} />
+            <Text style={styles.customerCompletedText}>{customerCompletedOrders}</Text>
+          </View>
+        </View>
         {orderDisplayNumber && (
           <Text style={[styles.orderNumber, isDateOutdated && styles.mutedText]}>
             {"\u2116"} замовлення: {orderDisplayNumber}
@@ -384,7 +407,40 @@ const styles = StyleSheet.create({
     borderColor: colors.orange,
   },
   mapContainer: { height: 120, borderRadius: 8, overflow: "hidden" },
-  infoContainer: { paddingVertical: 4 },
+  infoContainer: { paddingVertical: 4, paddingRight: 104, position: "relative" },
+  customerRatingBadge: {
+    position: "absolute",
+    top: 8,
+    right: 0,
+    alignItems: "center",
+    minWidth: 92,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  customerRatingLabel: {
+    color: "#92400E",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  customerRatingValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  customerRatingText: {
+    marginLeft: 4,
+    color: "#92400E",
+    fontWeight: "800",
+  },
+  customerCompletedText: {
+    marginLeft: 4,
+    color: colors.green,
+    fontWeight: "800",
+  },
   orderNumber: {
     marginTop: 8,
     color: colors.gray900,

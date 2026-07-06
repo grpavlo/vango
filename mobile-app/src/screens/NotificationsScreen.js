@@ -50,6 +50,21 @@ function getNavigationTarget(item) {
     };
   }
 
+  if (target === 'ratingDetail') {
+    return {
+      route: 'RatingDetail',
+      params: {
+        ratingId: data.ratingId,
+        orderId,
+        orderNumber: data.orderNumber,
+        rating: data.rating,
+        comment: data.comment,
+        fromUserName: data.fromUserName,
+        fromRoleLabel: data.fromRoleLabel,
+      },
+    };
+  }
+
   if (orderId) {
     return {
       route: 'OrderDetail',

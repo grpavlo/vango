@@ -247,7 +247,7 @@ export default function EditProfile({ navigation, route }) {
 
       if (!requireValue(Boolean(carPhotoFrontRight), "Додайте фото авто (передній правий кут)"))
         return;
-      if (!requireValue(Boolean(carPhotoRearLeft), "Додайте фото авто (задній лівий кут)"))
+      if (!requireValue(Boolean(carPhotoRearLeft), "Додайте фото авто (задній правий кут)"))
         return;
       if (!requireValue(Boolean(carPhotoInterior), "Додайте фото салону")) return;
       if (!requireValue(Boolean(selfiePhoto), "Додайте селфі")) return;
@@ -378,9 +378,10 @@ export default function EditProfile({ navigation, route }) {
                   required={!noInn}
                   placeholder="XXXXXXXXXX"
                   value={inn}
-                  onChangeText={setInn}
+                  onChangeText={(text) => setInn(text.slice(0, 10))}
                   editable={!noInn}
                   keyboardType="number-pad"
+                  maxLength={10}
                 />
                 <CheckBox
                   value={noInn}
@@ -423,16 +424,16 @@ export default function EditProfile({ navigation, route }) {
                 />
               </View>
               <AppText style={styles.secondaryText}>
-                Фото 1-ї сторінки паспорта
+                Сторінка паспорта з фото
               </AppText>
               <PhotoPicker
                 photos={passportPhotoMain ? [passportPhotoMain] : []}
                 onChange={(arr) => setPassportPhotoMain(arr?.[0] || "")}
                 maxCount={1}
               />
-              <AppText style={styles.secondaryText}>Фото з пропискою</AppText>
+              <AppText style={styles.secondaryText}>Сторінка прописки</AppText>
               <PhotoPicker
-                label="Фото з пропискою"
+                label="Сторінка прописки"
                 photos={
                   passportPhotoRegistration ? [passportPhotoRegistration] : []
                 }
@@ -464,9 +465,7 @@ export default function EditProfile({ navigation, route }) {
                   keyboardType="number-pad"
                 />
               </View>
-              <AppText style={styles.secondaryText}>Фото посвідчення</AppText>
               <PhotoPicker
-                label="Фото посвідчення"
                 photos={driverLicensePhoto ? [driverLicensePhoto] : []}
                 onChange={(arr) => setDriverLicensePhoto(arr?.[0] || null)}
                 maxCount={1}
@@ -491,9 +490,7 @@ export default function EditProfile({ navigation, route }) {
                   onChangeText={setVehicleTechNumber}
                 />
               </View>
-              <AppText style={styles.secondaryText}>Фото техпаспорта</AppText>
               <PhotoPicker
-                label="Фото техпаспорта"
                 photos={vehicleTechPhoto ? [vehicleTechPhoto] : []}
                 onChange={(arr) => setVehicleTechPhoto(arr?.[0] || null)}
                 maxCount={1}
@@ -578,9 +575,9 @@ export default function EditProfile({ navigation, route }) {
                 onChange={(arr) => setCarPhotoFrontRight(arr?.[0] || null)}
                 maxCount={1}
               />
-              <AppText style={styles.secondaryText}>Задній лівий кут</AppText>
+              <AppText style={styles.secondaryText}>Задній правий кут</AppText>
               <PhotoPicker
-                label="Задній лівий кут"
+                label="Задній правий кут"
                 photos={carPhotoRearLeft ? [carPhotoRearLeft] : []}
                 onChange={(arr) => setCarPhotoRearLeft(arr?.[0] || null)}
                 maxCount={1}

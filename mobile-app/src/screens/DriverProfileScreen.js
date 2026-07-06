@@ -25,6 +25,10 @@ export default function DriverProfileScreen({ navigation, route }) {
     "Водій";
 
   const rating = driver?.rating || null;
+  const completedOrders = Math.max(
+    0,
+    Math.floor(Number(driver?.completedOrders ?? driver?.driverCompletedOrders) || 0)
+  );
 
   const driverPhotoUri = useMemo(
     () => toFullUrl(profile?.selfiePhoto),
@@ -90,6 +94,19 @@ export default function DriverProfileScreen({ navigation, route }) {
             <View style={styles.infoBlock}>
               <Text style={styles.name}>{name}</Text>
               {rating && (
+                <View style={styles.metricsRow}>
+                  <Ionicons name="star" size={15} color="#F59E0B" />
+                  <Text style={styles.ratingText}>{Number(rating).toFixed(1)}</Text>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={15}
+                    color={colors.green}
+                    style={styles.completedIcon}
+                  />
+                  <Text style={styles.completedText}>{completedOrders}</Text>
+                </View>
+              )}
+              {false && rating && (
                 <Text style={styles.secondaryText}>
                   Рейтинг: {Number(rating).toFixed(1)}
                 </Text>
@@ -217,6 +234,22 @@ const styles = StyleSheet.create({
   infoBlock: { marginLeft: 16, flex: 1 },
   name: { fontSize: 18, fontWeight: "600", color: colors.gray900 },
   secondaryText: { marginTop: 4, color: colors.gray600 },
+  metricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  ratingText: {
+    marginLeft: 3,
+    color: colors.gray600,
+    fontWeight: "700",
+  },
+  completedIcon: { marginLeft: 8 },
+  completedText: {
+    marginLeft: 3,
+    color: colors.green,
+    fontWeight: "700",
+  },
   phoneRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
   phoneText: { marginLeft: 6, fontSize: 16, color: colors.green, fontWeight: "600" },
   carPhoto: {

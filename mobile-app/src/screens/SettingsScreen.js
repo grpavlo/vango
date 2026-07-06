@@ -116,6 +116,24 @@ export default function SettingsScreen({ navigation }) {
     || (user?.name?.trim().split(/\s+/)[1]) // український формат: прізвище ім'я по-батькові
     || user?.name?.split(/\s+/)[0]
     || user?.name;
+  const roleRatingValue =
+    role === "CUSTOMER"
+      ? user?.customerRating
+      : user?.driverRating;
+  const parsedRoleRating = Number(roleRatingValue);
+  const roleRating =
+    Number.isFinite(parsedRoleRating) && parsedRoleRating > 0
+      ? parsedRoleRating
+      : 5;
+  const roleCompletedOrdersValue =
+    role === "CUSTOMER"
+      ? user?.customerCompletedOrders
+      : user?.driverCompletedOrders;
+  const parsedRoleCompletedOrders = Number(roleCompletedOrdersValue);
+  const roleCompletedOrders =
+    Number.isFinite(parsedRoleCompletedOrders) && parsedRoleCompletedOrders >= 0
+      ? Math.floor(parsedRoleCompletedOrders)
+      : 0;
 
   const avatarPhotoUri = user?.selfiePhoto
     ? (user.selfiePhoto.startsWith("http") ? user.selfiePhoto : `${HOST_URL}${user.selfiePhoto}`)
@@ -139,7 +157,17 @@ export default function SettingsScreen({ navigation }) {
                 <AppText style={styles.avatarText}>{initials}</AppText>
               )}
             </View>
-            <AppText style={styles.name}>{displayName}</AppText>
+            <View style={styles.nameRow}>
+              <AppText style={styles.name}>{displayName}</AppText>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={16} color="#F59E0B" />
+                <AppText style={styles.ratingText}>{roleRating.toFixed(1)}</AppText>
+              </View>
+              <View style={styles.completedRow}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.green} />
+                <AppText style={styles.completedText}>{roleCompletedOrders}</AppText>
+              </View>
+            </View>
             <View style={{ marginBottom: 16 }}>
               <AppText style={styles.phone}>{user.phone}</AppText>
               {/* {user.email && (
@@ -269,6 +297,34 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: colors.gray900,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  ratingText: {
+    marginLeft: 3,
+    color: colors.gray700,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  completedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  completedText: {
+    marginLeft: 3,
+    color: colors.green,
+    fontSize: 16,
+    fontWeight: "700",
   },
   phone: {
     color: colors.gray500,

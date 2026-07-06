@@ -318,6 +318,30 @@ function formatOrderPriceValue(order) {
   return `${Math.round(price)} грн${order?.agreedPrice ? ' (Договірна)' : ''}`;
 }
 
+function getDisplayRating(value) {
+  const rating = Number(value);
+  return Number.isFinite(rating) && rating > 0 ? rating : null;
+}
+
+function getCompletedOrders(value) {
+  const count = Number(value);
+  return Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
+}
+
+function RatingSummary({ label, rating, completedOrders, style }) {
+  const displayRating = getDisplayRating(rating);
+  if (!displayRating) return null;
+  return (
+    <View style={[styles.ratingSummaryRow, style]}>
+      <Text style={styles.ratingSummaryLabel}>{label}:</Text>
+      <Ionicons name="star" size={15} color="#F59E0B" />
+      <Text style={styles.ratingSummaryText}>{displayRating.toFixed(1)}</Text>
+      <Ionicons name="checkmark-circle" size={15} color={colors.green} style={styles.completedSummaryIcon} />
+      <Text style={styles.completedSummaryText}>{getCompletedOrders(completedOrders)}</Text>
+    </View>
+  );
+}
+
 function formatHistoryEntries(history) {
   if (!Array.isArray(history)) return [];
   const acceptedEntry = history.find((entry) => entry?.status === 'ACCEPTED' && entry?.at);
@@ -951,8 +975,14 @@ export default function OrderDetailScreen({ route, navigation }) {
           minHours: String(Math.round(minHours)),
           arrivalEta: cityArrivalEta,
         };
-      } else if (finalPrice !== '' && !Number.isNaN(Number(finalPrice)) && Number(finalPrice) > 0) {
-        payload = { finalPrice: String(Math.round(Number(finalPrice))) };
+      } else {
+        const finalPriceNumber = Number(finalPrice);
+        if (finalPrice === '' || !Number.isFinite(finalPriceNumber) || finalPriceNumber <= 0) {
+          Alert.alert('\u041f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 \u0446\u0456\u043d\u0430', '\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443');
+          setRespondLoading(false);
+          return;
+        }
+        payload = { finalPrice: String(Math.round(finalPriceNumber)) };
       }
 
       const resp = await respondToOrder(order.id, token, payload);
@@ -986,9 +1016,13 @@ export default function OrderDetailScreen({ route, navigation }) {
     try {
       setRespondLoading(true);
       const payload = { immediateConfirm: true };
-      if (finalPrice !== '' && !Number.isNaN(Number(finalPrice)) && Number(finalPrice) > 0) {
-        payload.finalPrice = String(Math.round(Number(finalPrice)));
+      const finalPriceNumber = Number(finalPrice);
+      if (finalPrice === '' || !Number.isFinite(finalPriceNumber) || finalPriceNumber <= 0) {
+        Alert.alert('\u041f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 \u0446\u0456\u043d\u0430', '\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0444\u0456\u043d\u0430\u043b\u044c\u043d\u0443 \u0446\u0456\u043d\u0443');
+        setRespondLoading(false);
+        return;
       }
+      payload.finalPrice = String(Math.round(finalPriceNumber));
       const resp = await respondToOrder(order.id, token, payload);
       setMyResponse(resp);
       setRespondLoading(false);
@@ -1354,25 +1388,52 @@ export default function OrderDetailScreen({ route, navigation }) {
     });
   }
 
+  function openRateUser(orderLike, targetRole) {
+    const target =
+      targetRole === 'CUSTOMER'
+        ? orderLike?.customer
+        : orderLike?.driver || orderLike?.candidateDriver || orderLike?.reservedDriver;
+    const toUserId =
+      targetRole === 'CUSTOMER'
+        ? orderLike?.customerId || target?.id
+        : orderLike?.driverId || target?.id;
+    if (!orderLike?.id || !toUserId) return;
+    navigation.navigate('RateUser', {
+      orderId: orderLike.id,
+      toUserId,
+      targetName: target?.name,
+      targetRole,
+    });
+  }
+
   async function markDelivered(orderOrId) {
     const id = typeof orderOrId === 'object' ? orderOrId?.id : orderOrId;
     if (await confirmAction('Підтвердити передачу вантажу?')) {
       const updated = await changeStatusWithOptionalPhoto(id, 'DELIVERED', 'Бажаєте додати фото виданого вантажу?');
       if (updated) {
         showCompletionCelebration(updated || orderOrId);
+        openRateUser(updated || orderOrId, 'CUSTOMER');
       }
     }
   }
 
-  async function confirmDelivery(id) {
+  async function confirmDelivery(orderOrId) {
+    const id = typeof orderOrId === 'object' ? orderOrId?.id : orderOrId;
     if (await confirmAction('Підтвердити виконання замовлення?')) {
-      await updateStatus(id, 'COMPLETED');
+      const updated = await updateStatus(id, 'COMPLETED');
+      if (updated) {
+        openRateUser(updated || orderOrId, 'DRIVER');
+      }
     }
   }
 
-  async function moveOrderToHistory(id) {
+  async function moveOrderToHistory(orderOrId) {
+    const id = typeof orderOrId === 'object' ? orderOrId?.id : orderOrId;
     if (await confirmAction('Перемістити замовлення в історію?')) {
-      await updateStatus(id, 'COMPLETED');
+      const updated = await updateStatus(id, 'COMPLETED');
+      if (updated) {
+        openRateUser(updated || orderOrId, 'DRIVER');
+      }
     }
   }
 
@@ -1692,14 +1753,14 @@ export default function OrderDetailScreen({ route, navigation }) {
     if (role === 'CUSTOMER') {
       if (order.status === 'DELIVERED') {
         buttons.push(
-          <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order.id)} />
+          <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order)} />
         );
       } else if (canCustomerMoveInProgressOrderToHistory(order, role, nowMs)) {
         buttons.push(
           <AppButton
             key="move-to-history"
             title={MOVE_TO_HISTORY_TITLE}
-            onPress={() => moveOrderToHistory(order.id)}
+            onPress={() => moveOrderToHistory(order)}
             color="#6B7280"
           />
         );
@@ -1898,7 +1959,13 @@ export default function OrderDetailScreen({ route, navigation }) {
                   <Ionicons name='person-circle' size={36} color={colors.green} />
                   <View style={{ marginLeft: 8, flex: 1 }}>
                     <Text style={{ fontWeight: '600' }}>{resp.driverName || 'Водій'}</Text>
-                    {resp.driverRating && (
+                    <RatingSummary
+                      label="Рейтинг"
+                      rating={resp.driverRating}
+                      completedOrders={resp.driverCompletedOrders ?? resp.driver?.completedOrders}
+                      style={styles.responseRatingSummary}
+                    />
+                    {false && resp.driverRating && (
                       <Text style={{ fontSize: 13, color: '#6B7280' }}>
                         Рейтинг: {resp.driverRating.toFixed(1)}
                       </Text>
@@ -2014,6 +2081,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       : 'Перевірте, чи дата завантаження ще актуальна. Якщо потрібно, оновіть її, щоб замовлення залишалось вище у списку.';
 
   const timingOptionDetail = formatTimingOptionDetail(order);
+  const customerRating = Number(order?.customer?.rating);
 
   return (
     <Screen disableKeyboardAvoiding>
@@ -2088,12 +2156,43 @@ export default function OrderDetailScreen({ route, navigation }) {
 
       {renderResponseBadge()}
 
+      {role === 'DRIVER' && order.customer && !(showContact && contactPhone) && (
+        <View style={styles.driverCard}>
+          <View style={styles.driverRow}>
+            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text style={{ fontWeight: '700' }}>{order.customer.name || 'Замовник'}</Text>
+              <RatingSummary
+                label="Рейтинг замовника"
+                rating={customerRating}
+                completedOrders={order?.customer?.completedOrders ?? order?.customerCompletedOrders}
+              />
+              {false && Number.isFinite(customerRating) && customerRating > 0 && (
+                <Text style={{ color: '#6B7280', marginTop: 2 }}>
+                  Рейтинг замовника: {customerRating.toFixed(1)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
+
       {role === 'DRIVER' && showContact && contactPhone && (
         <View style={styles.driverCard}>
           <View style={styles.driverRow}>
             <Ionicons name="person-circle" size={36} color={colors.green} />
             <View style={{ marginLeft: 8, flex: 1 }}>
               <Text>{contactName || 'Замовник'}</Text>
+              <RatingSummary
+                label="Рейтинг замовника"
+                rating={customerRating}
+                completedOrders={order?.customer?.completedOrders ?? order?.customerCompletedOrders}
+              />
+              {false && Number.isFinite(customerRating) && customerRating > 0 && (
+                <Text style={{ color: '#6B7280', marginTop: 2 }}>
+                  Рейтинг замовника: {customerRating.toFixed(1)}
+                </Text>
+              )}
             </View>
             <TouchableOpacity onPress={useNewFlow ? handleCall : () => Linking.openURL(`tel:${contactPhone}`)}>
               <Ionicons name="call" size={28} color={colors.green} />
@@ -2121,7 +2220,12 @@ export default function OrderDetailScreen({ route, navigation }) {
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text>{assignedDriver.name}</Text>
-              {assignedDriver.rating && (
+              <RatingSummary
+                label="Рейтинг"
+                rating={assignedDriver.rating}
+                completedOrders={assignedDriver.completedOrders}
+              />
+              {false && assignedDriver.rating && (
                 <Text>Рейтинг: {assignedDriver.rating.toFixed(1)}</Text>
               )}
             </View>
@@ -2440,6 +2544,32 @@ const styles = StyleSheet.create({
   label: { fontWeight: 'bold', marginRight: 8, fontSize: 16 },
   value: { fontSize: 16, flexShrink: 1 },
   rowIcon: { marginRight: 6 },
+  ratingSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  ratingSummaryLabel: {
+    color: '#6B7280',
+    marginRight: 4,
+  },
+  ratingSummaryText: {
+    marginLeft: 3,
+    color: '#6B7280',
+    fontWeight: '700',
+  },
+  completedSummaryIcon: {
+    marginLeft: 8,
+  },
+  completedSummaryText: {
+    marginLeft: 3,
+    color: colors.green,
+    fontWeight: '700',
+  },
+  responseRatingSummary: {
+    marginTop: 2,
+  },
   mapIconBtn: { padding: 6 },
   detailsCard: {
     backgroundColor: '#fff',

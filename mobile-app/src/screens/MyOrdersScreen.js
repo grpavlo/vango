@@ -353,6 +353,24 @@ export default function MyOrdersScreen({ navigation, route }) {
     });
   }
 
+  function openRateUser(orderLike, targetRole) {
+    const target =
+      targetRole === "CUSTOMER"
+        ? orderLike?.customer
+        : orderLike?.driver || orderLike?.candidateDriver || orderLike?.reservedDriver;
+    const toUserId =
+      targetRole === "CUSTOMER"
+        ? orderLike?.customerId || target?.id
+        : orderLike?.driverId || target?.id;
+    if (!orderLike?.id || !toUserId) return;
+    navigation.navigate("RateUser", {
+      orderId: orderLike.id,
+      toUserId,
+      targetName: target?.name,
+      targetRole,
+    });
+  }
+
   async function markDelivered(orderOrId) {
     const id = typeof orderOrId === "object" ? orderOrId?.id : orderOrId;
     if (await confirmAction("Підтвердити передачу вантажу?")) {
@@ -363,19 +381,28 @@ export default function MyOrdersScreen({ navigation, route }) {
       );
       if (updated) {
         showCompletionCelebration(updated || orderOrId);
+        openRateUser(updated || orderOrId, "CUSTOMER");
       }
     }
   }
 
-  async function confirmDelivery(id) {
+  async function confirmDelivery(orderOrId) {
+    const id = typeof orderOrId === "object" ? orderOrId?.id : orderOrId;
     if (await confirmAction("Підтвердити виконання замовлення?")) {
-      await updateStatus(id, "COMPLETED");
+      const updated = await updateStatus(id, "COMPLETED");
+      if (updated) {
+        openRateUser(updated || orderOrId, "DRIVER");
+      }
     }
   }
 
-  async function moveOrderToHistory(id) {
+  async function moveOrderToHistory(orderOrId) {
+    const id = typeof orderOrId === "object" ? orderOrId?.id : orderOrId;
     if (await confirmAction("Перемістити замовлення в історію?")) {
-      await updateStatus(id, "COMPLETED");
+      const updated = await updateStatus(id, "COMPLETED");
+      if (updated) {
+        openRateUser(updated || orderOrId, "DRIVER");
+      }
     }
   }
 
@@ -512,6 +539,21 @@ export default function MyOrdersScreen({ navigation, route }) {
                 <View style={styles.driverInfo}>
                   <Text style={styles.driverName}>{candidate.name}</Text>
                   {candidate.rating && (
+                    <View style={styles.driverMetricsRow}>
+                      <Ionicons name="star" size={15} color="#F59E0B" />
+                      <Text style={styles.driverRating}>{candidate.rating.toFixed(1)}</Text>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={15}
+                        color={colors.green}
+                        style={styles.driverCompletedIcon}
+                      />
+                      <Text style={styles.driverCompletedText}>
+                        {Math.max(0, Math.floor(Number(candidate.completedOrders) || 0))}
+                      </Text>
+                    </View>
+                  )}
+                  {false && candidate.rating && (
                     <Text style={styles.driverRating}>
                       Рейтинг: {candidate.rating.toFixed(1)}
                     </Text>
@@ -734,13 +776,13 @@ export default function MyOrdersScreen({ navigation, route }) {
           {role === "CUSTOMER" && item.status === "DELIVERED" && (
             <AppButton
               title="Підтвердити доставку"
-              onPress={() => confirmDelivery(item.id)}
+              onPress={() => confirmDelivery(item)}
             />
           )}
           {canMoveToHistory && (
             <AppButton
               title={MOVE_TO_HISTORY_TITLE}
-              onPress={() => moveOrderToHistory(item.id)}
+              onPress={() => moveOrderToHistory(item)}
               color="#6B7280"
             />
           )}
@@ -1052,7 +1094,24 @@ const styles = StyleSheet.create({
   avatarText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
   driverInfo: { marginLeft: 8 },
   driverName: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  driverRating: { fontSize: 14, color: "#6B7280" },
+  driverMetricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  driverRating: {
+    marginLeft: 3,
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "700",
+  },
+  driverCompletedIcon: { marginLeft: 8 },
+  driverCompletedText: {
+    marginLeft: 3,
+    fontSize: 14,
+    color: colors.green,
+    fontWeight: "700",
+  },
   candidateRight: { flexDirection: "row", alignItems: "center" },
   timeLabel: { marginLeft: 4, fontSize: 14, color: "#EA580C" },
   idRow: {

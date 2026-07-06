@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 
 import AppText from "../components/AppText";
 import AppInput from "../components/AppInput";
@@ -34,6 +36,7 @@ const ORDER_TYPE_LONG_DISTANCE = "LONG_DISTANCE";
 const TIMING_ASAP = "ASAP";
 const TIMING_WITHIN_1_HOUR = "WITHIN_1_HOUR";
 const TIMING_SCHEDULED = "SCHEDULED";
+const LOCATION_STORAGE_KEYS = ["userLocation", "location"];
 const INTRA_CITY_HINT_TEXT =
   "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
 const LOCAL_ORDER_HINT_TEXT =
@@ -67,10 +70,45 @@ function normalizeNumericForApi(value) {
   return text.replace(/\s+/g, "").replace(",", ".");
 }
 
+function normalizeLocationCoords(value) {
+  if (!value) return null;
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    const latitude = Number(parsed?.latitude);
+    const longitude = Number(parsed?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+}
+
+async function getCachedLocationCoords() {
+  for (const key of LOCATION_STORAGE_KEYS) {
+    const stored = await AsyncStorage.getItem(key);
+    const coords = normalizeLocationCoords(stored);
+    if (coords) return coords;
+  }
+  return null;
+}
+
+async function storeLocationCoords(coords) {
+  const value = JSON.stringify(coords);
+  await Promise.all(
+    LOCATION_STORAGE_KEYS.map((key) => AsyncStorage.setItem(key, value))
+  );
+}
+
 function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCityName(pickupCity);
   const dropoff = normalizeCityName(dropoffCity);
   return Boolean(pickup && dropoff && pickup === dropoff);
+}
+
+function hasDifferentRouteCities(pickupCity, dropoffCity) {
+  const pickup = normalizeCityName(pickupCity);
+  const dropoff = normalizeCityName(dropoffCity);
+  return Boolean(pickup && dropoff && pickup !== dropoff);
 }
 
 function buildDefaultSchedule() {
@@ -161,11 +199,51 @@ export default function CreateOrderScreen({ navigation }) {
   const [systemPrice, setSystemPrice] = useState(null);
   const [adjust] = useState(0);
   const [agreedPrice, setAgreedPrice] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
   const isSameCityRoute = isIntraCityRoute(pickup?.city, dropoff?.city);
+  const hasDifferentCities = hasDifferentRouteCities(
+    pickup?.city,
+    dropoff?.city
+  );
   const isLocalSelected = selectedOrderType === ORDER_TYPE_LOCAL;
   const isLocalQuickOrder =
     isLocalSelected && localTiming !== TIMING_SCHEDULED;
   const isEffectiveLocalOrder = isLocalSelected || isSameCityRoute;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCurrentLocation() {
+      try {
+        const cached = await getCachedLocationCoords();
+        if (cached && mounted) {
+          setCurrentLocation(cached);
+        }
+
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") return;
+
+        const loc = await Location.getCurrentPositionAsync({});
+        const coords = normalizeLocationCoords({
+          latitude: loc?.coords?.latitude,
+          longitude: loc?.coords?.longitude,
+        });
+        if (!coords) return;
+
+        await storeLocationCoords(coords);
+        if (mounted) {
+          setCurrentLocation(coords);
+        }
+      } catch {
+        // The map screen will fall back to cached coords or the default region.
+      }
+    }
+
+    loadCurrentLocation();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     async function calcDistance() {
@@ -349,6 +427,14 @@ export default function CreateOrderScreen({ navigation }) {
       toast.show("Вкажіть адреси завантаження та розвантаження");
       return;
     }
+    if (isLocalSelected && hasDifferentCities) {
+      Alert.alert(
+        "Міське перевезення",
+        "Зараз вибрано міське перевезення. Оберіть розвантаження в тому ж населеному пункті або передмісті, або змініть тип перевезення на далеке.",
+        [{ text: "Зрозуміло" }]
+      );
+      return;
+    }
     if (!photos || photos.length === 0) {
       toast.show("Додайте хоча б одне фото вантажу");
       return;
@@ -403,6 +489,15 @@ export default function CreateOrderScreen({ navigation }) {
       setLocalTiming(TIMING_ASAP);
       setAdditionalInfoExpanded(false);
     }
+  }
+
+  function renderChoiceBullet(text) {
+    return (
+      <View style={styles.choiceBulletRow}>
+        <AppText style={styles.choiceBulletMarker}>{"\u2022"}</AppText>
+        <AppText style={styles.choiceCardText}>{text}</AppText>
+      </View>
+    );
   }
 
   function renderAdditionalFields() {
@@ -503,9 +598,9 @@ export default function CreateOrderScreen({ navigation }) {
             <Ionicons name="time-outline" size={24} color={colors.green} />
           </View>
           <AppText style={styles.choiceCardTitle}>{"\u041c\u0456\u0441\u0446\u0435\u0432\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"}</AppText>
-          <AppText style={styles.choiceCardText}>{LOCAL_ORDER_HINT_TEXT}</AppText>
-          <AppText style={styles.choiceCardText}>{"\u041c\u0456\u0441\u0442\u043e \u0442\u0430 \u043f\u0435\u0440\u0435\u0434\u043c\u0456\u0441\u0442\u044f"}</AppText>
-          <AppText style={styles.choiceCardText}>{"\u041f\u043e\u0433\u043e\u0434\u0438\u043d\u043d\u0430 \u043e\u043f\u043b\u0430\u0442\u0430"}</AppText>
+          {renderChoiceBullet(LOCAL_ORDER_HINT_TEXT)}
+          {renderChoiceBullet("\u041c\u0456\u0441\u0442\u043e \u0442\u0430 \u043f\u0435\u0440\u0435\u0434\u043c\u0456\u0441\u0442\u044f")}
+          {renderChoiceBullet("\u041f\u043e\u0433\u043e\u0434\u0438\u043d\u043d\u0430 \u043e\u043f\u043b\u0430\u0442\u0430")}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -517,10 +612,10 @@ export default function CreateOrderScreen({ navigation }) {
             <Ionicons name="trail-sign-outline" size={24} color={colors.orange} />
           </View>
           <AppText style={styles.choiceCardTitle}>{"\u0414\u0430\u043b\u0435\u043a\u0435 \u043f\u0435\u0440\u0435\u0432\u0435\u0437\u0435\u043d\u043d\u044f"}</AppText>
-          <AppText style={styles.choiceCardText}>
-            {"\u0412\u0438 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454\u0442\u0435 \u0446\u0456\u043d\u0443 \u0430\u0431\u043e \u043e\u0431\u0438\u0440\u0430\u0454\u0442\u0435 \u00ab\u0414\u043e\u0433\u043e\u0432\u0456\u0440\u043d\u0430\u00bb"}
-          </AppText>
-          <AppText style={styles.choiceCardText}>{"\u0414\u043b\u044f \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0456\u0432 \u043f\u043e\u0437\u0430 \u043c\u0456\u0441\u0442\u043e\u043c"}</AppText>
+          {renderChoiceBullet(
+            "\u0412\u0438 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454\u0442\u0435 \u0446\u0456\u043d\u0443 \u0430\u0431\u043e \u043e\u0431\u0438\u0440\u0430\u0454\u0442\u0435 \u00ab\u0414\u043e\u0433\u043e\u0432\u0456\u0440\u043d\u0430\u00bb"
+          )}
+          {renderChoiceBullet("\u0414\u043b\u044f \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0456\u0432 \u043f\u043e\u0437\u0430 \u043c\u0456\u0441\u0442\u043e\u043c")}
         </TouchableOpacity>
       </ScrollView>
     );
@@ -556,6 +651,12 @@ export default function CreateOrderScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {isLocalSelected && (
+            <AppText style={styles.localDistanceHint}>
+              {LOCAL_DISTANCE_HINT_TEXT}
+            </AppText>
+          )}
+
           <View style={styles.section}>
             <Ionicons name="location" size={20} color={colors.green} />
             <AppText style={styles.label}>Звідки</AppText>
@@ -574,6 +675,7 @@ export default function CreateOrderScreen({ navigation }) {
             navigation={navigation}
             lat={pickup?.lat}
             lon={pickup?.lon}
+            currentLocation={currentLocation}
             provider="google"
             googleApiKey={GOOGLE_PLACES_API_KEY}
             suggestionStyles={{
@@ -602,6 +704,7 @@ export default function CreateOrderScreen({ navigation }) {
             navigation={navigation}
             lat={dropoff?.lat}
             lon={dropoff?.lon}
+            currentLocation={currentLocation}
             provider="google"
             googleApiKey={GOOGLE_PLACES_API_KEY}
             suggestionStyles={{
@@ -634,9 +737,6 @@ export default function CreateOrderScreen({ navigation }) {
                   }
                 }}
               />
-              {isLocalSelected && !isSameCityRoute && pickup && dropoff && (
-                <AppText style={styles.localDistanceHint}>{LOCAL_DISTANCE_HINT_TEXT}</AppText>
-              )}
             </>
           )}
 
@@ -963,10 +1063,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 8,
   },
-  choiceCardText: {
+  choiceBulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 4,
+  },
+  choiceBulletMarker: {
+    width: 14,
     color: colors.textSecondary,
     lineHeight: 20,
-    marginTop: 4,
+  },
+  choiceCardText: {
+    flex: 1,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   selectedTypeHeader: {
     padding: 14,
