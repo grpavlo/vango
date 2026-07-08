@@ -41,6 +41,7 @@ import StatusTimeline from '../components/StatusTimeline';
 import AppText from '../components/AppText';
 import Screen from '../components/Screen';
 import { markOrderUpdatesSeen } from '../orderUpdates';
+import { subscribeOrderChanges } from '../orderChangeEvents';
 import { openLocationInMaps } from '../maps';
 import DriverCompletionCelebration, {
   getOrderCompletionEarnings,
@@ -530,6 +531,7 @@ export default function OrderDetailScreen({ route, navigation }) {
   const initialOrder = params.order ?? null;
   const orderId = params.orderId ?? params.order?.id ?? null;
   const notificationReminderStep = params.notificationReminderStep ?? null;
+  const notificationOpenedAt = params.notificationOpenedAt ?? null;
   const [order, setOrder] = useState(initialOrder);
   const [previewPhotoUri, setPreviewPhotoUri] = useState(null);
   const photoPreviewTouchStartRef = useRef(null);
@@ -753,6 +755,21 @@ export default function OrderDetailScreen({ route, navigation }) {
       console.log('mark order updates seen error', err)
     );
   }, [order?.id, order?.status, order?.history, order?.updatedAt, role, token]);
+
+  useEffect(() => {
+    if (!notificationOpenedAt) return;
+    refreshOrderState();
+  }, [notificationOpenedAt, refreshOrderState]);
+
+  useEffect(() => {
+    return subscribeOrderChanges((event) => {
+      const currentId = initialOrder ? initialOrder.id : orderId;
+      if (!currentId || !event?.orderId) return;
+      if (String(currentId) === String(event.orderId)) {
+        refreshOrderState();
+      }
+    });
+  }, [initialOrder, orderId, refreshOrderState]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 60 * 1000);

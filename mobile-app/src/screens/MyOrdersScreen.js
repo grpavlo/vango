@@ -20,6 +20,7 @@ import { apiFetch, HOST_URL } from "../api";
 import { useAuth } from "../AuthContext";
 import OrderCardSkeleton from "../components/OrderCardSkeleton";
 import { markOrderUpdatesSeen, reconcileOrderUpdates } from "../orderUpdates";
+import { subscribeOrderChanges } from "../orderChangeEvents";
 import { openLocationInMaps } from "../maps";
 import DriverCompletionCelebration, {
   getOrderCompletionEarnings,
@@ -93,6 +94,13 @@ export default function MyOrdersScreen({ navigation, route }) {
     const unsubscribe = navigation.addListener("focus", load);
     return unsubscribe;
   }, [role, navigation]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    return subscribeOrderChanges(() => {
+      load();
+    });
+  }, [token, role]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 60 * 1000);

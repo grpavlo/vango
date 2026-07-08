@@ -30,6 +30,7 @@ import { colors } from "../components/Colors";
 import { GOOGLE_PLACES_API_KEY } from "../config";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../components/Toast";
+import { subscribeOrderChanges } from "../orderChangeEvents";
 
 export default function AllOrdersScreen({ navigation }) {
   const AUTO_REFRESH_INTERVAL_MS = 20000;
@@ -234,6 +235,13 @@ export default function AllOrdersScreen({ navigation }) {
       unsubBlur();
     };
   }, [navigation]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    return subscribeOrderChanges(() => {
+      if (fetchOrdersRef.current) fetchOrdersRef.current();
+    });
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;

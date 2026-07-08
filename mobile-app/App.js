@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -23,6 +24,7 @@ import RatingDetailScreen from './src/screens/RatingDetailScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { addStoredNotification } from './src/notificationCenter';
+import { emitOrderChange } from './src/orderChangeEvents';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -33,6 +35,7 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
+const DEFAULT_NOTIFICATION_TITLE = 'Сповіщення';
 
 function RootNavigator({ introComplete, onIntroComplete }) {
   const { token, role, needsProfileSetup, loading } = useAuth();
@@ -92,6 +95,7 @@ function RootNavigator({ introComplete, onIntroComplete }) {
 export default function App() {
   const pendingNavigationActionRef = useRef(null);
   const handledNotificationIdsRef = useRef(new Set());
+  const shownInAppNotificationIdsRef = useRef(new Set());
   const [introComplete, setIntroComplete] = useState(false);
 
   const executeNavigationAction = useCallback((action) => {
@@ -222,6 +226,50 @@ export default function App() {
     [buildNavigationAction, queueNavigationAction]
   );
 
+  const notifyOrderChangeFromPush = useCallback((data = {}) => {
+    if (!data?.orderId) return;
+    emitOrderChange({
+      orderId: data.orderId,
+      data,
+      source: 'push',
+      receivedAt: Date.now(),
+    });
+  }, []);
+
+  const showInAppNotification = useCallback(
+    (notification) => {
+      const request = notification?.request;
+      const content = request?.content;
+      if (!request || !content) return;
+
+      const data = content.data || {};
+      const title = String(content.title || '').trim();
+      const body = String(content.body || '').trim();
+      const hasAction = Boolean(buildNavigationAction(data));
+      const hasVisibleText = Boolean(title || body);
+      if (!hasVisibleText) return;
+      if (title === DEFAULT_NOTIFICATION_TITLE && !body) return;
+
+      const dedupeKey =
+        request.identifier || `${Date.now()}-${data?.orderId || 'notification'}`;
+      if (shownInAppNotificationIdsRef.current.has(dedupeKey)) return;
+      shownInAppNotificationIdsRef.current.add(dedupeKey);
+
+      const buttons = hasAction
+        ? [
+            { text: 'Закрити', style: 'cancel' },
+            {
+              text: 'Відкрити',
+              onPress: () => handleNotificationNavigation(data, request.identifier),
+            },
+          ]
+        : [{ text: 'OK' }];
+
+      Alert.alert(title || 'Сповіщення', body || '', buttons);
+    },
+    [buildNavigationAction, handleNotificationNavigation]
+  );
+
   const handleNavigationReady = useCallback(() => {
     if (pendingNavigationActionRef.current) {
       executeNavigationAction(pendingNavigationActionRef.current);
@@ -243,12 +291,16 @@ export default function App() {
 
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
       storeNotification(notification, false);
+      const data = notification?.request?.content?.data || {};
+      notifyOrderChangeFromPush(data);
+      showInAppNotification(notification);
     });
 
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
       storeNotification(response?.notification, true);
       const notificationId = response?.notification?.request?.identifier;
       const data = response?.notification?.request?.content?.data;
+      notifyOrderChangeFromPush(data || {});
       handleNotificationNavigation(data, notificationId);
     });
     (async () => {
@@ -257,6 +309,7 @@ export default function App() {
         storeNotification(lastResponse?.notification, true);
         const notificationId = lastResponse?.notification?.request?.identifier;
         const data = lastResponse?.notification?.request?.content?.data;
+        notifyOrderChangeFromPush(data || {});
         handleNotificationNavigation(data, notificationId);
       }
     })();
@@ -264,7 +317,7 @@ export default function App() {
       receivedSub.remove();
       sub.remove();
     };
-  }, [handleNotificationNavigation]);
+  }, [handleNotificationNavigation, notifyOrderChangeFromPush, showInAppNotification]);
 
   return (
     <Host>
