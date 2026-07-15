@@ -32,7 +32,6 @@ export default function EditProfile({ navigation, route }) {
   // Текстові поля
   const [fullName, setFullName] = useState(user?.name || "");
   const [phone, setPhone] = useState(formatUaPhoneInput(user?.phone || ""));
-  const [email, setEmail] = useState("");
   const [noInn, setNoInn] = useState(false);
   const [inn, setInn] = useState("");
 
@@ -100,8 +99,6 @@ export default function EditProfile({ navigation, route }) {
         setFullName(fullNameVal);
 
         setPhone(formatUaPhoneInput(data?.user?.phone ?? me?.phone ?? user?.phone ?? ""));
-
-        setEmail(String(me?.email ?? data?.user?.email ?? user?.email ?? "").trim());
 
         setNoInn(Boolean(data?.noInn));
         setInn(data?.inn ?? "");
@@ -297,7 +294,6 @@ export default function EditProfile({ navigation, route }) {
         body: JSON.stringify({
           name: trimmedFullName,
           phone: trimmedPhone,
-          ...(email.trim() && { email: email.trim() }),
         }),
       });
 
@@ -354,16 +350,6 @@ export default function EditProfile({ navigation, route }) {
                 maxLength={13}
                 returnKeyType="next"
               />
-              <AppInput
-                label="Електронна адреса"
-                placeholder="example@email.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                returnKeyType="next"
-              />
-
               {/* ІПН */}
               <AppText style={styles.sectionTitle}>ІПН</AppText>
               <View

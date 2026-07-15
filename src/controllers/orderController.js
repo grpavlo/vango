@@ -24,8 +24,59 @@ const {
 
 
 const PRICE_HISTORY_STATUS = "PRICE_UPDATED";
+const DRIVER_REFUSAL_HISTORY_STATUS = "DRIVER_REFUSAL";
+const DRIVER_PRIVATE_HISTORY_STATUSES = new Set([
+  PRICE_HISTORY_STATUS,
+  DRIVER_REFUSAL_HISTORY_STATUS,
+]);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS = 3 * DAY_IN_MS;
+const ORDER_UNAVAILABLE_MESSAGE =
+  "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435";
+
+function hasOrderUserId(value, userId) {
+  return value != null && userId != null && String(value) === String(userId);
+}
+
+function canUserViewOrder(user, order) {
+  if (!user || !order) return false;
+  if (user.role === "ADMIN") return true;
+  if (hasOrderUserId(order.customerId, user.id)) return true;
+  if (hasOrderUserId(order.driverId, user.id)) return true;
+  if (hasOrderUserId(order.candidateDriverId, user.id)) return true;
+  if (hasOrderUserId(order.reservedBy, user.id)) return true;
+
+  return (
+    order.status === OrderStatus.CREATED &&
+    ["DRIVER", "BOTH"].includes(user.role)
+  );
+}
+
+async function authorizeOrderStatusAccess(req, res, next) {
+  try {
+    const order = await Order.findByPk(req.params.id);
+    if (!order) {
+      return res
+        .status(404)
+        .send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
+    }
+
+    const isAllowed =
+      req.user?.role === "ADMIN" ||
+      hasOrderUserId(order.customerId, req.user?.id) ||
+      hasOrderUserId(order.driverId, req.user?.id);
+    if (!isAllowed) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+
+    req.order = order;
+    return next();
+  } catch (err) {
+    return res
+      .status(400)
+      .send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u043f\u0435\u0440\u0435\u0432\u0456\u0440\u0438\u0442\u0438 \u0434\u043e\u0441\u0442\u0443\u043f \u0434\u043e \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
+  }
+}
 
 function collectUserRatingId(user, ids) {
   if (!user?.id) return;
@@ -112,6 +163,63 @@ function parseOrderHistory(history) {
     }
   }
   return [];
+}
+
+function sanitizeOrderForUser(orderJson, user) {
+  if (!orderJson || !user) return orderJson;
+  if (user.role === "ADMIN" || hasOrderUserId(orderJson.customerId, user.id)) {
+    return orderJson;
+  }
+
+  const history = parseOrderHistory(orderJson.history);
+  if (!history.length) return orderJson;
+
+  let resetIndex = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (
+      entry?.status === OrderStatus.CREATED &&
+      entry?.reason === DRIVER_REFUSAL_HISTORY_STATUS
+    ) {
+      resetIndex = i;
+      break;
+    }
+  }
+  const visibleHistory = resetIndex >= 0 ? history.slice(resetIndex) : history;
+  orderJson.history = visibleHistory
+    .filter((entry) => !DRIVER_PRIVATE_HISTORY_STATUSES.has(entry?.status))
+    .map((entry) => {
+      if (
+        entry?.status === OrderStatus.CREATED &&
+        entry?.reason === DRIVER_REFUSAL_HISTORY_STATUS
+      ) {
+        const { reason, label, changedByRole, changedById, ...rest } = entry;
+        return rest;
+      }
+      return entry;
+    });
+  return orderJson;
+}
+
+function getRollbackPriceBeforeDriverSelection(order) {
+  const history = parseOrderHistory(order?.history);
+  const acceptedIndex = (() => {
+    for (let i = history.length - 1; i >= 0; i -= 1) {
+      if (history[i]?.status === OrderStatus.ACCEPTED) return i;
+    }
+    return -1;
+  })();
+  const acceptancePriceEntry = acceptedIndex > 0 ? history[acceptedIndex - 1] : null;
+  if (
+    acceptancePriceEntry?.status === PRICE_HISTORY_STATUS &&
+    acceptancePriceEntry?.field === "price"
+  ) {
+    const previous = roundPriceValue(acceptancePriceEntry.fromPrice);
+    if (previous !== null) return previous;
+  }
+
+  const current = roundPriceValue(order?.price);
+  return current !== null ? current : 0;
 }
 
 function getLatestStatusTimeMs(order, status) {
@@ -333,6 +441,11 @@ function normalizeCity(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function isFiniteCoordinate(value) {
+  if (value === null || value === undefined || value === "") return false;
+  return Number.isFinite(Number(value));
+}
+
 function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCity(pickupCity);
   const dropoff = normalizeCity(dropoffCity);
@@ -357,32 +470,39 @@ function isEffectiveIntraCity(requestedOrderType, pickupCity, dropoffCity) {
 function orderMatchesSavedSearch(order, savedSearch) {
   const orderCity = normalizeCity(order.pickupCity);
   const searchCity = normalizeCity(savedSearch.pickupCity);
-  if (!orderCity || !searchCity || !orderCity.includes(searchCity)) {
-    return false;
-  }
 
-  if (
-    !Number.isFinite(Number(order.pickupLat)) ||
-    !Number.isFinite(Number(order.pickupLon))
-  ) {
+  const hasOrderPickupPoint =
+    isFiniteCoordinate(order.pickupLat) && isFiniteCoordinate(order.pickupLon);
+  const hasSearchPickupPoint =
+    isFiniteCoordinate(savedSearch.lat) && isFiniteCoordinate(savedSearch.lon);
+  const hasPickupRadius = Number.isFinite(Number(savedSearch.radius));
+  const pickupCityMatches =
+    orderCity && searchCity && orderCity.includes(searchCity);
+
+  if (hasOrderPickupPoint && hasSearchPickupPoint && hasPickupRadius) {
+    const inPickupRadius =
+      haversineKm(
+        Number(savedSearch.lat),
+        Number(savedSearch.lon),
+        Number(order.pickupLat),
+        Number(order.pickupLon)
+      ) <= Number(savedSearch.radius);
+
+    if (!inPickupRadius) {
+      return false;
+    }
+  } else if (!pickupCityMatches) {
     return false;
   }
 
   const savedDropoffCity = normalizeCity(savedSearch.dropoffCity);
-  if (savedDropoffCity) {
-    const orderDropoffCity = normalizeCity(order.dropoffCity);
-    if (!orderDropoffCity || !orderDropoffCity.includes(savedDropoffCity)) {
-      return false;
-    }
-  }
-
   const hasDropoffPoint =
-    Number.isFinite(Number(savedSearch.dropoffLat)) &&
-    Number.isFinite(Number(savedSearch.dropoffLon));
+    isFiniteCoordinate(savedSearch.dropoffLat) &&
+    isFiniteCoordinate(savedSearch.dropoffLon);
   if (hasDropoffPoint) {
     if (
-      !Number.isFinite(Number(order.dropoffLat)) ||
-      !Number.isFinite(Number(order.dropoffLon))
+      !isFiniteCoordinate(order.dropoffLat) ||
+      !isFiniteCoordinate(order.dropoffLon)
     ) {
       return false;
     }
@@ -398,19 +518,20 @@ function orderMatchesSavedSearch(order, savedSearch) {
     if (!inDropoffRadius) {
       return false;
     }
+  } else if (savedDropoffCity) {
+    const orderDropoffCity = normalizeCity(order.dropoffCity);
+    if (!orderDropoffCity || !orderDropoffCity.includes(savedDropoffCity)) {
+      return false;
+    }
   }
 
-  return (
-    haversineKm(
-      Number(savedSearch.lat),
-      Number(savedSearch.lon),
-      Number(order.pickupLat),
-      Number(order.pickupLon)
-    ) <= Number(savedSearch.radius)
-  );
+  return true;
 }
 
-async function notifyDriversAboutSavedSearchMatch(order) {
+async function notifyDriversAboutSavedSearchMatch(order, options = {}) {
+  const excludedDriverIds = new Set(
+    (options.excludeDriverIds || []).map((id) => String(id))
+  );
   const savedSearches = await SavedSearch.findAll({
     include: [{ model: User, as: "driver" }],
   });
@@ -421,6 +542,7 @@ async function notifyDriversAboutSavedSearchMatch(order) {
 
     const driver = savedSearch.driver;
     if (!driver?.pushToken || !driver.pushConsent) continue;
+    if (excludedDriverIds.has(String(driver.id))) continue;
     if (notifiedDriverIds.has(driver.id)) continue;
     notifiedDriverIds.add(driver.id);
 
@@ -798,7 +920,7 @@ async function listAvailableOrders(req, res) {
   const enriched = filtered.map((o) => {
     const json = attachOrderLifecycleMeta(o, nowForLifecycle);
     json.responseCount = responseCounts[json.id] || 0;
-    return json;
+    return sanitizeOrderForUser(json, req.user);
   });
   await applyRoleRatingsToOrderJsons(enriched);
   enriched.sort((a, b) => {
@@ -951,7 +1073,7 @@ async function listMyOrders(req, res) {
     const json = o.toJSON();
     json.responseCount = myResponseCounts[json.id] || 0;
     json.myResponseStatus = myResponseStatuses[json.id] || null;
-    return json;
+    return sanitizeOrderForUser(json, req.user);
   }));
 
   res.json(enrichedOrders);
@@ -989,6 +1111,10 @@ async function getOrder(req, res) {
 
     }
 
+    if (!canUserViewOrder(req.user, order)) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+
     const responseCount = await OrderResponse.count({
       where: {
         orderId: id,
@@ -996,7 +1122,10 @@ async function getOrder(req, res) {
       },
     });
 
-    const json = await applyRoleRatingsToOrderJsons(order.toJSON());
+    const json = sanitizeOrderForUser(
+      await applyRoleRatingsToOrderJsons(order.toJSON()),
+      req.user
+    );
     json.responseCount = responseCount;
     res.json(json);
 
@@ -1714,6 +1843,115 @@ async function rejectDriver(req, res) {
 
 }
 
+async function cancelConfirmedDriver(req, res) {
+  const orderId = req.params.id;
+
+  try {
+    const order = await Order.findByPk(orderId, {
+      include: [
+        { model: User, as: "customer" },
+        { model: User, as: "driver" },
+      ],
+    });
+
+    if (!order || order.customerId !== req.user.id) {
+      return res
+        .status(400)
+        .send("\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0432");
+    }
+    if (order.status !== OrderStatus.ACCEPTED || !order.driverId) {
+      return res
+        .status(400)
+        .send("\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u0432\u043e\u0434\u0456\u044f \u043c\u043e\u0436\u043d\u0430 \u043b\u0438\u0448\u0435 \u0434\u043e \u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u0432\u0430\u043d\u0442\u0430\u0436\u0443");
+    }
+
+    const previousDriverId = order.driverId;
+    const previousDriver = order.driver || (await User.findByPk(previousDriverId));
+    const rollbackPrice = getRollbackPriceBeforeDriverSelection(order);
+
+    const response = await OrderResponse.findOne({
+      where: {
+        orderId,
+        driverId: previousDriverId,
+        status: ResponseStatus.CONFIRMED,
+      },
+      order: [["updatedAt", "DESC"], ["id", "DESC"]],
+    });
+    if (response) {
+      response.status = ResponseStatus.DECLINED;
+      response.resultSubmittedAt = new Date();
+      response.expiresAt = null;
+      response.customerCounterPrice = null;
+      await response.save();
+    }
+
+    await Transaction.destroy({
+      where: {
+        orderId: order.id,
+        driverId: previousDriverId,
+        status: "PENDING",
+      },
+    });
+
+    const changedAt = new Date();
+    order.driverId = null;
+    order.candidateDriverId = null;
+    order.candidateUntil = null;
+    order.reservedBy = null;
+    order.reservedUntil = null;
+    order.price = rollbackPrice;
+    order.finalPrice = null;
+    order.status = OrderStatus.CREATED;
+    order.history = [
+      ...(order.history || []),
+      {
+        status: DRIVER_REFUSAL_HISTORY_STATUS,
+        at: changedAt,
+        driverId: previousDriverId,
+        label: "\u0412\u0456\u0434\u043c\u043e\u0432\u0430 \u0432\u043e\u0434\u0456\u044f",
+        changedByRole: req.user?.role,
+        changedById: req.user?.id,
+      },
+      {
+        status: OrderStatus.CREATED,
+        at: changedAt,
+        reason: DRIVER_REFUSAL_HISTORY_STATUS,
+        label: "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u043d\u043e\u0432\u0443 \u0432 \u0430\u043a\u0442\u0438\u0432\u043d\u043e\u043c\u0443 \u043f\u043e\u0448\u0443\u043a\u0443",
+        changedByRole: req.user?.role,
+        changedById: req.user?.id,
+      },
+    ];
+    await order.save();
+
+    const updated = await Order.findByPk(orderId, {
+      include: [
+        { model: User, as: "customer" },
+        { model: User, as: "driver" },
+      ],
+    });
+    broadcastOrder(updated);
+    await notifyDriversAboutSavedSearchMatch(updated, {
+      excludeDriverIds: [previousDriverId],
+    });
+
+    if (previousDriver?.pushToken && previousDriver.pushConsent) {
+      sendPush(
+        previousDriver.pushToken,
+        "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0432 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f",
+        "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + " \u0437\u043d\u043e\u0432\u0443 \u0432 \u043f\u043e\u0448\u0443\u043a\u0443 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f.",
+        { orderId: order.id, navigateTo: "driverOrders" }
+      );
+    }
+
+    return res.json(updated);
+  } catch (err) {
+    console.error("cancelConfirmedDriver error:", err);
+    return res
+      .status(400)
+      .send("\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u0432\u043e\u0434\u0456\u044f");
+  }
+}
+
 
 
 async function updateStatus(req, res) {
@@ -1722,7 +1960,7 @@ async function updateStatus(req, res) {
 
   const { status } = req.body;
   try {
-    const order = await Order.findByPk(orderId);
+    const order = req.order || (await Order.findByPk(orderId));
     if (!order) {
       res.status(404).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
 
@@ -1732,11 +1970,30 @@ async function updateStatus(req, res) {
       return res.status(400).send("\u041d\u0435\u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
     }
 
+    const isAdmin = req.user?.role === "ADMIN";
+    const isCustomer = hasOrderUserId(order.customerId, req.user?.id);
+    const isAssignedDriver = hasOrderUserId(order.driverId, req.user?.id);
+    if (
+      !isAdmin &&
+      [OrderStatus.IN_PROGRESS, OrderStatus.DELIVERED].includes(status) &&
+      !isAssignedDriver
+    ) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+    if (!isAdmin && status === OrderStatus.COMPLETED && !isCustomer) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+    if (
+      !isAdmin &&
+      ![OrderStatus.IN_PROGRESS, OrderStatus.DELIVERED, OrderStatus.COMPLETED].includes(status)
+    ) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+
     if (status === OrderStatus.COMPLETED) {
-      const isCustomer = order.customerId === req.user?.id;
       const canCompleteDelivered = isCustomer && order.status === OrderStatus.DELIVERED;
       const canMoveStaleInProgress = canCustomerMoveInProgressOrderToHistory(order, req.user);
-      if (!canCompleteDelivered && !canMoveStaleInProgress) {
+      if (!isAdmin && !canCompleteDelivered && !canMoveStaleInProgress) {
         return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043c\u043e\u0436\u043d\u0430 \u043f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438 \u0432 \u0456\u0441\u0442\u043e\u0440\u0456\u044e \u043b\u0438\u0448\u0435 \u043f\u0456\u0441\u043b\u044f \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438 \u0430\u0431\u043e \u0447\u0435\u0440\u0435\u0437 3 \u0434\u043d\u0456 \u043f\u0456\u0441\u043b\u044f \u0442\u043e\u0433\u043e, \u044f\u043a \u0432\u043e\u0434\u0456\u0439 \u043e\u0442\u0440\u0438\u043c\u0430\u0432 \u0432\u0430\u043d\u0442\u0430\u0436");
       }
     }
@@ -2612,6 +2869,9 @@ async function responseCallMade(req, res) {
     order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
     if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0435\u0442\u0430\u043f \u0434\u0437\u0432\u0456\u043d\u043a\u0430 \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
+    if (order.status !== OrderStatus.CREATED) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
@@ -2638,6 +2898,9 @@ async function responseResult(req, res) {
     const order = await Order.findByPk(orderId, { include: { model: User, as: "customer" } });
     if (!order) return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     if (order.isIntraCity) return res.status(400).send("\u0414\u043b\u044f \u043c\u0456\u0441\u044c\u043a\u0438\u0445 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u0435\u0442\u0430\u043f \u0434\u0437\u0432\u0456\u043d\u043a\u0430 \u043d\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u0435\u043d");
+    if (order.status !== OrderStatus.CREATED) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
 
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
@@ -3002,6 +3265,10 @@ async function responseReject(req, res) {
 async function responseWithdraw(req, res) {
   const { id: orderId, responseId } = req.params;
   try {
+    const order = await Order.findByPk(orderId);
+    if (!order || order.status !== OrderStatus.CREATED) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
     const response = await OrderResponse.findByPk(responseId);
     if (!response || response.orderId !== parseInt(orderId) || response.driverId !== req.user.id) {
       return res.status(400).send("\u0412\u0456\u0434\u0433\u0443\u043a \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
@@ -3061,6 +3328,8 @@ module.exports = {
   acceptOrder,
   confirmDriver,
   rejectDriver,
+  cancelConfirmedDriver,
+  authorizeOrderStatusAccess,
   updateStatus,
   listMyOrders,
   getOrder,

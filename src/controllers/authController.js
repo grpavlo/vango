@@ -8,7 +8,10 @@ const DriverProfile = require('../models/driverProfile');
 const { getCompletedOrderCount, getRoleRating } = require('../utils/ratingStats');
 const { sendSms } = require('../services/turbosms');
 const { generateCode, set: setCode, verifyAndConsume, normalizePhone } = require('../services/authCodes');
+const { normalizePushTokens } = require('../utils/push');
 const { Op, fn, col, where } = require('sequelize');
+
+const AUTH_TOKEN_EXPIRES_IN = '90d';
 
 function pathToUrl(p) {
   return p ? p.replace(/^.*[\\/]uploads[\\/]/, '/uploads/') : null;
@@ -116,7 +119,7 @@ async function verifyPhoneCode(req, res) {
       role: UserRole.BOTH,
     });
   }
-  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
   res.json({ token, role: user.role });
 }
 
@@ -147,7 +150,7 @@ async function login(req, res) {
 
       return;
     }
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
     res.json({ token, role: user.role });
   } catch (err) {
     res.status(400).send('Помилка входу');
@@ -320,7 +323,8 @@ async function updateRole(req, res) {
 async function updatePushToken(req, res) {
   const token = req.body && req.body.token;
   if (!token) return res.status(400).send('Token required');
-  req.user.pushToken = token;
+  const tokens = normalizePushTokens([...normalizePushTokens(req.user.pushToken), token]);
+  req.user.pushToken = JSON.stringify(tokens.slice(-5));
   await req.user.save();
   res.sendStatus(204);
 }

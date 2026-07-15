@@ -9,6 +9,8 @@ const {
   acceptOrder,
   confirmDriver,
   rejectDriver,
+  cancelConfirmedDriver,
+  authorizeOrderStatusAccess,
   updateStatus,
   listMyOrders,
   getOrder,
@@ -39,9 +41,11 @@ router.get('/:id', authenticate, getOrder);
 router.post('/:id/accept', authenticate, authorize([UserRole.DRIVER]), acceptOrder);
 router.post('/:id/confirm-driver', authenticate, authorize([UserRole.CUSTOMER]), confirmDriver);
 router.post('/:id/reject-driver', authenticate, authorize([UserRole.CUSTOMER]), rejectDriver);
+router.post('/:id/cancel-confirmed-driver', authenticate, authorize([UserRole.CUSTOMER]), cancelConfirmedDriver);
 router.patch(
   '/:id/status',
   authenticate,
+  authorizeOrderStatusAccess,
   upload.fields([
     { name: 'statusPhoto', maxCount: 10 },
     { name: 'statusPhotos', maxCount: 10 },

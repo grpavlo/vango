@@ -453,25 +453,14 @@ export default function CreateOrderScreen({ navigation }) {
     }
 
     if (!freeDate && !isLocalQuickOrder) {
-      if (loadFrom < new Date()) {
-        toast.show("Дата завантаження не може бути в минулому");
-        return;
-      }
-      if (loadTo <= loadFrom) {
+      const loadDate = new Date(loadFrom);
+      const unloadDate = new Date(unloadFrom);
+      loadDate.setHours(0, 0, 0, 0);
+      unloadDate.setHours(0, 0, 0, 0);
+
+      if (unloadDate < loadDate) {
         toast.show(
-          "Кінцева дата завантаження повинна бути пізніше початкової"
-        );
-        return;
-      }
-      if (unloadFrom <= loadTo) {
-        toast.show(
-          "Дата початку розвантаження повинна бути після закінчення завантаження"
-        );
-        return;
-      }
-      if (unloadTo <= unloadFrom) {
-        toast.show(
-          "Кінцева дата розвантаження повинна бути пізніше початкової"
+          "\u0414\u0430\u0442\u0430 \u0440\u043e\u0437\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f \u043d\u0435 \u043c\u043e\u0436\u0435 \u0431\u0443\u0442\u0438 \u0440\u0430\u043d\u0456\u0448\u0435 \u0434\u0430\u0442\u0438 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f"
         );
         return;
       }

@@ -174,9 +174,13 @@ export async function apiFetch(path, options = {}) {
           await unauthorizedHandler();
         }
       } catch {}
-      throw new Error(error || 'Не авторизовано');
+      const requestError = new Error(error || 'Не авторизовано');
+      requestError.status = res.status;
+      throw requestError;
     }
-    throw new Error(error || `Запит завершився помилкою (статус ${res.status})`);
+    const requestError = new Error(error || `Запит завершився помилкою (статус ${res.status})`);
+    requestError.status = res.status;
+    throw requestError;
   }
   // Обробка порожніх відповідей (наприклад, 204 No Content)
   if (res.status === 204) {
@@ -268,6 +272,13 @@ export function rejectResponse(orderId, responseId, token) {
 export function withdrawResponse(orderId, responseId, token) {
   return apiFetch(`/orders/${orderId}/respond/${responseId}`, {
     method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function cancelConfirmedDriver(orderId, token) {
+  return apiFetch(`/orders/${orderId}/cancel-confirmed-driver`, {
+    method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
 }

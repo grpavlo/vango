@@ -8,6 +8,82 @@ const { Op } = require('sequelize');
 const { getLifecycleCutoffDate, startOfDay } = require('./utils/orderLifecycle');
 
 let wssInstance;
+const PRICE_HISTORY_STATUS = 'PRICE_UPDATED';
+const DRIVER_REFUSAL_HISTORY_STATUS = 'DRIVER_REFUSAL';
+const DRIVER_PRIVATE_HISTORY_STATUSES = new Set([
+  PRICE_HISTORY_STATUS,
+  DRIVER_REFUSAL_HISTORY_STATUS,
+]);
+
+function hasOrderUserId(value, userId) {
+  return value != null && userId != null && String(value) === String(userId);
+}
+
+function canReceiveFullOrder(order, client) {
+  if (!order || !client) return false;
+  if (client.userRole === 'ADMIN') return true;
+  if (hasOrderUserId(order.customerId, client.userId)) return true;
+  if (hasOrderUserId(order.driverId, client.userId)) return true;
+  if (hasOrderUserId(order.candidateDriverId, client.userId)) return true;
+  if (hasOrderUserId(order.reservedBy, client.userId)) return true;
+
+  return (
+    order.status === 'CREATED' &&
+    ['DRIVER', 'BOTH'].includes(client.userRole)
+  );
+}
+
+function parseOrderHistory(history) {
+  if (Array.isArray(history)) return history;
+  if (typeof history === 'string') {
+    try {
+      const parsed = JSON.parse(history);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function sanitizeOrderForClient(orderJson, client) {
+  if (!orderJson || !client) return orderJson;
+  if (client.userRole === 'ADMIN' || hasOrderUserId(orderJson.customerId, client.userId)) {
+    return orderJson;
+  }
+
+  const history = parseOrderHistory(orderJson.history);
+  if (!history.length) return orderJson;
+
+  let resetIndex = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (
+      entry?.status === 'CREATED' &&
+      entry?.reason === DRIVER_REFUSAL_HISTORY_STATUS
+    ) {
+      resetIndex = i;
+      break;
+    }
+  }
+
+  const visibleHistory = resetIndex >= 0 ? history.slice(resetIndex) : history;
+  return {
+    ...orderJson,
+    history: visibleHistory
+      .filter((entry) => !DRIVER_PRIVATE_HISTORY_STATUSES.has(entry?.status))
+      .map((entry) => {
+        if (
+          entry?.status === 'CREATED' &&
+          entry?.reason === DRIVER_REFUSAL_HISTORY_STATUS
+        ) {
+          const { reason, label, changedByRole, changedById, ...rest } = entry;
+          return rest;
+        }
+        return entry;
+      }),
+  };
+}
 
 // Build a UTC day range from a textual `date` filter.
 function buildUtcDayRange(dateStr) {
@@ -158,6 +234,8 @@ function setupWebSocket(server) {
       const user = await User.findByPk(payload.id);
       if (!user || user.blocked) return ws.close();
       req.user = user;
+      ws.userId = user.id;
+      ws.userRole = user.role;
     } catch {
       return ws.close();
     }
@@ -171,7 +249,8 @@ function setupWebSocket(server) {
       include: [{ model: User, as: 'customer' }],
     });
     for (const o of orders) {
-      ws.send(JSON.stringify(o));
+      const orderJson = typeof o?.toJSON === 'function' ? o.toJSON() : o;
+      ws.send(JSON.stringify(sanitizeOrderForClient(orderJson, ws)));
     }
 
     let lastCheck = new Date();
@@ -184,7 +263,10 @@ function setupWebSocket(server) {
         include: [{ model: User, as: 'customer' }],
       });
       lastCheck = new Date();
-      updated.forEach((o) => ws.send(JSON.stringify(o)));
+      updated.forEach((o) => {
+        const orderJson = typeof o?.toJSON === 'function' ? o.toJSON() : o;
+        ws.send(JSON.stringify(sanitizeOrderForClient(orderJson, ws)));
+      });
     }, 5000);
 
     ws.on('close', () => clearInterval(interval));
@@ -193,10 +275,15 @@ function setupWebSocket(server) {
 
 function broadcastOrder(order) {
   if (!wssInstance) return;
-  const data = JSON.stringify(order);
+  const orderJson = typeof order?.toJSON === 'function' ? order.toJSON() : order;
+  const unavailableData = JSON.stringify({ id: orderJson?.id, unavailable: true });
   wssInstance.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+      if (canReceiveFullOrder(orderJson, client)) {
+        client.send(JSON.stringify(sanitizeOrderForClient(orderJson, client)));
+      } else if (['DRIVER', 'BOTH'].includes(client.userRole)) {
+        client.send(unavailableData);
+      }
     }
   });
 }

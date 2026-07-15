@@ -32,6 +32,7 @@ import {
   submitCounterDecision,
   rejectResponse,
   withdrawResponse,
+  cancelConfirmedDriver,
   fetchOrderResponses,
   fetchMyResponse,
 } from '../api';
@@ -72,6 +73,7 @@ const statusLabels = {
   PENDING: 'Очікує підтвердження',
   CANCELLED: 'Скасовано',
   REJECTED: 'Відмовлено',
+  DRIVER_REFUSAL: '\u0412\u0456\u0434\u043c\u043e\u0432\u0430 \u0432\u043e\u0434\u0456\u044f',
 };
 
 const responseStatusLabelsDriver = {
@@ -532,7 +534,8 @@ export default function OrderDetailScreen({ route, navigation }) {
   const orderId = params.orderId ?? params.order?.id ?? null;
   const notificationReminderStep = params.notificationReminderStep ?? null;
   const notificationOpenedAt = params.notificationOpenedAt ?? null;
-  const [order, setOrder] = useState(initialOrder);
+  const { token, role } = useAuth();
+  const [order, setOrder] = useState(role === 'DRIVER' ? null : initialOrder);
   const [previewPhotoUri, setPreviewPhotoUri] = useState(null);
   const photoPreviewTouchStartRef = useRef(null);
   const closePhotoPreview = useCallback(() => setPreviewPhotoUri(null), []);
@@ -563,8 +566,6 @@ export default function OrderDetailScreen({ route, navigation }) {
       closePhotoPreview();
     }
   }
-  const { token, role } = useAuth();
-
   // Legacy reserve state (kept for old flow fallback)
   const [reserved, setReserved] = useState(false);
   const [reservedUntil, setReservedUntil] = useState(null);
@@ -599,6 +600,23 @@ export default function OrderDetailScreen({ route, navigation }) {
   const priceInputRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
   const callingRef = useRef(false);
+  const unavailableHandledRef = useRef(false);
+
+  const closeUnavailableOrder = useCallback(() => {
+    if (unavailableHandledRef.current) return;
+    unavailableHandledRef.current = true;
+    wsShouldReconnectRef.current = false;
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
+    if (wsRef.current) wsRef.current.close();
+    setOrder(null);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main', params: { screen: 'MyOrders' } }],
+    });
+  }, [navigation]);
 
   const useNewFlow = FEATURE_FLAGS.NEW_RESPONSE_FLOW;
   const HALF_FINAL_PRICE_INPUT_HEIGHT = 0;
@@ -728,9 +746,13 @@ export default function OrderDetailScreen({ route, navigation }) {
         }
       }
     } catch (err) {
+      if (role === 'DRIVER' && err?.status === 403) {
+        closeUnavailableOrder();
+        return;
+      }
       console.log(err);
     }
-  }, [initialOrder, orderId, token, role, useNewFlow]);
+  }, [initialOrder, orderId, token, role, useNewFlow, closeUnavailableOrder]);
   // ── WebSocket ──
   useEffect(() => {
     wsShouldReconnectRef.current = true;
@@ -836,6 +858,10 @@ export default function OrderDetailScreen({ route, navigation }) {
         const data = JSON.parse(ev.data);
         const id = initialOrder ? initialOrder.id : orderId;
         if (id != null && data?.id != null && String(data.id) === String(id)) {
+          if (data.unavailable && role === 'DRIVER') {
+            closeUnavailableOrder();
+            return;
+          }
           refreshOrderState();
         }
       } catch (e) {
@@ -952,6 +978,9 @@ export default function OrderDetailScreen({ route, navigation }) {
   useEffect(() => {
     if (!useNewFlow) return;
     const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        refreshOrderState();
+      }
       if (
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active' &&
@@ -966,7 +995,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       appStateRef.current = nextAppState;
     });
     return () => subscription?.remove();
-  }, [useNewFlow, myResponse, isCityOrder]);
+  }, [useNewFlow, myResponse, isCityOrder, refreshOrderState]);
 
   // ── New flow: Respond ──
   async function handleRespond() {
@@ -1478,6 +1507,34 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
   }
 
+  function handleCancelConfirmedDriver() {
+    Alert.alert(
+      '\u0412\u0456\u0434\u043c\u043e\u0432\u0430 \u0432\u043e\u0434\u0456\u044f',
+      '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f \u0446\u044c\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f \u0456 \u0437\u043d\u043e\u0432\u0443 \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0439 \u043f\u043e\u0448\u0443\u043a?',
+      [
+        { text: '\u041d\u0456', style: 'cancel' },
+        {
+          text: '\u0422\u0430\u043a, \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updated = await cancelConfirmedDriver(order.id, token);
+              setOrder(updated);
+              if (useNewFlow) {
+                loadResponses();
+              }
+            } catch (err) {
+              Alert.alert(
+                '\u041f\u043e\u043c\u0438\u043b\u043a\u0430',
+                err?.message || '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 \u0432\u043e\u0434\u0456\u044f'
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   // ── Render: Response status badge ──
   function renderResponseBadge() {
     if (!useNewFlow || role !== 'DRIVER' || !myResponse) return null;
@@ -1729,12 +1786,12 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
 
       // Execution flow (after ACCEPTED)
-      if (order.status === 'ACCEPTED') {
+      if (effectiveMyResponseStatus === 'CONFIRMED' && order.status === 'ACCEPTED') {
         buttons.push(
           <AppButton key="received" title="Отримав вантаж" onPress={() => markReceived(order.id)} />
         );
       }
-      if (order.status === 'IN_PROGRESS') {
+      if (effectiveMyResponseStatus === 'CONFIRMED' && order.status === 'IN_PROGRESS') {
         buttons.push(
           <AppButton key="delivered" title="Віддав вантаж" onPress={() => markDelivered(order)} />
         );
@@ -1768,7 +1825,16 @@ export default function OrderDetailScreen({ route, navigation }) {
     }
 
     if (role === 'CUSTOMER') {
-      if (order.status === 'DELIVERED') {
+      if (order.status === 'ACCEPTED' && order.driverId) {
+        buttons.push(
+          <AppButton
+            key="driver-refusal"
+            title={statusLabels.DRIVER_REFUSAL}
+            onPress={handleCancelConfirmedDriver}
+            variant="danger"
+          />
+        );
+      } else if (order.status === 'DELIVERED') {
         buttons.push(
           <AppButton key="confirm" title="Підтвердити доставку" onPress={() => confirmDelivery(order)} />
         );
@@ -1916,14 +1982,14 @@ export default function OrderDetailScreen({ route, navigation }) {
       return buttons;
     }
 
-    if (order.status === 'ACCEPTED') {
+    if (effectiveMyResponseStatus === 'CONFIRMED' && order.status === 'ACCEPTED') {
       buttons.push(
         <AppButton key="received-city" title="Отримав вантаж" onPress={() => markReceived(order.id)} />
       );
       return buttons;
     }
 
-    if (order.status === 'IN_PROGRESS') {
+    if (effectiveMyResponseStatus === 'CONFIRMED' && order.status === 'IN_PROGRESS') {
       buttons.push(
         <AppButton key="delivered-city" title="Віддав вантаж" onPress={() => markDelivered(order)} />
       );

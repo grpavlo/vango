@@ -89,6 +89,11 @@ export default function AllOrdersScreen({ navigation }) {
     : null;
 
   const radiusKm = Number.parseFloat(radius || "0");
+  const hasFiniteCoordinate = (value) =>
+    value !== null &&
+    value !== undefined &&
+    value !== "" &&
+    Number.isFinite(Number(value));
   const hasOrigin =
     !!originPoint &&
     Number.isFinite(originPoint.latitude) &&
@@ -100,7 +105,7 @@ export default function AllOrdersScreen({ navigation }) {
   const hasRadius = Number.isFinite(radiusKm) && radiusKm > 0;
   const canUsePickupRadius = hasRadius && hasOrigin;
   const canUseDropoffRadius = hasRadius && hasDropoff;
-  const hasCorridor = Boolean(originPoint && dropoffPoint);
+  const hasCorridor = hasOrigin && hasDropoff;
   const shouldUseRadiusQuery = canUsePickupRadius && !hasCorridor;
   const corridorDistanceKm =
     hasOrigin && hasDropoff
@@ -133,12 +138,12 @@ export default function AllOrdersScreen({ navigation }) {
     !!dropoffCityFilter && !shouldUseRadiusQuery && !hasCorridor;
 
   const corridorCorners = useMemo(() => {
-    if (!originPoint || !dropoffPoint) return null;
+    if (!hasOrigin || !hasDropoff) return null;
     const A = {
       lat: Number(originPoint.latitude),
       lon: Number(originPoint.longitude),
     };
-    const B = { lat: Number(dropoffPoint.lat), lon: Number(dropoffPoint.lon) };
+    const B = { lat: Number(dropoffPointRad.latitude), lon: Number(dropoffPointRad.longitude) };
     try {
       const corners = rectCornersFromAB(A, B, CORRIDOR_HALF_WIDTH_KM).map(
         (p) => ({
@@ -158,7 +163,7 @@ export default function AllOrdersScreen({ navigation }) {
       console.log("rectCornersFromAB error:", e);
       return null;
     }
-  }, [pickupPoint, dropoffPoint]);
+  }, [hasOrigin, hasDropoff, originPoint, dropoffPointRad]);
 
   useEffect(() => {
     async function detectCity() {
@@ -382,8 +387,8 @@ export default function AllOrdersScreen({ navigation }) {
     };
     const hasSavedDropoffCity = !!String(savedSearch.dropoffCity || "").trim();
     const hasSavedDropoffPoint =
-      Number.isFinite(Number(savedSearch.dropoffLat)) &&
-      Number.isFinite(Number(savedSearch.dropoffLon));
+      hasFiniteCoordinate(savedSearch.dropoffLat) &&
+      hasFiniteCoordinate(savedSearch.dropoffLon);
     const nextDropoffPoint = hasSavedDropoffPoint
       ? {
           city: savedSearch.dropoffCity || "",
@@ -927,42 +932,42 @@ export default function AllOrdersScreen({ navigation }) {
         ]);
       }
     }
-    if (dropoffPoint && radius) {
+    if (hasDropoff && radius) {
       const r = parseFloat(radius);
       if (!isNaN(r) && r > 0) {
         const latDelta = r / 111;
         const lonDelta =
-          r / (111 * Math.cos((dropoffPoint.latitude * Math.PI) / 180));
+          r / (111 * Math.cos((dropoffPointRad.latitude * Math.PI) / 180));
         coords = coords.concat([
           {
-            latitude: dropoffPoint.latitude + latDelta,
-            longitude: dropoffPoint.longitude + lonDelta,
+            latitude: dropoffPointRad.latitude + latDelta,
+            longitude: dropoffPointRad.longitude + lonDelta,
           },
           {
-            latitude: dropoffPoint.latitude + latDelta,
-            longitude: dropoffPoint.longitude - lonDelta,
+            latitude: dropoffPointRad.latitude + latDelta,
+            longitude: dropoffPointRad.longitude - lonDelta,
           },
           {
-            latitude: dropoffPoint.latitude - latDelta,
-            longitude: dropoffPoint.longitude + lonDelta,
+            latitude: dropoffPointRad.latitude - latDelta,
+            longitude: dropoffPointRad.longitude + lonDelta,
           },
           {
-            latitude: dropoffPoint.latitude - latDelta,
-            longitude: dropoffPoint.longitude - lonDelta,
+            latitude: dropoffPointRad.latitude - latDelta,
+            longitude: dropoffPointRad.longitude - lonDelta,
           },
         ]);
       }
     }
 
     if (coords.length) {
-      if (originPoint && dropoffPoint) {
+      if (hasCorridor) {
         const A = {
           lat: parseFloat(originPoint.latitude),
           lon: parseFloat(originPoint.longitude),
         };
         const B = {
-          lat: parseFloat(dropoffPoint.lat),
-          lon: parseFloat(dropoffPoint.lon),
+          lat: parseFloat(dropoffPointRad.latitude),
+          lon: parseFloat(dropoffPointRad.longitude),
         };
         const corners = rectCornersFromAB(A, B, 100).map((p) => ({
           latitude: p.lat,
@@ -976,7 +981,7 @@ export default function AllOrdersScreen({ navigation }) {
         animated: true,
       });
     }
-  }, [orders, radius, pickupPoint, dropoffPoint, location, shouldShowCorridorPolygon]);
+  }, [orders, radius, pickupPoint, dropoffPoint, location, hasDropoff, hasCorridor, shouldShowCorridorPolygon]);
 
   const region = originPoint
     ? {
