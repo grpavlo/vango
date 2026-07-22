@@ -635,7 +635,9 @@ async function createOrder(req, res) {
 
   let price = 0;
   const isAgreedPrice = normalizeBoolean(agreedPrice);
-  const normalizedRequestedOrderType = normalizeRequestedOrderType(requestedOrderType);
+  const normalizedRequestedOrderType = isIntraCityRoute(pickupCity, dropoffCity)
+    ? RequestedOrderType.LOCAL
+    : normalizeRequestedOrderType(requestedOrderType);
   const normalizedTimingOption =
     normalizedRequestedOrderType === RequestedOrderType.LOCAL
       ? normalizeTimingOption(timingOption) || TimingOption.ASAP
@@ -2370,6 +2372,10 @@ async function updateOrder(req, res) {
 
       order.freeDateUntil = null;
 
+    }
+
+    if (isIntraCityRoute(order.pickupCity, order.dropoffCity)) {
+      order.requestedOrderType = RequestedOrderType.LOCAL;
     }
 
     if (order.requestedOrderType !== RequestedOrderType.LOCAL) {

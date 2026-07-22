@@ -155,20 +155,20 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
       {
         value: boxOne,
         style: styles.boxGreen,
-        start: { x: -9, y: -112, rotate: '-10deg' },
-        end: { x: 17, y: -31, rotate: '5deg' },
+        start: { x: -9, y: -132, rotate: '-10deg' },
+        end: { x: -2, y: -5, rotate: '5deg' },
       },
       {
         value: boxTwo,
         style: styles.boxOrange,
-        start: { x: 57, y: -132, rotate: '12deg' },
-        end: { x: 51, y: -32, rotate: '-4deg' },
+        start: { x: 57, y: -154, rotate: '12deg' },
+        end: { x: 31, y: -5, rotate: '-4deg' },
       },
       {
         value: boxThree,
         style: styles.boxCream,
-        start: { x: 24, y: -160, rotate: '8deg' },
-        end: { x: 34, y: -59, rotate: '3deg' },
+        start: { x: 24, y: -184, rotate: '8deg' },
+        end: { x: 14, y: 22, rotate: '3deg' },
       },
     ],
     [boxOne, boxThree, boxTwo]
@@ -187,11 +187,26 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
       inputRange: [0, 1],
       outputRange: [start.rotate, end.rotate],
     });
+    const scale = value.interpolate({
+      inputRange: [0, 0.74, 1],
+      outputRange: [0.9, 1.05, 1],
+    });
+    const opacity = value.interpolate({
+      inputRange: [0, 0.12, 1],
+      outputRange: [0, 1, 1],
+    });
 
     return (
       <Animated.View
         key={`${start.x}-${start.y}`}
-        style={[styles.box, style, { transform: [{ translateX }, { translateY }, { rotate }] }]}
+        style={[
+          styles.box,
+          style,
+          {
+            opacity,
+            transform: [{ translateX }, { translateY }, { rotate }, { scale }],
+          },
+        ]}
       />
     );
   };
@@ -256,17 +271,20 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
           },
         ]}
       >
-        <Animated.View style={[styles.smokeWrap, { opacity: smokeOpacity }]}>
-          {renderSmoke(smokeOne, styles.smokeOne)}
-          {renderSmoke(smokeTwo, styles.smokeTwo)}
-          {renderSmoke(smokeThree, styles.smokeThree)}
-        </Animated.View>
+        <View style={styles.loadingLane} />
+        <View style={styles.vanShadow} />
 
         <View style={styles.vanImageWrap}>
           <Image source={require('../../assets/van.jpg')} style={styles.vanImage} />
         </View>
 
         {boxAnimations.map(renderFlyingBox)}
+
+        <Animated.View style={[styles.smokeWrap, { opacity: smokeOpacity }]}>
+          {renderSmoke(smokeOne, styles.smokeOne)}
+          {renderSmoke(smokeTwo, styles.smokeTwo)}
+          {renderSmoke(smokeThree, styles.smokeThree)}
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -278,7 +296,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#FFFEF2',
+    backgroundColor: '#F7FFF5',
   },
   logoWrap: {
     position: 'absolute',
@@ -300,17 +318,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.86)',
   },
   scene: {
-    width: 280,
-    height: 190,
+    width: 300,
+    height: 210,
     justifyContent: 'flex-end',
+  },
+  loadingLane: {
+    position: 'absolute',
+    left: 28,
+    right: 28,
+    bottom: 38,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+    zIndex: 0,
+  },
+  vanShadow: {
+    position: 'absolute',
+    left: 54,
+    right: 38,
+    bottom: 23,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15, 23, 42, 0.12)',
+    zIndex: 1,
   },
   vanImageWrap: {
     position: 'absolute',
-    left: -4,
-    bottom: 12,
+    left: 2,
+    bottom: 18,
     width: 288,
     height: 158,
     overflow: 'hidden',
+    zIndex: 2,
   },
   vanImage: {
     width: '100%',
@@ -319,13 +358,19 @@ const styles = StyleSheet.create({
   },
   box: {
     position: 'absolute',
-    left: 66,
-    bottom: 98,
-    width: 27,
-    height: 24,
+    left: 91,
+    bottom: 102,
+    width: 24,
+    height: 21,
     borderWidth: 2,
     borderColor: 'rgba(39, 48, 51, 0.22)',
     borderRadius: 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 3,
+    zIndex: 4,
   },
   boxGreen: {
     backgroundColor: '#BBF7D0',
@@ -342,6 +387,7 @@ const styles = StyleSheet.create({
     bottom: 54,
     width: 86,
     height: 46,
+    zIndex: 3,
   },
   smokePuff: {
     position: 'absolute',

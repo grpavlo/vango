@@ -105,12 +105,6 @@ function isIntraCityRoute(pickupCity, dropoffCity) {
   return Boolean(pickup && dropoff && pickup === dropoff);
 }
 
-function hasDifferentRouteCities(pickupCity, dropoffCity) {
-  const pickup = normalizeCityName(pickupCity);
-  const dropoff = normalizeCityName(dropoffCity);
-  return Boolean(pickup && dropoff && pickup !== dropoff);
-}
-
 function buildDefaultSchedule() {
   const now = new Date();
   const loadFrom = new Date(
@@ -201,14 +195,13 @@ export default function CreateOrderScreen({ navigation }) {
   const [agreedPrice, setAgreedPrice] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const isSameCityRoute = isIntraCityRoute(pickup?.city, dropoff?.city);
-  const hasDifferentCities = hasDifferentRouteCities(
-    pickup?.city,
-    dropoff?.city
-  );
-  const isLocalSelected = selectedOrderType === ORDER_TYPE_LOCAL;
+  const effectiveOrderType = isSameCityRoute
+    ? ORDER_TYPE_LOCAL
+    : selectedOrderType;
+  const isLocalSelected = effectiveOrderType === ORDER_TYPE_LOCAL;
   const isLocalQuickOrder =
     isLocalSelected && localTiming !== TIMING_SCHEDULED;
-  const isEffectiveLocalOrder = isLocalSelected || isSameCityRoute;
+  const isEffectiveLocalOrder = isLocalSelected;
 
   useEffect(() => {
     let mounted = true;
@@ -327,7 +320,7 @@ export default function CreateOrderScreen({ navigation }) {
         : { loadFrom, loadTo, unloadFrom, unloadTo, freeDateUntil: null };
 
       const fd = new FormData();
-      fd.append("requestedOrderType", selectedOrderType);
+      fd.append("requestedOrderType", effectiveOrderType);
       if (isLocalSelected) {
         fd.append("timingOption", localTiming);
       }
@@ -425,14 +418,6 @@ export default function CreateOrderScreen({ navigation }) {
     }
     if (!pickup || !dropoff) {
       toast.show("Вкажіть адреси завантаження та розвантаження");
-      return;
-    }
-    if (isLocalSelected && hasDifferentCities) {
-      Alert.alert(
-        "Міське перевезення",
-        "Зараз вибрано міське перевезення. Оберіть розвантаження в тому ж населеному пункті або передмісті, або змініть тип перевезення на далеке.",
-        [{ text: "Зрозуміло" }]
-      );
       return;
     }
     if (!photos || photos.length === 0) {
