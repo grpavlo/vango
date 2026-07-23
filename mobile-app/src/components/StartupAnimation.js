@@ -17,7 +17,7 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
   const boxOne = useRef(createValue()).current;
   const boxTwo = useRef(createValue()).current;
   const boxThree = useRef(createValue()).current;
-  const vanDrive = useRef(createValue()).current;
+  const pickupDrive = useRef(createValue()).current;
   const logoOpacity = useRef(createValue()).current;
   const logoScale = useRef(new Animated.Value(0.92)).current;
   const smokeOne = useRef(createValue()).current;
@@ -31,13 +31,13 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
       boxOne.setValue(1);
       boxTwo.setValue(1);
       boxThree.setValue(1);
-      vanDrive.setValue(1);
+      pickupDrive.setValue(1);
       logoOpacity.setValue(1);
       logoScale.setValue(1);
       return undefined;
     }
 
-    const values = [boxOne, boxTwo, boxThree, vanDrive, logoOpacity, smokeOne, smokeTwo, smokeThree];
+    const values = [boxOne, boxTwo, boxThree, pickupDrive, logoOpacity, smokeOne, smokeTwo, smokeThree];
     values.forEach((value) => value.setValue(0));
     logoScale.setValue(0.92);
 
@@ -89,7 +89,7 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
         useNativeDriver: true,
       }),
       Animated.delay(180),
-      Animated.timing(vanDrive, {
+      Animated.timing(pickupDrive, {
         toValue: 1,
         duration: 2350,
         easing: Easing.inOut(Easing.cubic),
@@ -131,50 +131,57 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
     logoScale,
     onFinish,
     play,
+    pickupDrive,
     smokeOne,
     smokeThree,
     smokeTwo,
-    vanDrive,
   ]);
 
-  const vanTranslateX = vanDrive.interpolate({
+  const pickupTranslateX = pickupDrive.interpolate({
     inputRange: [0, 0.38, 0.5, 1],
     outputRange: [0, 0, 12, offscreenRight],
   });
-  const vanOpacity = vanDrive.interpolate({
+  const pickupOpacity = pickupDrive.interpolate({
     inputRange: [0, 0.86, 1],
     outputRange: [1, 1, 0],
   });
-  const smokeOpacity = vanDrive.interpolate({
+  const smokeOpacity = pickupDrive.interpolate({
     inputRange: [0, 0.42, 0.48, 0.95, 1],
     outputRange: [0, 0, 1, 1, 0],
+  });
+  const pickupBounce = boxThree.interpolate({
+    inputRange: [0, 0.82, 1],
+    outputRange: [0, 0, 5],
   });
 
   const boxAnimations = useMemo(
     () => [
       {
         value: boxOne,
-        style: styles.boxGreen,
-        start: { x: -9, y: -132, rotate: '-10deg' },
-        end: { x: -2, y: -5, rotate: '5deg' },
+        source: require('../../assets/boxGreen.png'),
+        style: styles.boxGreenImage,
+        start: { x: -35, y: -164, rotate: '-12deg' },
+        end: { x: -4, y: 9, rotate: '6deg' },
       },
       {
         value: boxTwo,
-        style: styles.boxOrange,
-        start: { x: 57, y: -154, rotate: '12deg' },
-        end: { x: 31, y: -5, rotate: '-4deg' },
+        source: require('../../assets/box.png'),
+        style: styles.boxTanImage,
+        start: { x: 54, y: -190, rotate: '11deg' },
+        end: { x: 43, y: 7, rotate: '-5deg' },
       },
       {
         value: boxThree,
-        style: styles.boxCream,
-        start: { x: 24, y: -184, rotate: '8deg' },
-        end: { x: 14, y: 22, rotate: '3deg' },
+        source: require('../../assets/boxBlue.png'),
+        style: styles.boxBlueImage,
+        start: { x: 16, y: -220, rotate: '8deg' },
+        end: { x: 17, y: -45, rotate: '3deg' },
       },
     ],
     [boxOne, boxThree, boxTwo]
   );
 
-  const renderFlyingBox = ({ value, style, start, end }) => {
+  const renderFlyingBox = ({ value, source, style, start, end }) => {
     const translateX = value.interpolate({
       inputRange: [0, 1],
       outputRange: [start.x, end.x],
@@ -197,16 +204,18 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
     });
 
     return (
-      <Animated.View
+      <Animated.Image
         key={`${start.x}-${start.y}`}
+        source={source}
         style={[
-          styles.box,
+          styles.cargoBox,
           style,
           {
             opacity,
             transform: [{ translateX }, { translateY }, { rotate }, { scale }],
           },
         ]}
+        resizeMode="contain"
       />
     );
   };
@@ -266,19 +275,18 @@ export default function StartupAnimation({ play = true, showSpinner = false, onF
         style={[
           styles.scene,
           {
-            opacity: vanOpacity,
-            transform: [{ translateX: vanTranslateX }],
+            opacity: pickupOpacity,
+            transform: [{ translateX: pickupTranslateX }],
           },
         ]}
       >
-        <View style={styles.loadingLane} />
-        <View style={styles.vanShadow} />
+        <Animated.View style={[styles.cargoWrap, { transform: [{ translateY: pickupBounce }] }]}>
+          {boxAnimations.map(renderFlyingBox)}
+        </Animated.View>
 
-        <View style={styles.vanImageWrap}>
-          <Image source={require('../../assets/van.jpg')} style={styles.vanImage} />
-        </View>
-
-        {boxAnimations.map(renderFlyingBox)}
+        <Animated.View style={[styles.pickupImageWrap, { transform: [{ translateY: pickupBounce }] }]}>
+          <Image source={require('../../assets/picap.png')} style={styles.pickupImage} />
+        </Animated.View>
 
         <Animated.View style={[styles.smokeWrap, { opacity: smokeOpacity }]}>
           {renderSmoke(smokeOne, styles.smokeOne)}
@@ -318,76 +326,63 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.86)',
   },
   scene: {
-    width: 300,
-    height: 210,
+    width: 330,
+    height: 230,
     justifyContent: 'flex-end',
   },
-  loadingLane: {
+  pickupImageWrap: {
     position: 'absolute',
-    left: 28,
-    right: 28,
-    bottom: 38,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(34, 197, 94, 0.16)',
-    zIndex: 0,
-  },
-  vanShadow: {
-    position: 'absolute',
-    left: 54,
-    right: 38,
-    bottom: 23,
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15, 23, 42, 0.12)',
-    zIndex: 1,
-  },
-  vanImageWrap: {
-    position: 'absolute',
-    left: 2,
+    left: 0,
     bottom: 18,
-    width: 288,
-    height: 158,
+    width: 330,
+    height: 160,
     overflow: 'hidden',
-    zIndex: 2,
+    zIndex: 3,
   },
-  vanImage: {
+  pickupImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
-  box: {
+  cargoWrap: {
     position: 'absolute',
-    left: 91,
-    bottom: 102,
-    width: 24,
-    height: 21,
-    borderWidth: 2,
-    borderColor: 'rgba(39, 48, 51, 0.22)',
-    borderRadius: 4,
+    left: 0,
+    bottom: 0,
+    width: 330,
+    height: 230,
+    zIndex: 2,
+  },
+  cargoBox: {
+    position: 'absolute',
+    left: 62,
+    bottom: 98,
+    width: 70,
+    height: 67,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    elevation: 3,
-    zIndex: 4,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.18,
+    shadowRadius: 9,
+    elevation: 4,
   },
-  boxGreen: {
-    backgroundColor: '#BBF7D0',
+  boxGreenImage: {
+    width: 72,
+    height: 69,
   },
-  boxOrange: {
-    backgroundColor: '#FED7AA',
+  boxTanImage: {
+    width: 78,
+    height: 75,
   },
-  boxCream: {
-    backgroundColor: '#FEF3C7',
+  boxBlueImage: {
+    width: 76,
+    height: 73,
   },
   smokeWrap: {
     position: 'absolute',
-    left: 6,
-    bottom: 54,
+    left: 8,
+    bottom: 50,
     width: 86,
     height: 46,
-    zIndex: 3,
+    zIndex: 4,
   },
   smokePuff: {
     position: 'absolute',
