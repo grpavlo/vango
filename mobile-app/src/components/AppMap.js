@@ -7,13 +7,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Wrapper to ensure we consistently use Google provider across the app.
 // Adds a floating "locate" button that centers the map on the user's location.
-const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLocationCentered, ...rest }, ref) => {
+const AppMap = forwardRef(({
+  children,
+  style,
+  showMyLocationButton = true,
+  onLocationCentered,
+  showsUserLocation = false,
+  ...rest
+}, ref) => {
   const mapRef = useRef(null);
   useImperativeHandle(ref, () => mapRef.current);
   const [loading, setLoading] = useState(false);
+  const [userLocationVisible, setUserLocationVisible] = useState(Boolean(showsUserLocation));
   const spinAnim = useRef(new Animated.Value(0));
   const overlayAnim = useRef(new Animated.Value(0));
   const userLocationRef = useRef(null);
+
+  useEffect(() => {
+    if (showsUserLocation) {
+      setUserLocationVisible(true);
+    }
+  }, [showsUserLocation]);
 
   // Load cached user coords (if any) and try to capture fresh coords on mount
   useEffect(() => {
@@ -32,7 +46,11 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLoc
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const loc = await Location.getCurrentPositionAsync({});
-          const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          const coords = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            accuracy: loc.coords.accuracy,
+          };
           if (mounted) {
             userLocationRef.current = coords;
             await AsyncStorage.setItem('userLocation', JSON.stringify(coords));
@@ -103,11 +121,16 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLoc
         return null;
       }
       const loc = await Location.getCurrentPositionAsync({});
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        accuracy: loc.coords.accuracy,
+      };
       userLocationRef.current = coords;
       AsyncStorage.setItem('userLocation', JSON.stringify(coords)).catch(() => {});
       console.log('refreshLocationAndAnimate got coords', coords);
       animateToCoords(coords.latitude, coords.longitude);
+      setUserLocationVisible(true);
       if (typeof onLocationCentered === 'function') {
         onLocationCentered(coords);
       }
@@ -129,6 +152,7 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLoc
     if (cached) {
       console.log('Using cached coords', cached);
       animateToCoords(cached.latitude, cached.longitude);
+      setUserLocationVisible(true);
       if (typeof onLocationCentered === 'function') {
         onLocationCentered(cached);
       }
@@ -139,6 +163,7 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLoc
           const dlon = Math.abs(fresh.longitude - cached.longitude);
           if (dlat > 0.0001 || dlon > 0.0001) {
             animateToCoords(fresh.latitude, fresh.longitude);
+            setUserLocationVisible(true);
             if (typeof onLocationCentered === 'function') {
               onLocationCentered(fresh);
             }
@@ -159,6 +184,7 @@ const AppMap = forwardRef(({ children, style, showMyLocationButton = true, onLoc
         style={style || { flex: 1 }}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         showsMyLocationButton={false}
+        showsUserLocation={userLocationVisible}
         {...rest}
       >
         {children}

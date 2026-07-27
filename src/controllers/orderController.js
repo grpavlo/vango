@@ -31,6 +31,7 @@ const DRIVER_PRIVATE_HISTORY_STATUSES = new Set([
 ]);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_IN_PROGRESS_HISTORY_DELAY_MS = 3 * DAY_IN_MS;
+const LONG_DISTANCE_THRESHOLD_KM = 70;
 const ORDER_UNAVAILABLE_MESSAGE =
   "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0456\u043b\u044c\u0448\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435";
 
@@ -143,6 +144,11 @@ const normalizeBoolean = (value) =>
   value === "1" ||
   value === 1 ||
   value === "on";
+
+function parseFiniteNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
 
 function buildFreeDateSchedule(baseDate = new Date()) {
   const loadFrom = new Date(baseDate);
@@ -446,6 +452,36 @@ function isFiniteCoordinate(value) {
   return Number.isFinite(Number(value));
 }
 
+async function getDrivingDistanceKm(
+  pickupLat,
+  pickupLon,
+  dropoffLat,
+  dropoffLon
+) {
+  if (
+    !isFiniteCoordinate(pickupLat) ||
+    !isFiniteCoordinate(pickupLon) ||
+    !isFiniteCoordinate(dropoffLat) ||
+    !isFiniteCoordinate(dropoffLon)
+  ) {
+    return null;
+  }
+
+  try {
+    const resRoute = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${Number(pickupLon)},${Number(pickupLat)};${Number(dropoffLon)},${Number(dropoffLat)}?overview=false`
+    );
+    if (!resRoute.ok) return null;
+
+    const data = await resRoute.json();
+    const meters = Number(data?.routes?.[0]?.distance);
+    return Number.isFinite(meters) ? meters / 1000 : null;
+  } catch (err) {
+    console.log(err);
+    return null;
+  }
+}
+
 function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCity(pickupCity);
   const dropoff = normalizeCity(dropoffCity);
@@ -460,7 +496,30 @@ function normalizeTimingOption(value) {
   return Object.values(TimingOption).includes(value) ? value : null;
 }
 
-function isEffectiveIntraCity(requestedOrderType, pickupCity, dropoffCity) {
+function isLongDistanceByDistance(distanceKm) {
+  return (
+    Number.isFinite(Number(distanceKm)) &&
+    Number(distanceKm) > LONG_DISTANCE_THRESHOLD_KM
+  );
+}
+
+function resolveRequestedOrderType(
+  requestedOrderType,
+  pickupCity,
+  dropoffCity,
+  distanceKm
+) {
+  if (isLongDistanceByDistance(distanceKm)) {
+    return RequestedOrderType.LONG_DISTANCE;
+  }
+  if (isIntraCityRoute(pickupCity, dropoffCity)) {
+    return RequestedOrderType.LOCAL;
+  }
+  return normalizeRequestedOrderType(requestedOrderType);
+}
+
+function isEffectiveIntraCity(requestedOrderType, pickupCity, dropoffCity, distanceKm) {
+  if (isLongDistanceByDistance(distanceKm)) return false;
   return (
     requestedOrderType === RequestedOrderType.LOCAL ||
     isIntraCityRoute(pickupCity, dropoffCity)
@@ -634,53 +693,56 @@ async function createOrder(req, res) {
   let systemPrice = 0;
 
   let price = 0;
+  const {
+    cargoLength,
+    cargoWidth,
+    cargoHeight,
+    cargoVolume,
+    cargoWeight,
+    distance,
+  } = req.body;
+  const submittedDistanceKm = parseFiniteNumber(distance);
   const isAgreedPrice = normalizeBoolean(agreedPrice);
-  const normalizedRequestedOrderType = isIntraCityRoute(pickupCity, dropoffCity)
-    ? RequestedOrderType.LOCAL
-    : normalizeRequestedOrderType(requestedOrderType);
-  const normalizedTimingOption =
-    normalizedRequestedOrderType === RequestedOrderType.LOCAL
-      ? normalizeTimingOption(timingOption) || TimingOption.ASAP
-      : null;
-  const intraCity = isEffectiveIntraCity(
-    normalizedRequestedOrderType,
-    pickupCity,
-    dropoffCity
-  );
-  const submittedPrice = parseFloat(req.body.price);
-  if (!intraCity && !isAgreedPrice && Number.isFinite(submittedPrice)) {
-    price = submittedPrice;
-  }
 
   try {
 
-    if (pickupLat && pickupLon && dropoffLat && dropoffLon) {
+    const routeDistanceKm = await getDrivingDistanceKm(
+      pickupLat,
+      pickupLon,
+      dropoffLat,
+      dropoffLon
+    );
+    const effectiveDistanceKm = routeDistanceKm ?? submittedDistanceKm;
+    const normalizedRequestedOrderType = resolveRequestedOrderType(
+      requestedOrderType,
+      pickupCity,
+      dropoffCity,
+      effectiveDistanceKm
+    );
+    const normalizedTimingOption =
+      normalizedRequestedOrderType === RequestedOrderType.LOCAL
+        ? normalizeTimingOption(timingOption) || TimingOption.ASAP
+        : null;
+    const intraCity = isEffectiveIntraCity(
+      normalizedRequestedOrderType,
+      pickupCity,
+      dropoffCity,
+      effectiveDistanceKm
+    );
+    const submittedPrice = parseFiniteNumber(req.body.price);
 
-      const resRoute = await fetch(
-
-        `https://router.project-osrm.org/route/v1/driving/${pickupLon},${pickupLat};${dropoffLon},${dropoffLat}?overview=false`
-
-      );
-
-      const data = await resRoute.json();
-
-      if (data.routes && data.routes[0]) {
-
-        const km = data.routes[0].distance / 1000;
-
-        systemPrice = km * 50;
-
-        if (intraCity || isAgreedPrice) {
-          price = 0;
-        } else {
-          price = parseFloat(req.body.price || systemPrice);
-        }
-
-      }
-
+    if (Number.isFinite(effectiveDistanceKm)) {
+      systemPrice = effectiveDistanceKm * 50;
     }
 
-    const { cargoLength, cargoWidth, cargoHeight, cargoVolume, cargoWeight, distance } = req.body;
+    if (intraCity || isAgreedPrice) {
+      price = 0;
+    } else if (Number.isFinite(submittedPrice) && submittedPrice > 0) {
+      price = submittedPrice;
+    } else {
+      price = systemPrice;
+    }
+
     const isFreeDate = normalizeBoolean(freeDate);
     const freeDateSchedule = isFreeDate ? buildFreeDateSchedule() : null;
     if (!intraCity && !isAgreedPrice && (!Number.isFinite(price) || price <= 0)) {
@@ -755,7 +817,7 @@ async function createOrder(req, res) {
 
       agreedPrice: isAgreedPrice,
 
-      distance: distance ? parseFloat(distance) : null,
+      distance: effectiveDistanceKm ?? null,
 
       cargoLength: cargoLength ? parseFloat(cargoLength) : null,
 
@@ -2374,9 +2436,24 @@ async function updateOrder(req, res) {
 
     }
 
-    if (isIntraCityRoute(order.pickupCity, order.dropoffCity)) {
-      order.requestedOrderType = RequestedOrderType.LOCAL;
+    const routeDistanceKm = await getDrivingDistanceKm(
+      order.pickupLat,
+      order.pickupLon,
+      order.dropoffLat,
+      order.dropoffLon
+    );
+    const effectiveDistanceKm =
+      routeDistanceKm ?? parseFiniteNumber(order.distance);
+    if (Number.isFinite(routeDistanceKm)) {
+      order.distance = routeDistanceKm;
     }
+
+    order.requestedOrderType = resolveRequestedOrderType(
+      order.requestedOrderType,
+      order.pickupCity,
+      order.dropoffCity,
+      effectiveDistanceKm
+    );
 
     if (order.requestedOrderType !== RequestedOrderType.LOCAL) {
       order.timingOption = null;
@@ -2387,8 +2464,19 @@ async function updateOrder(req, res) {
     order.isIntraCity = isEffectiveIntraCity(
       order.requestedOrderType,
       order.pickupCity,
-      order.dropoffCity
+      order.dropoffCity,
+      effectiveDistanceKm
     );
+
+    if (Number.isFinite(effectiveDistanceKm)) {
+      order.systemPrice = effectiveDistanceKm * 50;
+    }
+
+    if (order.isIntraCity) {
+      order.price = 0;
+    } else if (req.body.price === undefined && !order.agreedPrice) {
+      order.price = order.systemPrice;
+    }
 
 
 
@@ -2445,54 +2533,6 @@ async function updateOrder(req, res) {
     console.log(req.body.agreedPrice);
 
 
-
-    if (
-
-      req.body.pickupLat &&
-
-      req.body.pickupLon &&
-
-      req.body.dropoffLat &&
-
-      req.body.dropoffLon
-
-    ) {
-
-      try {
-
-        const resRoute = await fetch(
-
-          `https://router.project-osrm.org/route/v1/driving/${req.body.dropoffLon},${req.body.dropoffLat};${req.body.pickupLon},${req.body.pickupLat}?overview=false`
-
-        );
-
-        const data = await resRoute.json();
-
-        if (data.routes && data.routes[0]) {
-
-          const km = data.routes[0].distance / 1000;
-
-          order.systemPrice = km * 50;
-
-          if (order.isIntraCity) {
-
-            order.price = 0;
-
-          } else if (req.body.price === undefined && !order.agreedPrice) {
-
-            order.price = order.systemPrice;
-
-          }
-
-        }
-
-      } catch (err) {
-
-        console.log(err);
-
-      }
-
-    }
 
     if (req.files && req.files.length > 0) {
 

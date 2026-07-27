@@ -36,6 +36,7 @@ const ORDER_TYPE_LONG_DISTANCE = "LONG_DISTANCE";
 const TIMING_ASAP = "ASAP";
 const TIMING_WITHIN_1_HOUR = "WITHIN_1_HOUR";
 const TIMING_SCHEDULED = "SCHEDULED";
+const LONG_DISTANCE_THRESHOLD_KM = 70;
 const LOCATION_STORAGE_KEYS = ["userLocation", "location"];
 const INTRA_CITY_HINT_TEXT =
   "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
@@ -103,6 +104,13 @@ function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCityName(pickupCity);
   const dropoff = normalizeCityName(dropoffCity);
   return Boolean(pickup && dropoff && pickup === dropoff);
+}
+
+function isLongDistanceByDistance(distanceKm) {
+  return (
+    Number.isFinite(Number(distanceKm)) &&
+    Number(distanceKm) > LONG_DISTANCE_THRESHOLD_KM
+  );
 }
 
 function buildDefaultSchedule() {
@@ -195,7 +203,10 @@ export default function CreateOrderScreen({ navigation }) {
   const [agreedPrice, setAgreedPrice] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const isSameCityRoute = isIntraCityRoute(pickup?.city, dropoff?.city);
-  const effectiveOrderType = isSameCityRoute
+  const isForcedLongDistance = isLongDistanceByDistance(distance);
+  const effectiveOrderType = isForcedLongDistance
+    ? ORDER_TYPE_LONG_DISTANCE
+    : isSameCityRoute
     ? ORDER_TYPE_LOCAL
     : selectedOrderType;
   const isLocalSelected = effectiveOrderType === ORDER_TYPE_LOCAL;
@@ -624,6 +635,12 @@ export default function CreateOrderScreen({ navigation }) {
               <AppText style={styles.changeTypeText}>{"\u0417\u043c\u0456\u043d\u0438\u0442\u0438"}</AppText>
             </TouchableOpacity>
           </View>
+
+          {isForcedLongDistance && (
+            <AppText style={styles.longDistanceHint}>
+              {"\u041c\u0430\u0440\u0448\u0440\u0443\u0442 \u043f\u043e\u043d\u0430\u0434 70 \u043a\u043c, \u0442\u043e\u043c\u0443 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0443\u0434\u0435 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0435 \u044f\u043a \u0434\u0430\u043b\u0435\u043a\u0435."}
+            </AppText>
+          )}
 
           {isLocalSelected && (
             <AppText style={styles.localDistanceHint}>
@@ -1091,6 +1108,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  longDistanceHint: {
+    marginTop: 8,
+    color: "#9A3412",
+    lineHeight: 20,
+    fontWeight: "600",
   },
   additionalInfoBox: {
     marginTop: 24,

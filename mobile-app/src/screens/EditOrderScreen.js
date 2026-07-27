@@ -28,6 +28,9 @@ import { formatPointAddress } from "../addressFormat";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const FREE_DATE_TTL_DAYS = 7;
+const ORDER_TYPE_LOCAL = "LOCAL";
+const ORDER_TYPE_LONG_DISTANCE = "LONG_DISTANCE";
+const LONG_DISTANCE_THRESHOLD_KM = 70;
 const INTRA_CITY_HINT_TEXT =
   "Створіть замовлення та вибирайте найвигідніше серед пропозицій від водіїв";
 
@@ -54,6 +57,13 @@ function isIntraCityRoute(pickupCity, dropoffCity) {
   const pickup = normalizeCityName(pickupCity);
   const dropoff = normalizeCityName(dropoffCity);
   return Boolean(pickup && dropoff && pickup === dropoff);
+}
+
+function isLongDistanceByDistance(distanceKm) {
+  return (
+    Number.isFinite(Number(distanceKm)) &&
+    Number(distanceKm) > LONG_DISTANCE_THRESHOLD_KM
+  );
 }
 
 function formatSavedOrderPoint(order, prefix) {
@@ -165,9 +175,12 @@ export default function EditOrderScreen({ route, navigation }) {
     order.photos ? order.photos.map((p) => `${HOST_URL}${p}`) : []
   );
   const [description, setDescription] = useState(order.cargoType || "");
+  const [distance, setDistance] = useState(order.distance ?? null);
   const [systemPrice, setSystemPrice] = useState(order.price || null);
   const [agreedPrice, setAgreedPrice] = useState(!!order.agreedPrice);
-  const isIntraCityOrder = isIntraCityRoute(pickup?.city, dropoff?.city);
+  const isForcedLongDistance = isLongDistanceByDistance(distance);
+  const isIntraCityOrder =
+    !isForcedLongDistance && isIntraCityRoute(pickup?.city, dropoff?.city);
 
   useEffect(() => {
     const l = parseLocaleNumber(cargoLength);
@@ -176,6 +189,29 @@ export default function EditOrderScreen({ route, navigation }) {
     const volume = l * w * h;
     setCargoVolume(volume > 0 ? volume.toFixed(2) : "0");
   }, [cargoLength, cargoWidth, cargoHeight]);
+
+  useEffect(() => {
+    async function calcDistance() {
+      if (!pickup || !dropoff) {
+        setDistance(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${pickup.lon},${pickup.lat};${dropoff.lon},${dropoff.lat}?overview=false`
+        );
+        const data = await res.json();
+        if (data.routes && data.routes[0]) {
+          setDistance(Math.round(data.routes[0].distance / 1000));
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    calcDistance();
+  }, [pickup, dropoff]);
 
   function handleFreeDateChange(value) {
     setFreeDate(value);
@@ -201,6 +237,10 @@ export default function EditOrderScreen({ route, navigation }) {
       const freeDateSchedule = freeDate ? buildFlexibleSchedule() : null;
 
       const fd = new FormData();
+      fd.append(
+        "requestedOrderType",
+        isIntraCityOrder ? ORDER_TYPE_LOCAL : ORDER_TYPE_LONG_DISTANCE
+      );
 
       if (pickup) {
         fd.append("pickupLocation", pickup.text);
@@ -237,6 +277,7 @@ export default function EditOrderScreen({ route, navigation }) {
         fd.append("cargoWeight", normalizeNumericForApi(cargoWeight));
       if (parseLocaleNumber(cargoVolume) > 0)
         fd.append("cargoVolume", normalizeNumericForApi(cargoVolume));
+      if (distance !== null) fd.append("distance", String(distance));
 
       fd.append(
         "loadFrom",
@@ -303,7 +344,11 @@ export default function EditOrderScreen({ route, navigation }) {
       toast.show("Вкажіть опис вантажу");
       return;
     }
-    if (!isIntraCityOrder && !agreedPrice && systemPrice === null) {
+    if (
+      !isIntraCityOrder &&
+      !agreedPrice &&
+      parseLocaleNumber(systemPrice) <= 0
+    ) {
       toast.show("Потрібно вказати ціну");
       return;
     }
@@ -527,6 +572,18 @@ export default function EditOrderScreen({ route, navigation }) {
             placeholder="Вага вантажу"
           />
 
+          {distance !== null && (
+            <AppText style={{ marginTop: 8, color: "#6B7280" }}>
+              ~{distance} {"\u043a\u043c \u043f\u043e \u0434\u043e\u0440\u043e\u0437\u0456"}
+            </AppText>
+          )}
+
+          {isForcedLongDistance && (
+            <AppText style={styles.longDistanceHint}>
+              {"\u041c\u0430\u0440\u0448\u0440\u0443\u0442 \u043f\u043e\u043d\u0430\u0434 70 \u043a\u043c, \u0442\u043e\u043c\u0443 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0431\u0443\u0434\u0435 \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0435 \u044f\u043a \u0434\u0430\u043b\u0435\u043a\u0435."}
+            </AppText>
+          )}
+
           <View style={styles.serviceRow}>
             <CheckBox
               value={loadHelp}
@@ -621,6 +678,12 @@ const styles = StyleSheet.create({
   freeDateHint: {
     marginTop: 8,
     color: "#166534",
+  },
+  longDistanceHint: {
+    marginTop: 8,
+    color: "#9A3412",
+    lineHeight: 20,
+    fontWeight: "600",
   },
   back: {
     position: "absolute",

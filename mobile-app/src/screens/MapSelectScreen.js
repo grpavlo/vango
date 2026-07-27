@@ -66,6 +66,7 @@ export default function MapSelectScreen({ navigation, route }) {
     toRegion(selectedCoords || initialUserCoords || DEFAULT_COORDS)
   );
   const [marker, setMarker] = useState(selectedCoords);
+  const [selectedFromUserLocation, setSelectedFromUserLocation] = useState(false);
   const mapRef = useRef(null);
 
   function moveToCoords(coords) {
@@ -74,6 +75,18 @@ export default function MapSelectScreen({ navigation, route }) {
     if (mapRef.current?.animateToRegion) {
       mapRef.current.animateToRegion(nextRegion, 500);
     }
+  }
+
+  function handleLocationCentered(coords) {
+    const point = toCoords(coords?.latitude, coords?.longitude);
+    if (!point) return;
+    setMarker(point);
+    setSelectedFromUserLocation(true);
+  }
+
+  function handleMapPress(e) {
+    setMarker(e.nativeEvent.coordinate);
+    setSelectedFromUserLocation(false);
   }
 
   useEffect(() => {
@@ -193,9 +206,10 @@ export default function MapSelectScreen({ navigation, route }) {
         style={{ flex: 1 }}
         initialRegion={region}
         onRegionChangeComplete={setRegion}
-        onPress={(e) => setMarker(e.nativeEvent.coordinate)}
+        onLocationCentered={handleLocationCentered}
+        onPress={handleMapPress}
       >
-        {marker && <Marker coordinate={marker} />}
+        {marker && !selectedFromUserLocation && <Marker coordinate={marker} />}
       </AppMap>
       <TouchableOpacity
         style={styles.back}
