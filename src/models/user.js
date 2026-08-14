@@ -1,5 +1,6 @@
 const { DataTypes, Model } = require('sequelize');
 const db = require('../config/db');
+const Group = require('./group');
 
 const UserRole = {
   DRIVER: 'DRIVER',
@@ -26,7 +27,9 @@ User.init(
       defaultValue: UserRole.BOTH,
     },
     rating: { type: DataTypes.FLOAT, defaultValue: 5 },
+    isAdmin: { type: DataTypes.BOOLEAN, defaultValue: false },
     blocked: { type: DataTypes.BOOLEAN, defaultValue: false },
+    groupId: { type: DataTypes.INTEGER.UNSIGNED },
     city: { type: DataTypes.STRING },
     phone: { type: DataTypes.STRING },
     firstName: { type: DataTypes.STRING },
@@ -42,6 +45,9 @@ User.init(
     modelName: 'user',
   }
 );
+
+Group.hasMany(User, { foreignKey: 'groupId', as: 'users' });
+User.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
 
 module.exports = User;
 module.exports.UserRole = UserRole;

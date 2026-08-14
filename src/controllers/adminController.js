@@ -1,9 +1,11 @@
 const { Op } = require("sequelize");
 const User = require("../models/user");
+const Group = require("../models/group");
 const Order = require("../models/order");
 const OrderResponse = require("../models/orderResponse");
 const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
 const { setServiceFee } = require("../config");
+const { pathToUploadUrl } = require("../utils/uploadFiles");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MATCHED_ORDER_STATUSES = ["ACCEPTED", "IN_PROGRESS", "DELIVERED", "COMPLETED"];
@@ -334,8 +336,190 @@ async function buildOverviewMetrics(req) {
 }
 
 async function listUsers(_req, res) {
-  const users = await User.findAll();
+  const users = await User.findAll({
+    attributes: { exclude: ["password", "pushToken"] },
+    include: [{ model: Group, as: "group" }],
+    order: [
+      ["createdAt", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
   res.json(users);
+}
+
+async function listOrders(req, res) {
+  const status = typeof req.query?.status === "string" ? req.query.status.trim() : "";
+  const query = typeof req.query?.q === "string" ? req.query.q.trim() : "";
+  const rawLimit = Number.parseInt(req.query?.limit, 10);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 500) : 200;
+  const where = {};
+
+  if (status && status !== "ALL") {
+    where.status = status;
+  }
+
+  if (query) {
+    const search = `%${query}%`;
+    const searchConditions = [
+      { pickupLocation: { [Op.iLike]: search } },
+      { dropoffLocation: { [Op.iLike]: search } },
+      { pickupCity: { [Op.iLike]: search } },
+      { dropoffCity: { [Op.iLike]: search } },
+      { cargoType: { [Op.iLike]: search } },
+    ];
+    const numericQuery = Number.parseInt(query, 10);
+    if (Number.isFinite(numericQuery)) {
+      searchConditions.push({ id: numericQuery }, { orderNumber: numericQuery });
+    }
+    where[Op.or] = searchConditions;
+  }
+
+  const orders = await Order.findAll({
+    where,
+    limit,
+    include: [
+      { model: User, as: "customer", attributes: ["id", "name", "email", "phone", "role", "blocked", "groupId"], include: [{ model: Group, as: "group" }] },
+      { model: User, as: "driver", attributes: ["id", "name", "email", "phone", "role", "blocked", "groupId"], include: [{ model: Group, as: "group" }] },
+      { model: User, as: "reservedDriver", attributes: ["id", "name", "email", "phone", "role", "blocked", "groupId"], include: [{ model: Group, as: "group" }] },
+      { model: User, as: "candidateDriver", attributes: ["id", "name", "email", "phone", "role", "blocked", "groupId"], include: [{ model: Group, as: "group" }] },
+    ],
+    order: [
+      ["updatedAt", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  const orderIds = orders.map((order) => order.id);
+  const responseCounts = {};
+  if (orderIds.length > 0) {
+    const counts = await OrderResponse.findAll({
+      attributes: ["orderId", [require("sequelize").fn("COUNT", require("sequelize").col("id")), "cnt"]],
+      where: { orderId: { [Op.in]: orderIds } },
+      group: ["orderId"],
+      raw: true,
+    });
+    counts.forEach((row) => {
+      responseCounts[row.orderId] = Number.parseInt(row.cnt, 10) || 0;
+    });
+  }
+
+  res.json(
+    orders.map((order) => {
+      const json = order.toJSON();
+      json.responseCount = responseCounts[json.id] || 0;
+      return json;
+    })
+  );
+}
+
+function normalizeName(value) {
+  const name = typeof value === "string" ? value.trim() : "";
+  return name || null;
+}
+
+function normalizeGroupId(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const id = Number.parseInt(value, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+async function listGroups(_req, res) {
+  const groups = await Group.findAll({
+    include: [{ model: User, as: "users", attributes: ["id", "name", "phone", "email", "role", "blocked"] }],
+    order: [["name", "ASC"]],
+  });
+  res.json(groups);
+}
+
+async function createGroup(req, res) {
+  const name = normalizeName(req.body?.name);
+  if (!name) {
+    res.status(400).send("Вкажіть назву команди");
+    return;
+  }
+
+  try {
+    const group = await Group.create({
+      name,
+      photo: pathToUploadUrl(req.file?.path),
+    });
+    res.status(201).json(group);
+  } catch (err) {
+    if (err?.name === "SequelizeUniqueConstraintError") {
+      res.status(409).send("Команда з такою назвою вже існує");
+      return;
+    }
+    console.error("create group error", err);
+    res.status(400).send("Не вдалося створити команду");
+  }
+}
+
+async function updateGroup(req, res) {
+  const { id } = req.params;
+  const group = await Group.findByPk(id);
+  if (!group) {
+    res.status(404).send("Команду не знайдено");
+    return;
+  }
+
+  const name = normalizeName(req.body?.name);
+  if (name) group.name = name;
+  const photo = pathToUploadUrl(req.file?.path);
+  if (photo) group.photo = photo;
+
+  try {
+    await group.save();
+    res.json(group);
+  } catch (err) {
+    if (err?.name === "SequelizeUniqueConstraintError") {
+      res.status(409).send("Команда з такою назвою вже існує");
+      return;
+    }
+    console.error("update group error", err);
+    res.status(400).send("Не вдалося оновити команду");
+  }
+}
+
+async function deleteGroup(req, res) {
+  const { id } = req.params;
+  const group = await Group.findByPk(id);
+  if (!group) {
+    res.status(404).send("Команду не знайдено");
+    return;
+  }
+
+  await User.update({ groupId: null }, { where: { groupId: group.id } });
+  await group.destroy();
+  res.json({ deleted: true });
+}
+
+async function updateUserGroup(req, res) {
+  const { id } = req.params;
+  const user = await User.findByPk(id, {
+    attributes: { exclude: ["password", "pushToken"] },
+    include: [{ model: Group, as: "group" }],
+  });
+  if (!user) {
+    res.status(404).send("Користувача не знайдено");
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.body?.groupId);
+  if (groupId) {
+    const group = await Group.findByPk(groupId);
+    if (!group) {
+      res.status(404).send("Команду не знайдено");
+      return;
+    }
+  }
+
+  user.groupId = groupId;
+  await user.save();
+  const updated = await User.findByPk(id, {
+    attributes: { exclude: ["password", "pushToken"] },
+    include: [{ model: Group, as: "group" }],
+  });
+  res.json(updated);
 }
 
 async function blockDriver(req, res) {
@@ -426,6 +610,12 @@ async function analyticsRetention(_req, res) {
 
 module.exports = {
   listUsers,
+  listOrders,
+  listGroups,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+  updateUserGroup,
   blockDriver,
   unblockDriver,
   updateServiceFee,

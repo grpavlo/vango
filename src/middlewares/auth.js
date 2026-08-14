@@ -27,6 +27,9 @@ function authorize(roles) {
     if (roles.includes(req.user.role)) {
       return next();
     }
+    if (roles.includes('ADMIN') && (req.user.isAdmin || req.user.role === 'ADMIN')) {
+      return next();
+    }
     if (
       req.user.role === 'BOTH' &&
       (roles.includes('DRIVER') || roles.includes('CUSTOMER'))

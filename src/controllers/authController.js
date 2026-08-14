@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const { UserRole } = require('../models/user');
+const Group = require('../models/group');
 const { JWT_SECRET } = require('../config');
 const DriverProfile = require('../models/driverProfile');
 const { getCompletedOrderCount, getRoleRating } = require('../utils/ratingStats');
@@ -12,6 +13,7 @@ const { normalizePushTokens } = require('../utils/push');
 const { Op, fn, col, where } = require('sequelize');
 
 const AUTH_TOKEN_EXPIRES_IN = '90d';
+const ADMIN_PHONE_NUMBERS = new Set(['380979386433']);
 
 function pathToUrl(p) {
   return p ? p.replace(/^.*[\\/]uploads[\\/]/, '/uploads/') : null;
@@ -39,6 +41,10 @@ function buildPhoneLookupVariants(phone) {
   }
 
   return [...variants];
+}
+
+function isAdminPhone(phone) {
+  return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone));
 }
 
 function mapSmsErrorToMessage(error) {
@@ -100,6 +106,7 @@ async function verifyPhoneCode(req, res) {
   }
   const phoneVariants = buildPhoneLookupVariants(phone);
   const phoneStr = phoneVariants[0];
+  const shouldGrantAdmin = isAdminPhone(phone);
   let user = await User.findOne({
     where: {
       [Op.or]: phoneVariants.map((phoneVariant) =>
@@ -117,10 +124,17 @@ async function verifyPhoneCode(req, res) {
       password: hashed,
       phone: phoneStr,
       role: UserRole.BOTH,
+      isAdmin: shouldGrantAdmin,
     });
+  } else if (shouldGrantAdmin && (!user.isAdmin || user.role === UserRole.ADMIN)) {
+    user.isAdmin = true;
+    if (user.role === UserRole.ADMIN) {
+      user.role = UserRole.BOTH;
+    }
+    await user.save();
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-  res.json({ token, role: user.role });
+  res.json({ token, role: user.role, isAdmin: user.isAdmin });
 }
 
 async function register(req, res) {
@@ -151,7 +165,7 @@ async function login(req, res) {
       return;
     }
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-    res.json({ token, role: user.role });
+    res.json({ token, role: user.role, isAdmin: user.isAdmin });
   } catch (err) {
     res.status(400).send('Помилка входу');
 
@@ -160,6 +174,7 @@ async function login(req, res) {
 
 async function profile(req, res) {
   const u = req.user;
+  const group = u.groupId ? await Group.findByPk(u.groupId) : null;
   const [
     driverRating,
     customerRating,
@@ -177,6 +192,9 @@ async function profile(req, res) {
     email: u.email,
     phone: u.phone,
     role: u.role,
+    isAdmin: u.isAdmin,
+    groupId: u.groupId,
+    group,
     firstName: u.firstName,
     lastName: u.lastName,
     patronymic: u.patronymic,
@@ -235,6 +253,8 @@ async function updateProfile(req, res) {
       phone: req.user.phone,
       email: req.user.email,
       role: req.user.role,
+      isAdmin: req.user.isAdmin,
+      groupId: req.user.groupId,
     });
   } catch (err) {
     res.status(400).send('Не вдалося оновити профіль');
@@ -302,6 +322,8 @@ async function updateCustomerProfile(req, res) {
       selfiePhoto: user.selfiePhoto,
       email: user.email,
       role: user.role,
+      isAdmin: user.isAdmin,
+      groupId: user.groupId,
     });
   } catch (err) {
     res.status(400).send('Не вдалося оновити профіль');
@@ -317,7 +339,7 @@ async function updateRole(req, res) {
   }
   req.user.role = role;
   await req.user.save();
-  res.json({ role: req.user.role });
+  res.json({ role: req.user.role, isAdmin: req.user.isAdmin });
 }
 
 async function updatePushToken(req, res) {

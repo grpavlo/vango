@@ -39,10 +39,32 @@ function hasOrderUserId(value, userId) {
   return value != null && userId != null && String(value) === String(userId);
 }
 
+function isAdminUser(user) {
+  return user?.role === "ADMIN";
+}
+
+function hasGroupVisibilityBoundary(user) {
+  return Boolean(user?.groupId && !isAdminUser(user));
+}
+
+function isOrderInUserGroup(user, order) {
+  if (!hasGroupVisibilityBoundary(user)) return true;
+  return Boolean(
+    order?.customer?.groupId &&
+      Number(order.customer.groupId) === Number(user.groupId)
+  );
+}
+
+function canUserViewCustomerSide(user, order) {
+  if (hasOrderUserId(order?.customerId, user?.id)) return true;
+  return Boolean(user?.groupId && order?.customer?.groupId && Number(user.groupId) === Number(order.customer.groupId));
+}
+
 function canUserViewOrder(user, order) {
   if (!user || !order) return false;
-  if (user.role === "ADMIN") return true;
-  if (hasOrderUserId(order.customerId, user.id)) return true;
+  if (isAdminUser(user)) return true;
+  if (!isOrderInUserGroup(user, order)) return false;
+  if (canUserViewCustomerSide(user, order)) return true;
   if (hasOrderUserId(order.driverId, user.id)) return true;
   if (hasOrderUserId(order.candidateDriverId, user.id)) return true;
   if (hasOrderUserId(order.reservedBy, user.id)) return true;
@@ -55,15 +77,21 @@ function canUserViewOrder(user, order) {
 
 async function authorizeOrderStatusAccess(req, res, next) {
   try {
-    const order = await Order.findByPk(req.params.id);
+    const order = await Order.findByPk(req.params.id, {
+      include: [{ model: User, as: "customer", attributes: ["id", "groupId"] }],
+    });
     if (!order) {
       return res
         .status(404)
         .send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e");
     }
 
+    if (!isOrderInUserGroup(req.user, order)) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+    }
+
     const isAllowed =
-      req.user?.role === "ADMIN" ||
+      isAdminUser(req.user) ||
       hasOrderUserId(order.customerId, req.user?.id) ||
       hasOrderUserId(order.driverId, req.user?.id);
     if (!isAllowed) {
@@ -173,7 +201,7 @@ function parseOrderHistory(history) {
 
 function sanitizeOrderForUser(orderJson, user) {
   if (!orderJson || !user) return orderJson;
-  if (user.role === "ADMIN" || hasOrderUserId(orderJson.customerId, user.id)) {
+  if (user.isAdmin || user.role === "ADMIN" || canUserViewCustomerSide(user, orderJson)) {
     return orderJson;
   }
 
@@ -591,6 +619,11 @@ async function notifyDriversAboutSavedSearchMatch(order, options = {}) {
   const excludedDriverIds = new Set(
     (options.excludeDriverIds || []).map((id) => String(id))
   );
+  const customerGroupId =
+    order?.customer?.groupId ??
+    (order?.customerId
+      ? (await User.findByPk(order.customerId, { attributes: ["groupId"], raw: true }))?.groupId
+      : null);
   const savedSearches = await SavedSearch.findAll({
     include: [{ model: User, as: "driver" }],
   });
@@ -601,6 +634,7 @@ async function notifyDriversAboutSavedSearchMatch(order, options = {}) {
 
     const driver = savedSearch.driver;
     if (!driver?.pushToken || !driver.pushConsent) continue;
+    if (driver.groupId && Number(driver.groupId) !== Number(customerGroupId)) continue;
     if (excludedDriverIds.has(String(driver.id))) continue;
     if (notifiedDriverIds.has(driver.id)) continue;
     notifiedDriverIds.add(driver.id);
@@ -627,6 +661,25 @@ const userIncludeWithProfile = (alias) => ({
   include: [{ model: DriverProfile, as: "driverProfile" }],
 
 });
+
+async function getVisibleCustomerIds(user) {
+  const ids = new Set();
+  if (user?.id) ids.add(user.id);
+
+  const groupId = user?.groupId;
+  if (!groupId) return [...ids];
+
+  const teamUsers = await User.findAll({
+    attributes: ["id"],
+    where: { groupId },
+    raw: true,
+  });
+  teamUsers.forEach((row) => {
+    if (row.id) ids.add(row.id);
+  });
+
+  return [...ids];
+}
 
 
 
@@ -911,9 +964,18 @@ async function listAvailableOrders(req, res) {
 
   where[Op.and] = andConditions;
 
+  const customerInclude = {
+    model: User,
+    as: "customer",
+    attributes: ["id", "name", "rating", "groupId"],
+    ...(hasGroupVisibilityBoundary(req.user)
+      ? { where: { groupId: req.user.groupId }, required: true }
+      : {}),
+  };
+
   const orders = await Order.findAll({
     where,
-    include: [{ model: User, as: "customer", attributes: ["id", "name", "rating"] }],
+    include: [customerInclude],
   });
 
 
@@ -1002,6 +1064,7 @@ async function listAvailableOrders(req, res) {
   const takenOrders = await Order.findAll({
 
     where: { status: "ACCEPTED" },
+    include: [customerInclude],
 
     limit: Math.floor(filtered.length / 15),
 
@@ -1022,10 +1085,11 @@ async function listMyOrders(req, res) {
   const now = new Date();
 
   let where = {};
+  const visibleCustomerIds = await getVisibleCustomerIds(req.user);
 
   if (role === "CUSTOMER") {
 
-    where.customerId = req.user.id;
+    where.customerId = { [Op.in]: visibleCustomerIds };
 
   } else if (role === "DRIVER") {
 
@@ -1049,7 +1113,7 @@ async function listMyOrders(req, res) {
 
       [Op.or]: [
 
-        { customerId: req.user.id },
+        { customerId: { [Op.in]: visibleCustomerIds } },
 
         { driverId: req.user.id },
 
@@ -1098,7 +1162,13 @@ async function listMyOrders(req, res) {
 
       userIncludeWithProfile("reservedDriver"),
 
-      { model: User, as: "customer" },
+      {
+        model: User,
+        as: "customer",
+        ...(hasGroupVisibilityBoundary(req.user)
+          ? { where: { groupId: req.user.groupId }, required: true }
+          : {}),
+      },
 
     ],
 
@@ -1219,6 +1289,10 @@ async function reserveOrder(req, res) {
 
       return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435");
 
+    }
+
+    if (!isOrderInUserGroup(req.user, order)) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
     }
 
     const prevFinalPriceForHistory = order.finalPrice;
@@ -1549,7 +1623,9 @@ async function acceptOrder(req, res) {
 
   try {
 
-    const order = await Order.findByPk(orderId);
+    const order = await Order.findByPk(orderId, {
+      include: { model: User, as: "customer" },
+    });
 
     if (!order || order.status !== "CREATED") {
 
@@ -1559,6 +1635,10 @@ async function acceptOrder(req, res) {
 
       return;
 
+    }
+
+    if (!isOrderInUserGroup(req.user, order)) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
     }
 
     const prevFinalPriceForHistory = order.finalPrice;
@@ -2034,7 +2114,7 @@ async function updateStatus(req, res) {
       return res.status(400).send("\u041d\u0435\u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0438\u0439 \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f");
     }
 
-    const isAdmin = req.user?.role === "ADMIN";
+    const isAdmin = req.user?.isAdmin || req.user?.role === "ADMIN";
     const isCustomer = hasOrderUserId(order.customerId, req.user?.id);
     const isAssignedDriver = hasOrderUserId(order.driverId, req.user?.id);
     if (
@@ -2763,6 +2843,10 @@ async function respondToOrder(req, res) {
     });
     if (!order || order.status !== "CREATED") {
       return res.status(400).send("\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0436\u0435 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435");
+    }
+
+    if (!isOrderInUserGroup(req.user, order)) {
+      return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
     }
 
     const activeCount = await OrderResponse.count({

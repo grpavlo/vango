@@ -18,6 +18,7 @@ const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
 require('./models/orderResponse');
 require('./models/orderRouteSearchEvent');
+require('./models/group');
 const { startOrderLifecycleScheduler } = require('./services/orderLifecycleScheduler');
 const { getLifecycleCutoffDate } = require('./utils/orderLifecycle');
 const { Op } = require('sequelize');
@@ -29,6 +30,19 @@ const PORT = process.env.NODE_ENV === 'production'
 const app = express();
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/portal', express.static(path.join(__dirname, '../web-portal')));
+app.get('/portal/logo.png', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../logo.png'));
+});
+app.get('/portal/analytics', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
+});
+app.get('/portal/analysts', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
+});
+app.get('/portal/analysts/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
