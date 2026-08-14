@@ -54,6 +54,9 @@ const AppMap = forwardRef(({
           if (mounted) {
             userLocationRef.current = coords;
             await AsyncStorage.setItem('userLocation', JSON.stringify(coords));
+            if (showsUserLocation) {
+              setUserLocationVisible(true);
+            }
             console.log('AppMap: stored initial userLocation', coords);
           }
         }
@@ -182,7 +185,7 @@ const AppMap = forwardRef(({
       <MapView
         ref={mapRef}
         style={style || { flex: 1 }}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
         showsMyLocationButton={false}
         showsUserLocation={userLocationVisible}
         {...rest}

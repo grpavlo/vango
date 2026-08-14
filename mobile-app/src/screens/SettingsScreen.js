@@ -116,6 +116,7 @@ export default function SettingsScreen({ navigation }) {
     || (user?.name?.trim().split(/\s+/)[1]) // український формат: прізвище ім'я по-батькові
     || user?.name?.split(/\s+/)[0]
     || user?.name;
+  const groupName = user?.group?.name || user?.groupName || "";
   const roleRatingValue =
     role === "CUSTOMER"
       ? user?.customerRating
@@ -168,7 +169,10 @@ export default function SettingsScreen({ navigation }) {
                 <AppText style={styles.completedText}>{roleCompletedOrders}</AppText>
               </View>
             </View>
-            <View style={{ marginBottom: 16 }}>
+            <View style={styles.profileMeta}>
+              {groupName ? (
+                <AppText style={styles.groupName}>{groupName}</AppText>
+              ) : null}
               <AppText style={styles.phone}>{user.phone}</AppText>
               {/* {user.email && (
                 <AppText style={styles.email}>{user.email}</AppText>
@@ -326,9 +330,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  profileMeta: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  groupName: {
+    color: colors.gray500,
+    marginTop: 4,
+    textAlign: "center",
+  },
   phone: {
     color: colors.gray500,
     marginTop: 4,
+    textAlign: "center",
   },
   email: {
     color: colors.gray500,
