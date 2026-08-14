@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VanGo Admin</title>
+    <link rel="stylesheet" href="/portal/styles.css" />
+  </head>
+  <body data-page="admin">
+    <aside class="sidebar">
+      <a class="brand" href="/portal/">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <span>VanGo</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link active" href="/portal/">Адмін</a>
+        <a class="nav-link" href="/portal/analytics/">Аналітика</a>
+      </nav>
+      <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
+    </aside>
+
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Операційна панель</p>
+          <h1>Користувачі та замовлення</h1>
+        </div>
+        <button class="primary-button" id="refreshButton" type="button">Оновити</button>
+      </header>
+
+      <section class="stats-grid" id="adminStats"></section>
+
+      <section class="toolbar">
+        <div class="tabs" role="tablist" aria-label="Розділи">
+          <button class="tab active" type="button" data-tab="orders">Замовлення</button>
+          <button class="tab" type="button" data-tab="users">Користувачі</button>
+          <button class="tab" type="button" data-tab="groups">Команди</button>
+        </div>
+        <div class="filters">
+          <input id="searchInput" type="search" placeholder="Пошук" />
+          <select id="statusFilter" aria-label="Статус замовлення">
+            <option value="ALL">Всі статуси</option>
+            <option value="CREATED">Створено</option>
+            <option value="PENDING">Очікує</option>
+            <option value="ACCEPTED">Прийнято</option>
+            <option value="IN_PROGRESS">В дорозі</option>
+            <option value="DELIVERED">Доставлено</option>
+            <option value="COMPLETED">Завершено</option>
+            <option value="CANCELLED">Скасовано</option>
+            <option value="REJECTED">Відхилено</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="table-panel" id="ordersPanel">
+        <div class="panel-heading">
+          <h2>Всі замовлення</h2>
+          <span id="ordersCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Маршрут</th>
+                <th>Замовник</th>
+                <th>Водій</th>
+                <th>Статус</th>
+                <th>Ціна</th>
+                <th>Дата</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-panel hidden" id="usersPanel">
+        <div class="panel-heading">
+          <h2>Всі користувачі</h2>
+          <span id="usersCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Користувач</th>
+                <th>Роль</th>
+                <th>Команда</th>
+                <th>Статус</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="usersTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-panel hidden" id="groupsPanel">
+        <div class="panel-heading">
+          <h2>Команди</h2>
+          <span id="groupsCount"></span>
+        </div>
+        <form class="group-form" id="groupForm">
+          <input name="name" type="text" placeholder="Назва команди" required />
+          <input name="photo" type="file" accept="image/*" />
+          <button class="primary-button" type="submit">Створити</button>
+        </form>
+        <div class="group-grid" id="groupsList"></div>
+      </section>
+    </main>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="modal-backdrop hidden" id="groupModal">
+      <section class="modal">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Команда</p>
+            <h2 id="groupModalTitle"></h2>
+          </div>
+          <div class="modal-actions">
+            <button class="icon-action" id="openAddMembersButton" type="button" aria-label="Додати учасника">+</button>
+            <button class="icon-action close-action" data-modal-close="groupModal" type="button" aria-label="Закрити">×</button>
+          </div>
+        </header>
+        <div class="modal-body">
+          <div class="member-list" id="groupMembersList"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop hidden" id="addMembersModal">
+      <section class="modal">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Додати в команду</p>
+            <h2 id="addMembersModalTitle"></h2>
+          </div>
+          <button class="icon-action close-action" data-modal-close="addMembersModal" type="button" aria-label="Закрити">×</button>
+        </header>
+        <div class="modal-body">
+          <input class="modal-search" id="memberSearchInput" type="search" placeholder="Пошук користувача" />
+          <div class="member-list" id="availableMembersList"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="auth-backdrop hidden" id="authGate">
+      <form class="auth-card" id="loginForm">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <h2>Вхід у портал</h2>
+        <div class="auth-tabs" role="tablist" aria-label="Спосіб входу">
+          <button class="auth-tab active" type="button" data-auth-method="email">Email</button>
+          <button class="auth-tab" type="button" data-auth-method="phone">Телефон</button>
+        </div>
+        <div class="auth-panel" data-auth-panel="email">
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Пароль
+            <input name="password" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <div class="auth-panel hidden" data-auth-panel="phone">
+          <label>
+            Телефон
+            <input name="phone" type="tel" autocomplete="tel" placeholder="+380..." />
+          </label>
+          <label>
+            SMS-код
+            <div class="code-row">
+              <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+              <button class="action-button" id="sendCodeButton" type="button">Надіслати код</button>
+            </div>
+          </label>
+        </div>
+        <button class="primary-button wide" id="loginSubmitButton" type="submit">Увійти</button>
+        <p class="form-error" id="loginError"></p>
+      </form>
+    </div>
+
+    <script src="/portal/app.js"></script>
+  </body>
+</html>

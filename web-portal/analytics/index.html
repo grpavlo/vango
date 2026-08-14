@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VanGo Analytics</title>
+    <link rel="stylesheet" href="/portal/styles.css" />
+  </head>
+  <body data-page="analytics">
+    <aside class="sidebar">
+      <a class="brand" href="/portal/">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <span>VanGo</span>
+      </a>
+      <nav class="nav">
+        <a class="nav-link" href="/portal/">Адмін</a>
+        <a class="nav-link active" href="/portal/analytics/">Аналітика</a>
+      </nav>
+      <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
+    </aside>
+
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Аналітичний endpoint</p>
+          <h1>Метрики маркетплейсу</h1>
+        </div>
+        <div class="filters">
+          <select id="analyticsDays" aria-label="Період">
+            <option value="7">7 днів</option>
+            <option value="30" selected>30 днів</option>
+            <option value="90">90 днів</option>
+          </select>
+          <button class="primary-button" id="refreshButton" type="button">Оновити</button>
+        </div>
+      </header>
+
+      <section class="stats-grid analytics-grid" id="analyticsStats"></section>
+
+      <section class="split-grid">
+        <article class="metric-panel">
+          <div class="panel-heading">
+            <h2>Ліквідність</h2>
+          </div>
+          <div id="liquidityRows"></div>
+        </article>
+        <article class="metric-panel">
+          <div class="panel-heading">
+            <h2>Retention водіїв</h2>
+          </div>
+          <div id="retentionRows"></div>
+        </article>
+      </section>
+    </main>
+
+    <div class="auth-backdrop hidden" id="authGate">
+      <form class="auth-card" id="loginForm">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <h2>Вхід в аналітику</h2>
+        <div class="auth-tabs" role="tablist" aria-label="Спосіб входу">
+          <button class="auth-tab active" type="button" data-auth-method="email">Email</button>
+          <button class="auth-tab" type="button" data-auth-method="phone">Телефон</button>
+        </div>
+        <div class="auth-panel" data-auth-panel="email">
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Пароль
+            <input name="password" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <div class="auth-panel hidden" data-auth-panel="phone">
+          <label>
+            Телефон
+            <input name="phone" type="tel" autocomplete="tel" placeholder="+380..." />
+          </label>
+          <label>
+            SMS-код
+            <div class="code-row">
+              <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+              <button class="action-button" id="sendCodeButton" type="button">Надіслати код</button>
+            </div>
+          </label>
+        </div>
+        <button class="primary-button wide" id="loginSubmitButton" type="submit">Увійти</button>
+        <p class="form-error" id="loginError"></p>
+      </form>
+    </div>
+
+    <script src="/portal/app.js"></script>
+  </body>
+</html>
