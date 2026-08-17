@@ -193,6 +193,7 @@ async function sendPhoneCode() {
       method: "POST",
       body: JSON.stringify({ phone }),
     });
+    sendCodeButton.classList.remove("dirty");
     loginError.classList.add("success");
     loginError.textContent = "Код надіслано. Введіть його нижче.";
   } catch (error) {
@@ -909,6 +910,9 @@ async function boot() {
 
 loginForm?.addEventListener("submit", login);
 sendCodeButton?.addEventListener("click", sendPhoneCode);
+loginForm?.phone?.addEventListener("input", () => {
+  sendCodeButton?.classList.add("dirty");
+});
 document.querySelectorAll("[data-auth-method]").forEach((button) => {
   button.addEventListener("click", () => setAuthMethod(button.dataset.authMethod));
 });
