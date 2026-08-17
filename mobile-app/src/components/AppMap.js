@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Wrapper to ensure we consistently use Google provider across the app.
+// Wrapper to keep map behavior consistent across the app.
 // Adds a floating "locate" button that centers the map on the user's location.
 const AppMap = forwardRef(({
   children,
@@ -13,6 +13,7 @@ const AppMap = forwardRef(({
   showMyLocationButton = true,
   onLocationCentered,
   showsUserLocation = false,
+  mapProvider = 'google',
   ...rest
 }, ref) => {
   const mapRef = useRef(null);
@@ -22,6 +23,8 @@ const AppMap = forwardRef(({
   const spinAnim = useRef(new Animated.Value(0));
   const overlayAnim = useRef(new Animated.Value(0));
   const userLocationRef = useRef(null);
+  const resolvedProvider =
+    Platform.OS === 'ios' && mapProvider === 'apple' ? undefined : PROVIDER_GOOGLE;
 
   useEffect(() => {
     if (showsUserLocation) {
@@ -183,9 +186,10 @@ const AppMap = forwardRef(({
   return (
     <View style={{ flex: 1 }}>
       <MapView
+        key={`map-${Platform.OS}-${mapProvider}`}
         ref={mapRef}
         style={style || { flex: 1 }}
-        provider={PROVIDER_GOOGLE}
+        provider={resolvedProvider}
         showsMyLocationButton={false}
         showsUserLocation={userLocationVisible}
         {...rest}

@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
+  Modal,
   Platform,
+  Text,
   TextInput,
   View,
   TouchableOpacity,
@@ -14,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import AppButton from '../components/AppButton';
+import CheckBox from '../components/CheckBox';
 import { colors } from '../components/Colors';
 import { formatPointAddress } from '../addressFormat';
 import { getCallback, unregisterCallback } from '../callbackRegistry';
@@ -21,6 +24,8 @@ import { getCallback, unregisterCallback } from '../callbackRegistry';
 const DEFAULT_COORDS = { latitude: 50.4501, longitude: 30.5234 };
 const DEFAULT_DELTA = 0.05;
 const LOCATION_STORAGE_KEYS = ['userLocation', 'location'];
+const MAP_PROVIDER_STORAGE_KEY = 'mapSelectProvider';
+const MAP_PROVIDER_REMEMBER_STORAGE_KEY = 'mapSelectProviderRemember';
 
 function toCoords(lat, lon) {
   const latitude = Number(lat);
@@ -133,6 +138,10 @@ export default function MapSelectScreen({ navigation, route }) {
   const [addressValue, setAddressValue] = useState(addressText);
   const [addressLoading, setAddressLoading] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [mapProvider, setMapProvider] = useState('google');
+  const [providerChoice, setProviderChoice] = useState('google');
+  const [rememberMapChoice, setRememberMapChoice] = useState(false);
+  const [providerChooserVisible, setProviderChooserVisible] = useState(false);
   const [selectedFromUserLocation, setSelectedFromUserLocation] = useState(false);
   const mapRef = useRef(null);
   const geocodeRequestRef = useRef(0);
@@ -215,6 +224,31 @@ export default function MapSelectScreen({ navigation, route }) {
     moveMarkerToAddress(addressValue, { syncInput: true });
   }
 
+  function openProviderChooser() {
+    setProviderChoice(mapProvider);
+    setProviderChooserVisible(true);
+  }
+
+  async function applyMapProviderChoice(provider = providerChoice) {
+    setMapProvider(provider);
+    setProviderChoice(provider);
+    setProviderChooserVisible(false);
+
+    try {
+      if (rememberMapChoice) {
+        await AsyncStorage.multiSet([
+          [MAP_PROVIDER_STORAGE_KEY, provider],
+          [MAP_PROVIDER_REMEMBER_STORAGE_KEY, 'true'],
+        ]);
+      } else {
+        await AsyncStorage.multiRemove([
+          MAP_PROVIDER_STORAGE_KEY,
+          MAP_PROVIDER_REMEMBER_STORAGE_KEY,
+        ]);
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -246,6 +280,37 @@ export default function MapSelectScreen({ navigation, route }) {
     }
 
     centerOnUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+
+    let mounted = true;
+    Promise.all([
+      AsyncStorage.getItem(MAP_PROVIDER_STORAGE_KEY),
+      AsyncStorage.getItem(MAP_PROVIDER_REMEMBER_STORAGE_KEY),
+    ])
+      .then(([value, remember]) => {
+        if (!mounted) return;
+        const hasSavedProvider = value === 'apple' || value === 'google';
+        const shouldRemember = remember === 'true' && hasSavedProvider;
+        if (shouldRemember) {
+          setMapProvider(value);
+          setProviderChoice(value);
+          setRememberMapChoice(true);
+        } else {
+          setProviderChoice('google');
+          setRememberMapChoice(false);
+          setProviderChooserVisible(true);
+        }
+      })
+      .catch(() => {
+        if (mounted) setProviderChooserVisible(true);
+      });
+
     return () => {
       mounted = false;
     };
@@ -428,6 +493,7 @@ export default function MapSelectScreen({ navigation, route }) {
         onRegionChangeComplete={setRegion}
         onLocationCentered={handleLocationCentered}
         showsUserLocation
+        mapProvider={mapProvider}
         onPress={handleMapPress}
       >
         {marker && !selectedFromUserLocation && <Marker coordinate={marker} />}
@@ -438,6 +504,19 @@ export default function MapSelectScreen({ navigation, route }) {
       >
         <Ionicons name="arrow-back" size={32} color="#333" />
       </TouchableOpacity>
+      {Platform.OS === 'ios' && (
+        <TouchableOpacity
+          style={styles.providerButton}
+          onPress={openProviderChooser}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="map-outline" size={16} color={colors.text} />
+          <Text style={styles.providerButtonText}>
+            Карта: {mapProvider === 'apple' ? 'Apple' : 'Google'}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={colors.gray500} />
+        </TouchableOpacity>
+      )}
       {marker && (
         <View style={[styles.bottomPanel, { bottom: bottomPanelOffset }]}>
           <View style={styles.addressField}>
@@ -467,6 +546,83 @@ export default function MapSelectScreen({ navigation, route }) {
           />
         </View>
       )}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={providerChooserVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setProviderChooserVisible(false)}
+        >
+          <View style={styles.providerModalBackdrop}>
+            <View style={styles.providerModalCard}>
+              <Text style={styles.providerModalTitle}>Оберіть карту</Text>
+              <Text style={styles.providerModalText}>
+                Виберіть карту, у якій зручно поставити точку.
+              </Text>
+              <View style={styles.providerModalOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.providerModalOption,
+                    providerChoice === 'google' && styles.providerModalOptionActive,
+                  ]}
+                  onPress={() => setProviderChoice('google')}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name="map-outline"
+                    size={20}
+                    color={providerChoice === 'google' ? colors.green : colors.text}
+                  />
+                  <Text style={styles.providerModalOptionText}>Google Maps</Text>
+                  {providerChoice === 'google' && (
+                    <Ionicons name="checkmark" size={20} color={colors.green} />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.providerModalOption,
+                    providerChoice === 'apple' && styles.providerModalOptionActive,
+                  ]}
+                  onPress={() => setProviderChoice('apple')}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name="map"
+                    size={20}
+                    color={providerChoice === 'apple' ? colors.green : colors.text}
+                  />
+                  <Text style={styles.providerModalOptionText}>Apple Maps</Text>
+                  {providerChoice === 'apple' && (
+                    <Ionicons name="checkmark" size={20} color={colors.green} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <CheckBox
+                value={rememberMapChoice}
+                onChange={setRememberMapChoice}
+                label="Запамʼятати вибір"
+                style={styles.providerRemember}
+              />
+              <View style={styles.providerModalActions}>
+                <TouchableOpacity
+                  style={styles.providerCancelButton}
+                  onPress={() => setProviderChooserVisible(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.providerCancelText}>Скасувати</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.providerApplyButton}
+                  onPress={() => applyMapProviderChoice()}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.providerApplyText}>Відкрити</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -479,6 +635,114 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 6,
+  },
+  providerButton: {
+    position: 'absolute',
+    top: 54,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  providerButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  providerModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  providerModalCard: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+  },
+  providerModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  providerModalText: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.gray500,
+  },
+  providerModalOptions: {
+    marginTop: 16,
+    gap: 10,
+  },
+  providerModalOption: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  providerModalOptionActive: {
+    borderColor: colors.green,
+    backgroundColor: colors.press,
+  },
+  providerModalOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  providerRemember: {
+    marginTop: 16,
+  },
+  providerModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  providerCancelButton: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  providerApplyButton: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: colors.green,
+  },
+  providerCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  providerApplyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   bottomPanel: {
     position: 'absolute',
