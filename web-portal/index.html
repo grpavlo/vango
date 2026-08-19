@@ -13,7 +13,20 @@
         <span>VanGo</span>
       </a>
       <nav class="nav">
-        <a class="nav-link active" href="/portal/">Адмін</a>
+        <div class="nav-group open" id="adminNavGroup">
+          <div class="nav-group-head active">
+            <a class="nav-link nav-parent-link active" href="/portal/admin" data-admin-section="dashboard">Адмін</a>
+            <button class="nav-collapse-button" type="button" data-admin-nav-toggle aria-expanded="true" aria-label="Згорнути меню Адмін"></button>
+          </div>
+          <div class="admin-subnav" id="adminSubnav">
+            <a class="admin-subnav-link active" href="/portal/orders" data-admin-section="orders">Замовлення</a>
+            <a class="admin-subnav-link" href="/portal/users" data-admin-section="users">Користувачі</a>
+            <a class="admin-subnav-link" href="/portal/admins" data-admin-section="admins">Адміни</a>
+            <a class="admin-subnav-link" href="/portal/groups" data-admin-section="groups">Команди</a>
+            
+          </div>
+        </div>
+        <a class="nav-link" href="/portal/support" data-admin-section="support">Підтримка</a>
         <a class="nav-link" href="/portal/analytics/">Аналітика</a>
       </nav>
       <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
@@ -22,20 +35,17 @@
     <main class="shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Операційна панель</p>
-          <h1>Користувачі та замовлення</h1>
+          <p class="eyebrow" id="pageEyebrow">Адмін</p>
+          <h1 id="pageTitle">Замовлення</h1>
         </div>
         <button class="primary-button" id="refreshButton" type="button">Оновити</button>
       </header>
 
-      <section class="stats-grid" id="adminStats"></section>
+      <section class="dashboard-panel" id="dashboardPanel">
+        <section class="stats-grid" id="adminStats"></section>
+      </section>
 
-      <section class="toolbar">
-        <div class="tabs" role="tablist" aria-label="Розділи">
-          <button class="tab active" type="button" data-tab="orders">Замовлення</button>
-          <button class="tab" type="button" data-tab="users">Користувачі</button>
-          <button class="tab" type="button" data-tab="groups">Команди</button>
-        </div>
+      <section class="toolbar hidden" id="adminToolbar">
         <div class="filters">
           <input id="searchInput" type="search" placeholder="Пошук" />
           <select id="statusFilter" aria-label="Статус замовлення">
@@ -49,10 +59,15 @@
             <option value="CANCELLED">Скасовано</option>
             <option value="REJECTED">Відхилено</option>
           </select>
+          <select id="supportStatusFilter" class="hidden" aria-label="Статус звернення">
+            <option value="ALL">Всі звернення</option>
+            <option value="OPEN">Передано</option>
+            <option value="ANSWERED">Є відповідь</option>
+          </select>
         </div>
       </section>
 
-      <section class="table-panel" id="ordersPanel">
+      <section class="table-panel hidden" id="ordersPanel">
         <div class="panel-heading">
           <h2>Всі замовлення</h2>
           <span id="ordersCount"></span>
@@ -97,6 +112,32 @@
         </div>
       </section>
 
+      <section class="table-panel hidden" id="adminsPanel">
+        <div class="panel-heading">
+          <h2>Адміни порталу</h2>
+          <span id="portalAdminsCount"></span>
+        </div>
+        <form class="admin-form" id="portalAdminForm">
+          <input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="+380" required />
+          <button class="primary-button" type="submit">Додати адміна</button>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Адмін</th>
+                <th>Телефон</th>
+                <th>Статус</th>
+                <th>Дата</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="portalAdminsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="table-panel hidden" id="groupsPanel">
         <div class="panel-heading">
           <h2>Команди</h2>
@@ -108,6 +149,28 @@
           <button class="primary-button" type="submit">Створити</button>
         </form>
         <div class="group-grid" id="groupsList"></div>
+      </section>
+
+      <section class="table-panel hidden" id="supportPanel">
+        <div class="panel-heading">
+          <h2>Питання від користувачів</h2>
+          <span id="supportCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Користувач</th>
+                <th>Питання</th>
+                <th>Статус</th>
+                <th>Дата</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="supportQuestionsTable"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
@@ -147,28 +210,65 @@
       </section>
     </div>
 
+    <div class="modal-backdrop hidden" id="supportQuestionModal">
+      <section class="modal support-modal">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Звернення</p>
+            <h2 id="supportModalTitle"></h2>
+          </div>
+          <div class="modal-actions">
+            <span id="supportModalStatus"></span>
+            <button class="icon-action close-action" data-modal-close="supportQuestionModal" type="button" aria-label="Закрити">×</button>
+          </div>
+        </header>
+        <div class="modal-body support-modal-body">
+          <section class="support-detail-grid">
+            <div class="support-detail-card">
+              <span class="support-detail-label">Користувач</span>
+              <strong id="supportModalUser"></strong>
+              <span class="muted" id="supportModalContact"></span>
+            </div>
+            <div class="support-detail-card">
+              <span class="support-detail-label">Дата</span>
+              <strong id="supportModalDate"></strong>
+            </div>
+          </section>
+
+          <section class="support-detail-section">
+            <h3>Питання користувача</h3>
+            <p id="supportModalQuestion"></p>
+          </section>
+
+          <form class="support-answer-form" id="supportQuestionForm">
+            <label for="supportAnswerStatus">Статус звернення</label>
+            <select id="supportAnswerStatus">
+              <option value="OPEN">Передано</option>
+              <option value="ANSWERED">Є відповідь</option>
+            </select>
+            <label for="supportAnswerInput">Відповідь користувачу</label>
+            <textarea id="supportAnswerInput" rows="7" placeholder="Напишіть відповідь, яку користувач побачить у застосунку"></textarea>
+            <div class="support-answer-actions">
+              <button class="action-button" data-modal-close="supportQuestionModal" type="button">Скасувати</button>
+              <button class="primary-button" type="submit">Зберегти відповідь</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+
     <div class="auth-backdrop hidden" id="authGate">
       <form class="auth-card" id="loginForm">
         <img src="/portal/logo.png" alt="VanGo" />
         <h2>Вхід у портал</h2>
-        <div class="auth-tabs" role="tablist" aria-label="Спосіб входу">
-          <button class="auth-tab active" type="button" data-auth-method="email">Email</button>
-          <button class="auth-tab" type="button" data-auth-method="phone">Телефон</button>
+        <div class="auth-methods" role="tablist" aria-label="Спосіб входу">
+          <button class="auth-method active" type="button" data-auth-method="phone">Телефон</button>
+          <button class="auth-method" type="button" data-auth-method="email">Email</button>
         </div>
-        <div class="auth-panel" data-auth-panel="email">
+        <div data-auth-panel="phone">
           <label>
-            Email
-            <input name="email" type="email" autocomplete="email" />
-          </label>
-          <label>
-            Пароль
-            <input name="password" type="password" autocomplete="current-password" />
-          </label>
-        </div>
-        <div class="auth-panel hidden" data-auth-panel="phone">
-          <label>
-            Телефон
-            <input name="phone" type="tel" autocomplete="tel" placeholder="+380..." />
+            Номер телефону адміністратора
+            <input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="+380" />
           </label>
           <label>
             SMS-код
@@ -176,6 +276,16 @@
               <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
               <button class="action-button dirty" id="sendCodeButton" type="button">Надіслати код</button>
             </div>
+          </label>
+        </div>
+        <div class="hidden" data-auth-panel="email">
+          <label>
+            Email адміністратора
+            <input name="email" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Пароль
+            <input name="password" type="password" autocomplete="current-password" />
           </label>
         </div>
         <button class="primary-button wide" id="loginSubmitButton" type="submit">Увійти</button>

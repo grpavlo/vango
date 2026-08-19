@@ -10,7 +10,7 @@ import { apiFetch, HOST_URL } from "../api";
 import ListItem from "../components/ListItem";
 import { colors } from "../components/Colors";
 import ProfileCardSkeleton from "../components/ProfileCardSkeleton";
-import NotificationBell from "../components/NotificationBell";
+import HeaderActions from "../components/HeaderActions";
 import appConfig from "../../app.json";
 
 const appVersion = appConfig?.expo?.version;
@@ -32,7 +32,7 @@ export default function SettingsScreen({ navigation }) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <NotificationBell />,
+      headerRight: () => <HeaderActions />,
     });
   }, [navigation]);
 

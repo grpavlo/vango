@@ -13,7 +13,19 @@
         <span>VanGo</span>
       </a>
       <nav class="nav">
-        <a class="nav-link" href="/portal/">Адмін</a>
+        <div class="nav-group" id="adminNavGroup">
+          <div class="nav-group-head">
+            <a class="nav-link nav-parent-link" href="/portal/admin">Адмін</a>
+            <button class="nav-collapse-button" type="button" data-admin-nav-toggle aria-expanded="false" aria-label="Розгорнути меню Адмін"></button>
+          </div>
+          <div class="admin-subnav" id="adminSubnav">
+            <a class="admin-subnav-link" href="/portal/orders">Замовлення</a>
+            <a class="admin-subnav-link" href="/portal/users">Користувачі</a>
+            <a class="admin-subnav-link" href="/portal/admins">Адміни</a>
+            <a class="admin-subnav-link" href="/portal/groups">Команди</a>
+            <a class="admin-subnav-link" href="/portal/support">Звернення</a>
+          </div>
+        </div>
         <a class="nav-link active" href="/portal/analytics/">Аналітика</a>
       </nav>
       <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
@@ -57,24 +69,14 @@
       <form class="auth-card" id="loginForm">
         <img src="/portal/logo.png" alt="VanGo" />
         <h2>Вхід в аналітику</h2>
-        <div class="auth-tabs" role="tablist" aria-label="Спосіб входу">
-          <button class="auth-tab active" type="button" data-auth-method="email">Email</button>
-          <button class="auth-tab" type="button" data-auth-method="phone">Телефон</button>
+        <div class="auth-methods" role="tablist" aria-label="Спосіб входу">
+          <button class="auth-method active" type="button" data-auth-method="phone">Телефон</button>
+          <button class="auth-method" type="button" data-auth-method="email">Email</button>
         </div>
-        <div class="auth-panel" data-auth-panel="email">
+        <div data-auth-panel="phone">
           <label>
-            Email
-            <input name="email" type="email" autocomplete="email" />
-          </label>
-          <label>
-            Пароль
-            <input name="password" type="password" autocomplete="current-password" />
-          </label>
-        </div>
-        <div class="auth-panel hidden" data-auth-panel="phone">
-          <label>
-            Телефон
-            <input name="phone" type="tel" autocomplete="tel" placeholder="+380..." />
+            Номер телефону адміністратора
+            <input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="+380" />
           </label>
           <label>
             SMS-код
@@ -82,6 +84,16 @@
               <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
               <button class="action-button dirty" id="sendCodeButton" type="button">Надіслати код</button>
             </div>
+          </label>
+        </div>
+        <div class="hidden" data-auth-panel="email">
+          <label>
+            Email адміністратора
+            <input name="email" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Пароль
+            <input name="password" type="password" autocomplete="current-password" />
           </label>
         </div>
         <button class="primary-button wide" id="loginSubmitButton" type="submit">Увійти</button>

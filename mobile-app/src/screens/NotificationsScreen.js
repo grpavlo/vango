@@ -65,6 +65,16 @@ function getNavigationTarget(item) {
     };
   }
 
+  if (target === 'SupportRequest' || target === 'supportRequest') {
+    return {
+      route: 'SupportRequest',
+      params: {
+        supportQuestionId: data.supportQuestionId,
+        notificationOpenedAt: item.id,
+      },
+    };
+  }
+
   if (orderId) {
     return {
       route: 'OrderDetail',

@@ -25,7 +25,7 @@ import { openLocationInMaps } from "../maps";
 import DriverCompletionCelebration, {
   getOrderCompletionEarnings,
 } from "../components/DriverCompletionCelebration";
-import NotificationBell from "../components/NotificationBell";
+import HeaderActions from "../components/HeaderActions";
 
 const statusLabels = {
   CREATED: "Створено",
@@ -64,7 +64,7 @@ export default function MyOrdersScreen({ navigation, route }) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <NotificationBell />,
+      headerRight: () => <HeaderActions />,
     });
   }, [navigation]);
 

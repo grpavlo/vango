@@ -1,14 +1,75 @@
-const { Op } = require("sequelize");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const { Op, fn, col, where } = require("sequelize");
 const User = require("../models/user");
+const { UserRole } = require("../models/user");
 const Group = require("../models/group");
 const Order = require("../models/order");
 const OrderResponse = require("../models/orderResponse");
 const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
+const SupportQuestion = require("../models/supportQuestion");
+const { SupportQuestionStatus } = require("../models/supportQuestion");
+const PortalAdmin = require("../models/portalAdmin");
 const { setServiceFee } = require("../config");
 const { pathToUploadUrl } = require("../utils/uploadFiles");
+const { sendPush } = require("../utils/push");
+const { normalizePhone } = require("../services/authCodes");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MATCHED_ORDER_STATUSES = ["ACCEPTED", "IN_PROGRESS", "DELIVERED", "COMPLETED"];
+
+function buildPhoneLookupVariants(phone) {
+  const normalizedPhone = normalizePhone(phone);
+  const variants = new Set([normalizedPhone]);
+
+  if (normalizedPhone.startsWith("380") && normalizedPhone.length === 12) {
+    variants.add(`0${normalizedPhone.slice(3)}`);
+  }
+
+  return [...variants];
+}
+
+function phoneWhere(phone) {
+  return {
+    [Op.or]: buildPhoneLookupVariants(phone).map((phoneVariant) =>
+      where(fn("regexp_replace", col("phone"), "[^0-9]", "", "g"), phoneVariant)
+    ),
+  };
+}
+
+async function findUserByPhone(phone) {
+  return User.findOne({
+    where: phoneWhere(phone),
+    order: [["id", "DESC"]],
+  });
+}
+
+function isValidPhone(phone) {
+  return String(phone || "").replace(/\D/g, "").length >= 10;
+}
+
+function serializePortalAdmin(admin, linkedUser = null) {
+  return {
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    phone: admin.phone,
+    active: admin.active,
+    createdAt: admin.createdAt,
+    updatedAt: admin.updatedAt,
+    linkedUser: linkedUser
+      ? {
+          id: linkedUser.id,
+          name: linkedUser.name,
+          email: linkedUser.email,
+          phone: linkedUser.phone,
+          role: linkedUser.role,
+          isAdmin: linkedUser.isAdmin,
+          blocked: linkedUser.blocked,
+        }
+      : null,
+  };
+}
 
 function parseWindowDays(raw, fallback = 30) {
   const n = Number.parseInt(raw, 10);
@@ -347,6 +408,105 @@ async function listUsers(_req, res) {
   res.json(users);
 }
 
+async function listPortalAdmins(_req, res) {
+  const admins = await PortalAdmin.findAll({
+    attributes: { exclude: ["password"] },
+    order: [
+      ["active", "DESC"],
+      ["createdAt", "DESC"],
+      ["id", "DESC"],
+    ],
+  });
+
+  const payload = await Promise.all(
+    admins.map(async (admin) => serializePortalAdmin(admin, admin.phone ? await findUserByPhone(admin.phone) : null))
+  );
+  res.json(payload);
+}
+
+async function createPortalAdmin(req, res) {
+  const phoneRaw = String(req.body?.phone || "").trim();
+  if (!isValidPhone(phoneRaw)) {
+    res.status(400).send("Вкажіть коректний номер телефону");
+    return;
+  }
+
+  const phone = normalizePhone(phoneRaw);
+  let linkedUser = await findUserByPhone(phone);
+
+  if (!linkedUser) {
+    const password = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+    linkedUser = await User.create({
+      name: "",
+      email: `user_${phone}@vango.phone`,
+      password,
+      phone,
+      role: UserRole.BOTH,
+      isAdmin: true,
+    });
+  } else if (!linkedUser.isAdmin || linkedUser.role === UserRole.ADMIN) {
+    linkedUser.isAdmin = true;
+    if (linkedUser.role === UserRole.ADMIN) {
+      linkedUser.role = UserRole.BOTH;
+    }
+    await linkedUser.save();
+  }
+
+  const email = linkedUser.email || `portal_${phone}@vango.admin`;
+  const name = linkedUser.name || linkedUser.firstName || phone;
+  let admin = await PortalAdmin.findOne({ where: { phone } });
+  if (!admin && email) {
+    admin = await PortalAdmin.findOne({ where: { email: String(email).trim().toLowerCase() } });
+  }
+
+  if (admin) {
+    admin.phone = phone;
+    admin.name = admin.name || name;
+    admin.email = admin.email || String(email).trim().toLowerCase();
+    admin.active = true;
+    await admin.save();
+  } else {
+    const password = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+    admin = await PortalAdmin.create({
+      name,
+      email: String(email).trim().toLowerCase(),
+      phone,
+      password,
+      active: true,
+    });
+  }
+
+  res.status(201).json(serializePortalAdmin(admin, linkedUser));
+}
+
+async function updatePortalAdmin(req, res) {
+  const admin = await PortalAdmin.findByPk(req.params.id);
+  if (!admin) {
+    res.status(404).send("Адміністратора не знайдено");
+    return;
+  }
+
+  if (typeof req.body?.active === "boolean") {
+    if (req.portalAdmin && Number(req.portalAdmin.id) === Number(admin.id) && !req.body.active) {
+      res.status(400).send("Не можна вимкнути власний доступ");
+      return;
+    }
+    admin.active = req.body.active;
+  }
+
+  await admin.save();
+  const linkedUser = admin.phone ? await findUserByPhone(admin.phone) : null;
+  if (linkedUser) {
+    linkedUser.isAdmin = admin.active;
+    if (linkedUser.role === UserRole.ADMIN) {
+      linkedUser.role = UserRole.BOTH;
+    }
+    await linkedUser.save();
+  }
+
+  res.json(serializePortalAdmin(admin, linkedUser));
+}
+
 async function listOrders(req, res) {
   const status = typeof req.query?.status === "string" ? req.query.status.trim() : "";
   const query = typeof req.query?.q === "string" ? req.query.q.trim() : "";
@@ -552,6 +712,100 @@ async function updateServiceFee(req, res) {
   res.json({ percent });
 }
 
+async function listSupportQuestions(req, res) {
+  const status = String(req.query?.status || "ALL").toUpperCase();
+  const q = String(req.query?.q || "").trim();
+  const limit = Math.min(Number.parseInt(req.query?.limit, 10) || 200, 500);
+  const where = {};
+
+  if (Object.values(SupportQuestionStatus).includes(status)) {
+    where.status = status;
+  }
+
+  if (q) {
+    where.question = { [Op.iLike]: `%${q}%` };
+  }
+
+  const items = await SupportQuestion.findAll({
+    where,
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["id", "name", "firstName", "lastName", "phone", "email", "role"],
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+    limit,
+  });
+
+  res.json(items);
+}
+
+async function updateSupportQuestion(req, res) {
+  const item = await SupportQuestion.findByPk(req.params.id);
+  if (!item) {
+    res.status(404).send("Звернення не знайдено");
+    return;
+  }
+
+  const status = String(req.body?.status || "").toUpperCase();
+  const answer = typeof req.body?.answer === "string" ? req.body.answer.trim() : undefined;
+  const hadAnswer = Boolean(item.answer);
+
+  if (status && !Object.values(SupportQuestionStatus).includes(status)) {
+    res.status(400).send("Некоректний статус звернення");
+    return;
+  }
+
+  if (answer !== undefined) {
+    item.answer = answer || null;
+    if (answer) {
+      item.status = SupportQuestionStatus.ANSWERED;
+      if (!item.answeredAt) {
+        item.answeredAt = new Date();
+      }
+    } else if (!status) {
+      item.status = SupportQuestionStatus.OPEN;
+      item.answeredAt = null;
+    }
+  }
+
+  if (status) {
+    item.status = status;
+    if (status === SupportQuestionStatus.OPEN) {
+      item.answeredAt = null;
+    } else if (status === SupportQuestionStatus.ANSWERED && !item.answeredAt) {
+      item.answeredAt = new Date();
+    }
+  }
+
+  await item.save();
+
+  if (answer && !hadAnswer) {
+    const user = await User.findByPk(item.userId);
+    if (user?.pushToken && user.pushConsent) {
+      sendPush(
+        user.pushToken,
+        "Відповідь від підтримки VanGo",
+        "Розробники відповіли на ваше питання. Відкрийте звернення в застосунку.",
+        { navigateTo: "SupportRequest", supportQuestionId: item.id }
+      );
+    }
+  }
+
+  const updated = await SupportQuestion.findByPk(item.id, {
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["id", "name", "firstName", "lastName", "phone", "email", "role"],
+      },
+    ],
+  });
+  res.json(updated);
+}
+
 async function analytics(req, res) {
   try {
     const payload = await buildOverviewMetrics(req);
@@ -610,6 +864,9 @@ async function analyticsRetention(_req, res) {
 
 module.exports = {
   listUsers,
+  listPortalAdmins,
+  createPortalAdmin,
+  updatePortalAdmin,
   listOrders,
   listGroups,
   createGroup,
@@ -619,6 +876,8 @@ module.exports = {
   blockDriver,
   unblockDriver,
   updateServiceFee,
+  listSupportQuestions,
+  updateSupportQuestion,
   analytics,
   analyticsOverview,
   analyticsGmv,

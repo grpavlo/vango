@@ -1,13 +1,54 @@
+const adminSections = {
+  dashboard: {
+    title: "Адмін",
+    eyebrow: "Операційна панель",
+  },
+  orders: {
+    title: "Замовлення",
+    eyebrow: "Адмін",
+  },
+  users: {
+    title: "Користувачі",
+    eyebrow: "Адмін",
+  },
+  admins: {
+    title: "Адміни порталу",
+    eyebrow: "Адмін",
+  },
+  groups: {
+    title: "Команди",
+    eyebrow: "Адмін",
+  },
+  support: {
+    title: "Звернення",
+    eyebrow: "Адмін",
+  },
+};
+
+function normalizeAdminSection(section) {
+  return Object.prototype.hasOwnProperty.call(adminSections, section) ? section : "dashboard";
+}
+
+function getInitialAdminSection() {
+  if (typeof window === "undefined") return "orders";
+  const sectionFromPath = window.location.pathname.match(/^\/portal\/(admin|orders|users|admins|groups|support)\/?$/)?.[1];
+  if (sectionFromPath === "admin") return "dashboard";
+  return normalizeAdminSection(sectionFromPath || new URLSearchParams(window.location.search).get("section"));
+}
+
 const state = {
   token: localStorage.getItem("vango.portal.token") || "",
   user: null,
   users: [],
+  portalAdmins: [],
   orders: [],
   groups: [],
-  tab: "orders",
+  supportQuestions: [],
+  tab: getInitialAdminSection(),
   activeGroupId: null,
+  activeSupportQuestionId: null,
   addMembersOpen: false,
-  authMethod: "email",
+  authMethod: "phone",
   loading: false,
 };
 
@@ -15,8 +56,8 @@ const page = document.body.dataset.page;
 const authGate = document.getElementById("authGate");
 const loginForm = document.getElementById("loginForm");
 const loginError = document.getElementById("loginError");
-const sendCodeButton = document.getElementById("sendCodeButton");
 const loginSubmitButton = document.getElementById("loginSubmitButton");
+const sendCodeButton = document.getElementById("sendCodeButton");
 const toastRegion = document.getElementById("toastRegion");
 
 const statusLabels = {
@@ -36,6 +77,15 @@ const roleLabels = {
   CUSTOMER: "Замовник",
   BOTH: "Замовник і водій",
 };
+
+const supportStatusLabels = {
+  OPEN: "Передано",
+  ANSWERED: "Є відповідь",
+};
+
+function normalizeSupportStatus(status) {
+  return status === "CLOSED" ? "ANSWERED" : status;
+}
 
 function text(value, fallback = "-") {
   const normalized = value === null || value === undefined ? "" : String(value).trim();
@@ -83,6 +133,13 @@ function statusBadge(status) {
   return badge(label, type);
 }
 
+function supportStatusBadge(status) {
+  const normalizedStatus = normalizeSupportStatus(status);
+  const label = supportStatusLabels[normalizedStatus] || normalizedStatus || "-";
+  const type = normalizedStatus === "ANSWERED" ? "ok" : "warn";
+  return badge(label, type);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -122,6 +179,37 @@ function showAuth(show) {
   authGate?.classList.toggle("hidden", !show);
 }
 
+function setAdminNavOpen(isOpen) {
+  const group = document.getElementById("adminNavGroup");
+  const button = document.querySelector("[data-admin-nav-toggle]");
+  group?.classList.toggle("open", isOpen);
+  button?.setAttribute("aria-expanded", String(isOpen));
+  button?.setAttribute("aria-label", isOpen ? "Згорнути меню Адмін" : "Розгорнути меню Адмін");
+}
+
+function toggleAdminNavGroup() {
+  const group = document.getElementById("adminNavGroup");
+  setAdminNavOpen(!group?.classList.contains("open"));
+}
+
+function ensurePhonePrefix(input) {
+  if (!input) return;
+  const digits = String(input.value || "").replace(/\D/g, "");
+  if (!digits) {
+    input.value = "+380";
+    return;
+  }
+  if (digits.startsWith("380")) {
+    input.value = `+${digits}`;
+    return;
+  }
+  if (digits.startsWith("0")) {
+    input.value = `+38${digits}`;
+    return;
+  }
+  input.value = `+380${digits}`;
+}
+
 function setLoading(isLoading) {
   state.loading = isLoading;
   document.querySelectorAll("#refreshButton").forEach((button) => {
@@ -130,16 +218,29 @@ function setLoading(isLoading) {
   });
 }
 
+function setAuthMethod(method) {
+  state.authMethod = method === "email" ? "email" : "phone";
+  document.querySelectorAll("[data-auth-method]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.authMethod === state.authMethod);
+  });
+  document.querySelectorAll("[data-auth-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.authPanel !== state.authMethod);
+  });
+  if (loginError) {
+    loginError.classList.remove("success");
+    loginError.textContent = "";
+  }
+}
+
 async function login(event) {
   event.preventDefault();
   loginError.classList.remove("success");
   loginError.textContent = "";
   const formData = new FormData(loginForm);
   try {
-    const result =
-      state.authMethod === "phone"
-        ? await loginWithPhone(formData)
-        : await loginWithEmail(formData);
+    const result = state.authMethod === "phone"
+      ? await loginWithPhone(formData)
+      : await loginWithEmail(formData);
     state.token = result.token;
     localStorage.setItem("vango.portal.token", state.token);
     await boot();
@@ -154,7 +255,7 @@ async function loginWithEmail(formData) {
   if (!email || !password) {
     throw new Error("Вкажіть email і пароль");
   }
-  return apiFetch("/auth/login", {
+  return apiFetch("/admin-auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -163,13 +264,10 @@ async function loginWithEmail(formData) {
 async function loginWithPhone(formData) {
   const phone = String(formData.get("phone") || "").trim();
   const code = String(formData.get("code") || "").trim();
-  if (!phone) {
-    throw new Error("Вкажіть номер телефону");
+  if (!phone || !code) {
+    throw new Error("Вкажіть номер телефону та SMS-код");
   }
-  if (!/^\d{6}$/.test(code)) {
-    throw new Error("Введіть 6-значний SMS-код");
-  }
-  return apiFetch("/auth/verify-code", {
+  return apiFetch("/admin-auth/verify-code", {
     method: "POST",
     body: JSON.stringify({ phone, code }),
   });
@@ -185,39 +283,27 @@ async function sendPhoneCode() {
     return;
   }
 
-  const previousText = sendCodeButton.textContent;
-  sendCodeButton.disabled = true;
-  sendCodeButton.textContent = "Надсилання...";
+  if (sendCodeButton) {
+    sendCodeButton.disabled = true;
+    sendCodeButton.textContent = "Надсилаємо...";
+  }
+
   try {
-    await apiFetch("/auth/send-code", {
+    await apiFetch("/admin-auth/send-code", {
       method: "POST",
       body: JSON.stringify({ phone }),
     });
-    sendCodeButton.classList.remove("dirty");
     loginError.classList.add("success");
-    loginError.textContent = "Код надіслано. Введіть його нижче.";
+    loginError.textContent = "SMS-код надіслано";
+    document.querySelector('input[name="code"]')?.focus();
   } catch (error) {
-    loginError.classList.remove("success");
-    loginError.textContent = error.message || "Не вдалося надіслати код";
+    loginError.textContent = error.message || "Не вдалося надіслати SMS";
   } finally {
-    sendCodeButton.disabled = false;
-    sendCodeButton.textContent = previousText;
+    if (sendCodeButton) {
+      sendCodeButton.disabled = false;
+      sendCodeButton.textContent = "Надіслати код";
+    }
   }
-}
-
-function setAuthMethod(method) {
-  state.authMethod = method;
-  document.querySelectorAll("[data-auth-method]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.authMethod === method);
-  });
-  document.querySelectorAll("[data-auth-panel]").forEach((panel) => {
-    panel.classList.toggle("hidden", panel.dataset.authPanel !== method);
-  });
-  if (loginSubmitButton) {
-    loginSubmitButton.textContent = method === "phone" ? "Увійти за кодом" : "Увійти";
-  }
-  loginError.classList.remove("success");
-  loginError.textContent = "";
 }
 
 function logout() {
@@ -229,7 +315,7 @@ function logout() {
 
 async function loadProfile() {
   if (!state.token) return null;
-  state.user = await apiFetch("/auth/me");
+  state.user = await apiFetch("/admin-auth/me");
   return state.user;
 }
 
@@ -239,11 +325,15 @@ function renderAdminStats() {
   const blocked = state.users.filter((user) => user.blocked).length;
   const activeOrders = state.orders.filter((order) => !["COMPLETED", "CANCELLED", "REJECTED"].includes(order.status)).length;
   const completed = state.orders.filter((order) => order.status === "COMPLETED").length;
+  const openSupport = state.supportQuestions.filter((item) => item.status === "OPEN").length;
+  const activeAdmins = state.portalAdmins.filter((admin) => admin.active).length;
 
   document.getElementById("adminStats").innerHTML = [
     ["Користувачів", totalUsers, `${drivers} водіїв`],
     ["Замовлень", state.orders.length, `${activeOrders} активних`],
     ["Команд", state.groups.length, "груп доступу"],
+    ["Адмінів", activeAdmins, "мають доступ"],
+    ["Звернення", openSupport, "очікують відповіді"],
     ["Завершено", completed, "за останньою вибіркою"],
     ["Заблоковано", blocked, "акаунтів"],
   ]
@@ -327,6 +417,9 @@ function renderUsers() {
       const canBlock = ["DRIVER", "BOTH"].includes(user.role);
       const groupName = user.group?.name || "";
       const groupId = user.groupId || "";
+      const roleText = user.isAdmin
+        ? `Адмін · ${roleLabels[user.role] || user.role}`
+        : roleLabels[user.role] || user.role;
       return `
         <tr>
           <td>${escapeHtml(user.id)}</td>
@@ -334,7 +427,7 @@ function renderUsers() {
             <strong>${escapeHtml(text(user.name))}</strong>
             <span class="muted">${escapeHtml(text(user.phone || user.email))}</span>
           </td>
-          <td>${escapeHtml(roleLabels[user.role] || user.role)}</td>
+          <td>${escapeHtml(roleText)}</td>
           <td>
             <div class="group-editor">
               <input type="text" value="${escapeHtml(groupName)}" placeholder="Почніть вводити" data-group-combobox="${user.id}" data-original-group-id="${escapeHtml(groupId)}" autocomplete="off" />
@@ -349,6 +442,55 @@ function renderUsers() {
                 ? `<button class="action-button ${user.blocked ? "" : "danger"}" data-user-id="${user.id}" data-action="${user.blocked ? "unblock" : "block"}">${user.blocked ? "Розблокувати" : "Блокувати"}</button>`
                 : ""
             }
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderPortalAdmins() {
+  const table = document.getElementById("portalAdminsTable");
+  const count = document.getElementById("portalAdminsCount");
+  if (!table || !count) return;
+
+  const admins = state.portalAdmins.filter((admin) =>
+    matchesSearch([
+      admin.id,
+      admin.name,
+      admin.email,
+      admin.phone,
+      admin.active ? "активний" : "вимкнено",
+      admin.linkedUser?.name,
+      admin.linkedUser?.email,
+      admin.linkedUser?.phone,
+    ])
+  );
+
+  count.textContent = `${admins.length} з ${state.portalAdmins.length} записів`;
+  if (!admins.length) {
+    table.innerHTML = `<tr><td colspan="6" class="muted">Адмінів ще немає</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = admins
+    .map((admin) => {
+      const linked = admin.linkedUser;
+      const name = text(admin.name || linked?.name, "Без імені");
+      const active = Boolean(admin.active);
+      return `
+        <tr>
+          <td><strong>${escapeHtml(admin.id)}</strong></td>
+          <td class="user-cell">
+            <strong>${escapeHtml(name)}</strong>
+          </td>
+          <td>${escapeHtml(text(admin.phone || linked?.phone))}</td>
+          <td>${active ? badge("Активний", "ok") : badge("Вимкнено", "danger")}</td>
+          <td class="muted">${escapeHtml(date(admin.createdAt))}</td>
+          <td>
+            <button class="action-button ${active ? "danger" : "dirty"}" data-portal-admin-id="${escapeHtml(admin.id)}" data-portal-admin-active="${active ? "false" : "true"}" type="button">
+              ${active ? "Вимкнути" : "Увімкнути"}
+            </button>
           </td>
         </tr>
       `;
@@ -394,11 +536,80 @@ function renderGroups() {
     .join("");
 }
 
+function userDisplay(user) {
+  const name = text(
+    user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+    `ID ${user?.id || "-"}`
+  );
+  const contact = text(user?.phone || user?.email);
+  return { name, contact };
+}
+
+function renderSupportQuestions() {
+  const table = document.getElementById("supportQuestionsTable");
+  const count = document.getElementById("supportCount");
+  if (!table || !count) return;
+  const selectedStatus = String(document.getElementById("supportStatusFilter")?.value || "ALL");
+
+  const items = state.supportQuestions
+    .filter((item) => selectedStatus === "ALL" || normalizeSupportStatus(item.status) === selectedStatus)
+    .filter((item) =>
+      matchesSearch([
+        item.id,
+        item.question,
+        item.answer,
+        item.status,
+        supportStatusLabels[item.status],
+        item.user?.name,
+        item.user?.firstName,
+        item.user?.lastName,
+        item.user?.phone,
+        item.user?.email,
+        item.user?.role,
+      ])
+    );
+
+  count.textContent = `${items.length} з ${state.supportQuestions.length} записів`;
+
+  if (!items.length) {
+    table.innerHTML = `<tr><td colspan="6" class="muted">Немає звернень</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = items
+    .map((item) => {
+      const user = userDisplay(item.user);
+      return `
+        <tr>
+          <td><strong>${escapeHtml(item.id)}</strong></td>
+          <td class="user-cell">
+            <strong>${escapeHtml(user.name)}</strong>
+            <span class="muted">${escapeHtml(user.contact)} · ${escapeHtml(roleLabels[item.user?.role] || item.user?.role || "-")}</span>
+          </td>
+          <td class="support-question-cell">
+            <button class="support-question-open" data-support-open="${escapeHtml(item.id)}" type="button">
+              ${escapeHtml(item.question)}
+            </button>
+            ${item.answer ? `<span class="muted">Відповідь: ${escapeHtml(item.answer)}</span>` : ""}
+          </td>
+          <td>${supportStatusBadge(item.status)}</td>
+          <td class="muted">${escapeHtml(date(item.createdAt))}</td>
+          <td>
+            <button class="action-button dirty" data-support-answer="${escapeHtml(item.id)}" type="button">Відповісти</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
 function renderAdmin() {
   renderAdminStats();
   renderOrders();
   renderUsers();
+  renderPortalAdmins();
   renderGroups();
+  renderSupportQuestions();
 }
 
 async function loadAdminData() {
@@ -408,17 +619,22 @@ async function loadAdminData() {
     const q = document.getElementById("searchInput").value.trim();
     const params = new URLSearchParams({ limit: "300", status });
     if (q) params.set("q", q);
-    const [users, orders, groups] = await Promise.all([
+    const [users, portalAdmins, orders, groups, supportQuestions] = await Promise.all([
       apiFetch("/admin/users"),
+      apiFetch("/admin/portal-admins"),
       apiFetch(`/admin/orders?${params.toString()}`),
       apiFetch("/admin/groups"),
+      apiFetch("/admin/support-questions?limit=300"),
     ]);
     state.users = users;
+    state.portalAdmins = portalAdmins;
     state.orders = orders;
     state.groups = groups;
+    state.supportQuestions = supportQuestions;
     renderAdmin();
     if (state.activeGroupId) renderGroupModal();
     if (state.addMembersOpen) renderAddMembersModal();
+    if (state.activeSupportQuestionId) renderSupportQuestionModal();
   } finally {
     setLoading(false);
   }
@@ -445,6 +661,38 @@ function closeModal(id) {
   if (id === "addMembersModal") {
     state.addMembersOpen = false;
   }
+  if (id === "supportQuestionModal") {
+    state.activeSupportQuestionId = null;
+  }
+}
+
+function getActiveSupportQuestion() {
+  return state.supportQuestions.find((item) => Number(item.id) === Number(state.activeSupportQuestionId)) || null;
+}
+
+function openSupportQuestionModal(id) {
+  state.activeSupportQuestionId = Number(id);
+  renderSupportQuestionModal();
+  document.getElementById("supportQuestionModal")?.classList.remove("hidden");
+  document.getElementById("supportAnswerInput")?.focus();
+}
+
+function renderSupportQuestionModal() {
+  const item = getActiveSupportQuestion();
+  if (!item) return;
+
+  const user = userDisplay(item.user);
+  document.getElementById("supportModalTitle").textContent = `Звернення #${item.id}`;
+  document.getElementById("supportModalStatus").innerHTML = supportStatusBadge(item.status);
+  document.getElementById("supportModalUser").textContent = user.name;
+  document.getElementById("supportModalContact").textContent = `${user.contact} · ${roleLabels[item.user?.role] || item.user?.role || "-"}`;
+  document.getElementById("supportModalDate").textContent = date(item.createdAt);
+  document.getElementById("supportModalQuestion").textContent = item.question || "-";
+  const normalizedStatus = normalizeSupportStatus(item.status);
+  document.getElementById("supportAnswerStatus").value = supportStatusLabels[normalizedStatus]
+    ? normalizedStatus
+    : "OPEN";
+  document.getElementById("supportAnswerInput").value = item.answer || "";
 }
 
 function renderGroupModal() {
@@ -706,22 +954,140 @@ async function toggleDriverBlock(button) {
   }
 }
 
-function bindAdmin() {
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      state.tab = tab.dataset.tab;
-      document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));
-      document.getElementById("ordersPanel").classList.toggle("hidden", state.tab !== "orders");
-      document.getElementById("usersPanel").classList.toggle("hidden", state.tab !== "users");
-      document.getElementById("groupsPanel").classList.toggle("hidden", state.tab !== "groups");
-      document.getElementById("statusFilter").classList.toggle("hidden", state.tab !== "orders");
+async function createPortalAdmin(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("button[type='submit']");
+  const phone = String(new FormData(form).get("phone") || "").trim();
+
+  if (!phone) {
+    showToast("Вкажіть номер телефону", "error");
+    return;
+  }
+
+  submit.disabled = true;
+  try {
+    await apiFetch("/admin/portal-admins", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
     });
+    form.reset();
+    ensurePhonePrefix(form.elements.phone);
+    showToast("Адміна додано");
+    await loadAdminData();
+  } catch (error) {
+    showToast(error.message || "Не вдалося додати адміна", "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function togglePortalAdmin(button) {
+  const adminId = button.dataset.portalAdminId;
+  const active = button.dataset.portalAdminActive === "true";
+  if (!adminId) return;
+
+  button.disabled = true;
+  try {
+    await apiFetch(`/admin/portal-admins/${adminId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ active }),
+    });
+    showToast(active ? "Доступ адміна увімкнено" : "Доступ адміна вимкнено");
+    await loadAdminData();
+  } catch (error) {
+    showToast(error.message || "Не вдалося оновити доступ", "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveSupportQuestionAnswer(event) {
+  event.preventDefault();
+  const item = getActiveSupportQuestion();
+  if (!item) return;
+
+  const form = event.currentTarget;
+  const submit = form.querySelector("button[type='submit']");
+  const answer = String(document.getElementById("supportAnswerInput")?.value || "").trim();
+  const status = String(document.getElementById("supportAnswerStatus")?.value || "").trim();
+
+  submit.disabled = true;
+  try {
+    await apiFetch(`/admin/support-questions/${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ answer, status }),
+    });
+    showToast("Відповідь збережено");
+    await loadAdminData();
+    state.activeSupportQuestionId = item.id;
+    renderSupportQuestionModal();
+  } catch (error) {
+    showToast(error.message || "Не вдалося зберегти відповідь", "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+function setAdminSection(section, options = {}) {
+  const nextSection = normalizeAdminSection(section);
+  state.tab = nextSection;
+
+  document.getElementById("dashboardPanel")?.classList.toggle("hidden", nextSection !== "dashboard");
+  document.getElementById("adminToolbar")?.classList.toggle("hidden", nextSection === "dashboard");
+  document.getElementById("ordersPanel")?.classList.toggle("hidden", nextSection !== "orders");
+  document.getElementById("usersPanel")?.classList.toggle("hidden", nextSection !== "users");
+  document.getElementById("adminsPanel")?.classList.toggle("hidden", nextSection !== "admins");
+  document.getElementById("groupsPanel")?.classList.toggle("hidden", nextSection !== "groups");
+  document.getElementById("supportPanel")?.classList.toggle("hidden", nextSection !== "support");
+  document.getElementById("statusFilter")?.classList.toggle("hidden", nextSection !== "orders");
+  document.getElementById("supportStatusFilter")?.classList.toggle("hidden", nextSection !== "support");
+
+  const meta = adminSections[nextSection];
+  const title = document.getElementById("pageTitle");
+  const eyebrow = document.getElementById("pageEyebrow");
+  if (title) title.textContent = meta.title;
+  if (eyebrow) eyebrow.textContent = meta.eyebrow;
+
+  document.querySelectorAll("[data-admin-section]").forEach((link) => {
+    link.classList.toggle("active", link.dataset.adminSection === nextSection);
+  });
+  document.querySelector('.nav-parent-link[data-admin-section="dashboard"]')?.classList.add("active");
+  document.querySelector(".nav-group-head")?.classList.add("active");
+
+  setAdminNavOpen(true);
+
+  if (options.push && typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    url.pathname = nextSection === "dashboard" ? "/portal/admin" : `/portal/${nextSection}`;
+    url.searchParams.delete("section");
+    window.history.pushState({ section: nextSection }, "", url);
+  } else if (options.replace && typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    url.pathname = nextSection === "dashboard" ? "/portal/admin" : `/portal/${nextSection}`;
+    url.searchParams.delete("section");
+    window.history.replaceState({ section: nextSection }, "", url);
+  }
+}
+
+function bindAdmin() {
+  document.querySelectorAll("[data-admin-section]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      setAdminSection(link.dataset.adminSection, { push: true });
+    });
+  });
+  window.addEventListener("popstate", () => setAdminSection(getInitialAdminSection()));
+  setAdminSection(state.tab, {
+    replace: window.location.pathname === "/portal/" || window.location.pathname === "/portal",
   });
 
   document.getElementById("refreshButton").addEventListener("click", loadAdminData);
+  document.getElementById("portalAdminForm").addEventListener("submit", createPortalAdmin);
   document.getElementById("groupForm").addEventListener("submit", createGroup);
   document.getElementById("openAddMembersButton").addEventListener("click", openAddMembersModal);
   document.getElementById("memberSearchInput").addEventListener("input", renderAddMembersModal);
+  document.getElementById("supportQuestionForm").addEventListener("submit", saveSupportQuestionAnswer);
   document.querySelectorAll("[data-modal-close]").forEach((button) => {
     button.addEventListener("click", () => closeModal(button.dataset.modalClose));
   });
@@ -751,6 +1117,7 @@ function bindAdmin() {
     if (button) removeUserFromActiveGroup(button);
   });
   document.getElementById("statusFilter").addEventListener("change", loadAdminData);
+  document.getElementById("supportStatusFilter").addEventListener("change", renderSupportQuestions);
   document.getElementById("searchInput").addEventListener(
     "input",
     debounce(() => {
@@ -758,11 +1125,29 @@ function bindAdmin() {
         loadAdminData();
       } else if (state.tab === "users") {
         renderUsers();
+      } else if (state.tab === "admins") {
+        renderPortalAdmins();
       } else if (state.tab === "groups") {
         renderGroups();
+      } else if (state.tab === "support") {
+        renderSupportQuestions();
       }
     }, 250)
   );
+  document.getElementById("portalAdminsTable").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-portal-admin-id]");
+    if (button) togglePortalAdmin(button);
+  });
+  document.getElementById("supportQuestionsTable").addEventListener("click", (event) => {
+    const openButton = event.target.closest("[data-support-open]");
+    if (openButton) {
+      openSupportQuestionModal(openButton.dataset.supportOpen);
+      return;
+    }
+
+    const button = event.target.closest("[data-support-answer]");
+    if (button) openSupportQuestionModal(button.dataset.supportAnswer);
+  });
   document.getElementById("usersTable").addEventListener("click", (event) => {
     const option = event.target.closest("[data-group-option]");
     if (option) {
@@ -893,7 +1278,7 @@ async function boot() {
   }
   try {
     await loadProfile();
-    if (!state.user?.isAdmin && state.user?.role !== "ADMIN") {
+    if (!state.user?.isPortalAdmin) {
       throw new Error("Потрібен адмінський доступ");
     }
     showAuth(false);
@@ -910,14 +1295,22 @@ async function boot() {
 
 loginForm?.addEventListener("submit", login);
 sendCodeButton?.addEventListener("click", sendPhoneCode);
-loginForm?.phone?.addEventListener("input", () => {
-  sendCodeButton?.classList.add("dirty");
-});
 document.querySelectorAll("[data-auth-method]").forEach((button) => {
   button.addEventListener("click", () => setAuthMethod(button.dataset.authMethod));
 });
+document.querySelectorAll('input[name="phone"]').forEach((input) => {
+  ensurePhonePrefix(input);
+  input.addEventListener("focus", () => ensurePhonePrefix(input));
+  input.addEventListener("input", () => {
+    ensurePhonePrefix(input);
+    loginError?.classList.remove("success");
+    if (loginError) loginError.textContent = "";
+  });
+});
 document.getElementById("logoutButton")?.addEventListener("click", logout);
+document.querySelector("[data-admin-nav-toggle]")?.addEventListener("click", toggleAdminNavGroup);
 
+setAuthMethod(state.authMethod);
 if (page === "admin") bindAdmin();
 if (page === "analytics") bindAnalytics();
 boot();

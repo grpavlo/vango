@@ -9,17 +9,25 @@ const authRoutes = require('./routes/authRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const financialRoutes = require('./routes/financialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const savedSearchRoutes = require('./routes/savedSearchRoutes');
 const driverProfileRoutes = require('./routes/driverProfileRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
 require('./models/orderResponse');
 require('./models/orderRouteSearchEvent');
 require('./models/group');
+require('./models/supportQuestion');
+require('./models/portalAdmin');
 const { startOrderLifecycleScheduler } = require('./services/orderLifecycleScheduler');
+const {
+  ensurePortalAdminFromEnv,
+  syncPortalAdminsFromLegacyUsers,
+} = require('./services/portalAdmins');
 const { getLifecycleCutoffDate } = require('./utils/orderLifecycle');
 const { Op } = require('sequelize');
 
@@ -43,14 +51,34 @@ app.get('/portal/analysts', (_req, res) => {
 app.get('/portal/analysts/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
 });
+app.get('/portal/admin', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
+app.get('/portal/orders', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
+app.get('/portal/users', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
+app.get('/portal/admins', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
+app.get('/portal/groups', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
+app.get('/portal/support', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/index.html'));
+});
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/finance', financialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/saved-searches', savedSearchRoutes);
+app.use('/api/support', supportRoutes);
 app.use("/api", driverProfileRoutes);
 
 
@@ -126,6 +154,8 @@ async function start() {
   try {
     await removeInvalidFavorites();
     await db.sync({ alter: true });
+    await syncPortalAdminsFromLegacyUsers();
+    await ensurePortalAdminFromEnv();
     const server = http.createServer(app);
     setupWebSocket(server);
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

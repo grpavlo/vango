@@ -19,6 +19,9 @@ import EditCustomerProfileScreen from './src/screens/EditCustomerProfileScreen';
 import DriverProfileScreen from './src/screens/DriverProfileScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import SupportHelpScreen from './src/screens/SupportHelpScreen';
+import SupportChatScreen from './src/screens/SupportChatScreen';
+import SupportRequestScreen from './src/screens/SupportRequestScreen';
 import RateUserScreen from './src/screens/RateUserScreen';
 import RatingDetailScreen from './src/screens/RatingDetailScreen';
 import { navigationRef } from './src/navigationRef';
@@ -87,6 +90,60 @@ function RootNavigator({ introComplete, onIntroComplete }) {
               headerShadowVisible: true,
             }}
           />
+          <Stack.Screen
+            name="SupportHelp"
+            component={SupportHelpScreen}
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Підтримка',
+              headerTitleAlign: 'center',
+              headerStyle: { backgroundColor: '#f9fafb' },
+              headerTitleStyle: {
+                color: '#273033',
+                fontSize: 20,
+                fontWeight: '800',
+              },
+              headerTintColor: '#273033',
+              headerShadowVisible: true,
+            }}
+          />
+          <Stack.Screen
+            name="SupportChat"
+            component={SupportChatScreen}
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Робот підтримки',
+              headerTitleAlign: 'center',
+              headerStyle: { backgroundColor: '#f9fafb' },
+              headerTitleStyle: {
+                color: '#273033',
+                fontSize: 20,
+                fontWeight: '800',
+              },
+              headerTintColor: '#273033',
+              headerShadowVisible: true,
+            }}
+          />
+          <Stack.Screen
+            name="SupportRequest"
+            component={SupportRequestScreen}
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Питання розробникам',
+              headerTitleAlign: 'center',
+              headerStyle: { backgroundColor: '#f9fafb' },
+              headerTitleStyle: {
+                color: '#273033',
+                fontSize: 20,
+                fontWeight: '800',
+              },
+              headerTintColor: '#273033',
+              headerShadowVisible: true,
+            }}
+          />
         </>
       )}
     </Stack.Navigator>
@@ -141,6 +198,12 @@ export default function App() {
           comment: action.comment,
           fromUserName: action.fromUserName,
           fromRoleLabel: action.fromRoleLabel,
+        });
+        break;
+      case 'supportRequest':
+        navigationRef.navigate('SupportRequest', {
+          supportQuestionId: action.supportQuestionId,
+          notificationOpenedAt: action.requestId,
         });
         break;
       default:
@@ -199,6 +262,13 @@ export default function App() {
           comment: data.comment,
           fromUserName: data.fromUserName,
           fromRoleLabel: data.fromRoleLabel,
+          requestId,
+        };
+      case 'SupportRequest':
+      case 'supportRequest':
+        return {
+          type: 'supportRequest',
+          supportQuestionId: data.supportQuestionId,
           requestId,
         };
       default:
@@ -320,17 +390,19 @@ export default function App() {
   }, [handleNotificationNavigation, notifyOrderChangeFromPush, showInAppNotification]);
 
   return (
-    <Host>
-      <ToastProvider>
-        <AuthProvider>
-          <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
-            <RootNavigator
-              introComplete={introComplete}
-              onIntroComplete={() => setIntroComplete(true)}
-            />
-          </NavigationContainer>
-        </AuthProvider>
-      </ToastProvider>
-    </Host>
+    <SafeAreaProvider>
+      <Host>
+        <ToastProvider>
+          <AuthProvider>
+            <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
+              <RootNavigator
+                introComplete={introComplete}
+                onIntroComplete={() => setIntroComplete(true)}
+              />
+            </NavigationContainer>
+          </AuthProvider>
+        </ToastProvider>
+      </Host>
+    </SafeAreaProvider>
   );
 }
