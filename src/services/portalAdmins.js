@@ -14,8 +14,9 @@ async function ensurePortalAdminFromEnv() {
   if (!email || !password) {
     return null;
   }
-
-  const existing = await PortalAdmin.findOne({ where: { email } });
+const existing = await PortalAdmin.findOne({
+  where: phone ? { [Op.or]: [{ email }, { phone }] } : { email },
+});
   if (existing) {
     if (phone && existing.phone !== phone) {
       existing.phone = phone;
@@ -46,7 +47,9 @@ async function syncPortalAdminsFromLegacyUsers() {
     if (!email || !user.password) continue;
 
     const phone = user.phone ? normalizePhone(user.phone) : null;
-    const existing = await PortalAdmin.findOne({ where: { email } });
+    const existing = await PortalAdmin.findOne({
+  where: phone ? { [Op.or]: [{ email }, { phone }] } : { email },
+});
     if (existing) {
       let changed = false;
       if (phone && existing.phone !== phone) {
