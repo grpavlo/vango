@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +16,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
-import { apiFetch } from '../api';
+import { HOST_URL, apiFetch } from '../api';
+import PhotoPicker from '../components/PhotoPicker';
+
+const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 const statusLabels = {
   OPEN: 'Передано',
@@ -37,19 +41,39 @@ function formatDate(value) {
   });
 }
 
+function getPhotoUri(path) {
+  const value = String(path || '').trim();
+  if (!value) return '';
+  return value.startsWith('http') ? value : `${HOST_URL}${value}`;
+}
+
+function getSupportPhotos(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function appendPhoto(formData, uri, index) {
+  if (!uri || typeof uri !== 'string') return;
+  const filename = uri.split('/').pop()?.split('?')[0] || `support-photo-${Date.now()}-${index + 1}.jpg`;
+  const ext = (filename.match(/\.([a-z0-9]+)$/i)?.[1] || 'jpg').toLowerCase();
+  const type = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+  formData.append('photos', { uri, name: filename, type });
+}
+
 export default function SupportRequestScreen() {
   const { token } = useAuth();
   const insets = useSafeAreaInsets();
   const [question, setQuestion] = useState('');
+  const [photos, setPhotos] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const loadQuestions = useCallback(async () => {
+  const loadQuestions = useCallback(async (options = {}) => {
     if (!token) return;
-    setLoading(true);
+    const silent = Boolean(options.silent);
+    if (!silent) setLoading(true);
     try {
       const data = await apiFetch('/support/questions', {
         headers: { Authorization: `Bearer ${token}` },
@@ -57,13 +81,18 @@ export default function SupportRequestScreen() {
       setItems(Array.isArray(data) ? data : []);
     } catch {
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [token]);
 
   useFocusEffect(
     useCallback(() => {
       loadQuestions();
+      const timer = setInterval(() => {
+        loadQuestions({ silent: true });
+      }, AUTO_REFRESH_INTERVAL_MS);
+
+      return () => clearInterval(timer);
     }, [loadQuestions])
   );
 
@@ -75,12 +104,17 @@ export default function SupportRequestScreen() {
     setSuccessMessage('');
     setErrorMessage('');
     try {
+      const formData = new FormData();
+      formData.append('question', text);
+      photos.forEach((uri, index) => appendPhoto(formData, uri, index));
+
       const response = await apiFetch('/support/questions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ question: text }),
+        body: formData,
       });
       setQuestion('');
+      setPhotos([]);
       setSuccessMessage(
         response?.message ||
           'Питання передано розробникам. Ви отримаєте відповідь у застосунку найближчим часом.'
@@ -97,8 +131,8 @@ export default function SupportRequestScreen() {
     <SafeAreaView style={styles.screen} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : undefined}
       >
         <ScrollView
           contentContainerStyle={[
@@ -132,6 +166,12 @@ export default function SupportRequestScreen() {
               editable={!submitting}
             />
             <Text style={styles.counter}>{question.length}/1200</Text>
+
+            <View style={styles.photoField}>
+              <Text style={styles.label}>Фото</Text>
+              <Text style={styles.photoHint}>Додайте скрін або фото проблеми, якщо це допоможе розробникам.</Text>
+              <PhotoPicker photos={photos} onChange={setPhotos} maxCount={5} />
+            </View>
 
             {!!successMessage && (
               <View style={styles.successBox}>
@@ -193,6 +233,17 @@ export default function SupportRequestScreen() {
                     </Text>
                   </View>
                   <Text style={styles.questionText}>{item.question}</Text>
+                  {getSupportPhotos(item.photos).length > 0 && (
+                    <ScrollView horizontal style={styles.historyPhotos} showsHorizontalScrollIndicator={false}>
+                      {getSupportPhotos(item.photos).map((photo, index) => (
+                        <Image
+                          key={`${item.id}-photo-${index}`}
+                          source={{ uri: getPhotoUri(photo) }}
+                          style={styles.historyPhoto}
+                        />
+                      ))}
+                    </ScrollView>
+                  )}
                   {!!item.answer && (
                     <View style={styles.answerBox}>
                       <Text style={styles.answerLabel}>Відповідь</Text>
@@ -281,6 +332,15 @@ const styles = StyleSheet.create({
     color: colors.gray500,
     fontSize: 12,
     fontWeight: '600',
+  },
+  photoField: {
+    marginTop: 10,
+    gap: 8,
+  },
+  photoHint: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   successBox: {
     flexDirection: 'row',
@@ -402,6 +462,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  historyPhotos: {
+    marginTop: 10,
+  },
+  historyPhoto: {
+    width: 82,
+    height: 82,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: colors.background,
   },
   answerBox: {
     marginTop: 10,

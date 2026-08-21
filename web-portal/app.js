@@ -545,6 +545,10 @@ function userDisplay(user) {
   return { name, contact };
 }
 
+function getSupportPhotos(item) {
+  return Array.isArray(item?.photos) ? item.photos.filter(Boolean) : [];
+}
+
 function renderSupportQuestions() {
   const table = document.getElementById("supportQuestionsTable");
   const count = document.getElementById("supportCount");
@@ -558,6 +562,7 @@ function renderSupportQuestions() {
         item.id,
         item.question,
         item.answer,
+        getSupportPhotos(item).join(" "),
         item.status,
         supportStatusLabels[item.status],
         item.user?.name,
@@ -579,6 +584,7 @@ function renderSupportQuestions() {
   table.innerHTML = items
     .map((item) => {
       const user = userDisplay(item.user);
+      const photos = getSupportPhotos(item);
       return `
         <tr>
           <td><strong>${escapeHtml(item.id)}</strong></td>
@@ -590,6 +596,7 @@ function renderSupportQuestions() {
             <button class="support-question-open" data-support-open="${escapeHtml(item.id)}" type="button">
               ${escapeHtml(item.question)}
             </button>
+            ${photos.length ? `<span class="support-attachment-note">${photos.length} фото</span>` : ""}
             ${item.answer ? `<span class="muted">Відповідь: ${escapeHtml(item.answer)}</span>` : ""}
           </td>
           <td>${supportStatusBadge(item.status)}</td>
@@ -688,6 +695,19 @@ function renderSupportQuestionModal() {
   document.getElementById("supportModalContact").textContent = `${user.contact} · ${roleLabels[item.user?.role] || item.user?.role || "-"}`;
   document.getElementById("supportModalDate").textContent = date(item.createdAt);
   document.getElementById("supportModalQuestion").textContent = item.question || "-";
+  const photos = getSupportPhotos(item);
+  const photosSection = document.getElementById("supportModalPhotosSection");
+  const photosContainer = document.getElementById("supportModalPhotos");
+  photosSection?.classList.toggle("hidden", photos.length === 0);
+  if (photosContainer) {
+    photosContainer.innerHTML = photos
+      .map((photo, index) => `
+        <a class="support-photo-link" href="${escapeHtml(photo)}" target="_blank" rel="noopener">
+          <img src="${escapeHtml(photo)}" alt="Фото ${index + 1}" />
+        </a>
+      `)
+      .join("");
+  }
   const normalizedStatus = normalizeSupportStatus(item.status);
   document.getElementById("supportAnswerStatus").value = supportStatusLabels[normalizedStatus]
     ? normalizedStatus

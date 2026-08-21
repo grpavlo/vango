@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, AppState, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { Ionicons } from '@expo/vector-icons';
 import AppText from '../components/AppText';
 
 let Clipboard = null;
@@ -145,6 +146,10 @@ export default function PhoneAuthScreen({ navigation }) {
 
   codeRef.current = code;
 
+  function openLoginHelp() {
+    navigation.navigate('LoginSupportChat', { publicMode: true });
+  }
+
   useEffect(() => {
     if (step !== 'code' || Platform.OS !== 'android' || !OtpVerify?.getOtp || !OtpVerify?.addListener) {
       return;
@@ -228,6 +233,14 @@ export default function PhoneAuthScreen({ navigation }) {
                 onPress={handleSendCode}
                 disabled={loading}
               />
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.helpButton}
+                onPress={openLoginHelp}
+              >
+                <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+                <AppText style={styles.helpButtonText}>Допомога з входом</AppText>
+              </TouchableOpacity>
             </>
           ) : (
             <>
@@ -258,6 +271,14 @@ export default function PhoneAuthScreen({ navigation }) {
                 disabled={loading}
               >
                 <AppText style={styles.backLinkText}>Змінити номер</AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={styles.helpButton}
+                onPress={openLoginHelp}
+              >
+                <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+                <AppText style={styles.helpButtonText}>Не вдається увійти?</AppText>
               </TouchableOpacity>
             </>
           )}
@@ -294,6 +315,23 @@ const styles = StyleSheet.create({
   pasteLinkText: {
     color: colors.primary,
     fontSize: 15,
+  },
+  helpButton: {
+    marginTop: 14,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: colors.primary100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  helpButtonText: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
   },
   backLink: {
     marginTop: 20,

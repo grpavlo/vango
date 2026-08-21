@@ -789,7 +789,7 @@ async function updateSupportQuestion(req, res) {
         user.pushToken,
         "Відповідь від підтримки VanGo",
         "Розробники відповіли на ваше питання. Відкрийте звернення в застосунку.",
-        { navigateTo: "SupportRequest", supportQuestionId: item.id }
+        { navigateTo: "SupportRequest", supportQuestionId: item.id, recipientUserId: item.userId }
       );
     }
   }

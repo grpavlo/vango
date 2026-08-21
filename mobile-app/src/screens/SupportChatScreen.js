@@ -16,19 +16,23 @@ import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 import { apiFetch } from '../api';
 
-export default function SupportChatScreen() {
+export default function SupportChatScreen({ route }) {
   const { token } = useAuth();
   const insets = useSafeAreaInsets();
+  const publicMode = Boolean(route?.params?.publicMode);
   const scrollRef = useRef(null);
   const [questionText, setQuestionText] = useState('');
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       author: 'bot',
-      text: 'Напишіть питання про роботу VanGo, а я спробую швидко відповісти.',
+      text: publicMode
+        ? 'Напишіть питання про вхід у VanGo, номер телефону або SMS-код, а я спробую швидко відповісти.'
+        : 'Напишіть питання про роботу VanGo, а я спробую швидко відповісти.',
     },
   ]);
   const [sending, setSending] = useState(false);
+  const hasConversation = messages.length > 1;
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -53,9 +57,10 @@ export default function SupportChatScreen() {
     scrollToBottom();
 
     try {
-      const response = await apiFetch('/support/ask', {
+      const headers = token && !publicMode ? { Authorization: `Bearer ${token}` } : {};
+      const response = await apiFetch(publicMode ? '/support/public-ask' : '/support/ask', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         body: JSON.stringify({ question: text }),
       });
       setMessages((current) => [
@@ -87,8 +92,8 @@ export default function SupportChatScreen() {
     <SafeAreaView style={styles.screen} edges={['left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : undefined}
       >
         <ScrollView
           ref={scrollRef}
@@ -98,15 +103,19 @@ export default function SupportChatScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.intro}>
-            <View style={styles.introIcon}>
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color={colors.primary} />
+          {!hasConversation && (
+            <View style={styles.intro}>
+              <View style={styles.introIcon}>
+                <Ionicons name="chatbubble-ellipses-outline" size={28} color={colors.primary} />
+              </View>
+              <Text style={styles.introTitle}>Робот підтримки</Text>
+              <Text style={styles.introText}>
+                {publicMode
+                  ? 'Питайте про вхід, SMS-код, формат номера або проблеми з авторизацією.'
+                  : 'Питайте про замовлення, ролі, сповіщення, оплату або налаштування.'}
+              </Text>
             </View>
-            <Text style={styles.introTitle}>Робот підтримки</Text>
-            <Text style={styles.introText}>
-              Питайте про замовлення, ролі, сповіщення, оплату або налаштування.
-            </Text>
-          </View>
+          )}
 
           <View style={styles.messages}>
             {messages.map((item) => {

@@ -26,6 +26,29 @@ function sanitizeSmsAppHash(hash) {
   return /^[A-Za-z0-9+/_-]{11}$/.test(trimmed) ? trimmed : '';
 }
 
+async function detachPushTokensFromOtherUsers(tokens, currentUserId) {
+  const tokenSet = new Set(normalizePushTokens(tokens));
+  if (tokenSet.size === 0) return;
+
+  const users = await User.findAll({
+    where: {
+      id: { [Op.ne]: currentUserId },
+      pushToken: { [Op.ne]: null },
+    },
+  });
+
+  await Promise.all(
+    users.map(async (user) => {
+      const currentTokens = normalizePushTokens(user.pushToken);
+      const nextTokens = currentTokens.filter((item) => !tokenSet.has(item));
+      if (nextTokens.length === currentTokens.length) return;
+
+      user.pushToken = nextTokens.length ? JSON.stringify(nextTokens) : null;
+      await user.save();
+    })
+  );
+}
+
 function buildLoginCodeSms(code, appHash) {
   const baseText = `${code} - код для входу в VanGo. Дійсний 5 хв.`;
   if (!appHash) return baseText;
@@ -134,7 +157,7 @@ async function verifyPhoneCode(req, res) {
     await user.save();
   }
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-  res.json({ token, role: user.role, isAdmin: user.isAdmin });
+  res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin });
 }
 
 async function register(req, res) {
@@ -165,7 +188,7 @@ async function login(req, res) {
       return;
     }
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-    res.json({ token, role: user.role, isAdmin: user.isAdmin });
+    res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin });
   } catch (err) {
     res.status(400).send('Помилка входу');
 
@@ -345,7 +368,9 @@ async function updateRole(req, res) {
 async function updatePushToken(req, res) {
   const token = req.body && req.body.token;
   if (!token) return res.status(400).send('Token required');
-  const tokens = normalizePushTokens([...normalizePushTokens(req.user.pushToken), token]);
+  const incomingTokens = normalizePushTokens(token);
+  await detachPushTokensFromOtherUsers(incomingTokens, req.user.id);
+  const tokens = normalizePushTokens([...normalizePushTokens(req.user.pushToken), ...incomingTokens]);
   req.user.pushToken = JSON.stringify(tokens.slice(-5));
   await req.user.save();
   res.sendStatus(204);

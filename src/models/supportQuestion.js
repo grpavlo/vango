@@ -32,6 +32,11 @@ SupportQuestion.init(
     answer: {
       type: DataTypes.TEXT,
     },
+    photos: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+    },
     answeredAt: {
       type: DataTypes.DATE,
     },

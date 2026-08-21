@@ -61,7 +61,7 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
 
   async function pickFromLibrary() {
     if (maxCount > 1 && list.length >= maxCount) {
-      toast.show("Максимум 10 фотографій");
+      toast.show(`Максимум ${maxCount} фотографій`);
       return;
     }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -78,7 +78,7 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
 
   async function takePhoto() {
     if (maxCount > 1 && list.length >= maxCount) {
-      toast.show("Максимум 10 фотографій");
+      toast.show(`Максимум ${maxCount} фотографій`);
       return;
     }
     const perm = await ImagePicker.requestCameraPermissionsAsync();

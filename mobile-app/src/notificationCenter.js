@@ -5,6 +5,26 @@ const MAX_ITEMS = 80;
 const DEFAULT_TITLE = '\u0421\u043f\u043e\u0432\u0456\u0449\u0435\u043d\u043d\u044f';
 const LEGACY_DEFAULT_TITLE = 'РЎРїРѕРІС–С‰РµРЅРЅСЏ';
 const listeners = new Set();
+let activeUserId = null;
+
+function normalizeUserId(value) {
+  const normalized = value == null ? '' : String(value).trim();
+  return normalized || null;
+}
+
+function getStorageKey() {
+  return activeUserId ? `${STORAGE_KEY}:user:${activeUserId}` : `${STORAGE_KEY}:guest`;
+}
+
+async function ensureActiveUser() {
+  if (activeUserId) return activeUserId;
+  try {
+    activeUserId = normalizeUserId(await AsyncStorage.getItem('userId'));
+  } catch {
+    activeUserId = null;
+  }
+  return activeUserId;
+}
 
 function normalizeData(data = {}) {
   const orderId = data?.orderId != null ? String(data.orderId) : null;
@@ -44,6 +64,11 @@ function normalizeNotification(input = {}) {
   const data = normalizeData(content.data || input.data || {});
   const title = getTextValue(content.title || input.title);
   const body = getTextValue(content.body || input.body);
+  const recipientUserId = normalizeUserId(data?.recipientUserId);
+
+  if (recipientUserId && recipientUserId !== activeUserId) {
+    return null;
+  }
 
   if (!title && !body && !hasActionableData(data)) {
     return null;
@@ -59,6 +84,7 @@ function normalizeNotification(input = {}) {
     title: title || DEFAULT_TITLE,
     body,
     data,
+    userId: activeUserId,
     receivedAt: input.receivedAt || new Date().toISOString(),
     read: Boolean(input.read),
   };
@@ -66,7 +92,8 @@ function normalizeNotification(input = {}) {
 
 async function readRawItems() {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    await ensureActiveUser();
+    const raw = await AsyncStorage.getItem(getStorageKey());
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.filter((item) => !isDefaultOnlyNotification(item))
@@ -78,7 +105,7 @@ async function readRawItems() {
 
 async function writeItems(items) {
   const filteredItems = (items || []).filter((item) => !isDefaultOnlyNotification(item));
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filteredItems.slice(0, MAX_ITEMS)));
+  await AsyncStorage.setItem(getStorageKey(), JSON.stringify(filteredItems.slice(0, MAX_ITEMS)));
   notifyListeners(filteredItems);
 }
 
@@ -94,7 +121,18 @@ export async function getStoredNotifications() {
   return readRawItems();
 }
 
+export async function setNotificationCenterUser(userId) {
+  activeUserId = normalizeUserId(userId);
+  const items = await readRawItems();
+  notifyListeners(items);
+}
+
 export async function addStoredNotification(input) {
+  await ensureActiveUser();
+  if (!activeUserId) {
+    return null;
+  }
+
   const nextItem = normalizeNotification(input);
   if (!nextItem) {
     console.info('[notificationCenter] skipped empty notification', {

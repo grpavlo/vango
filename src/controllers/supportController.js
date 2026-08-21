@@ -8,6 +8,7 @@ const {
   sendTelegramMessage,
 } = require('../services/supportNotifications');
 const { sendPush } = require('../utils/push');
+const { cleanupUploadUrls, pathToUploadUrl } = require('../utils/uploadFiles');
 
 function getTelegramMessage(update) {
   return update?.message || update?.edited_message || null;
@@ -51,7 +52,12 @@ async function notifySupportAnswerUser(item, answer) {
       user.pushToken,
       '\u0412\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u044c \u0432\u0456\u0434 \u043f\u0456\u0434\u0442\u0440\u0438\u043c\u043a\u0438 VanGo',
       '\u0420\u043e\u0437\u0440\u043e\u0431\u043d\u0438\u043a\u0438 \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u043b\u0438 \u043d\u0430 \u0432\u0430\u0448\u0435 \u043f\u0438\u0442\u0430\u043d\u043d\u044f. \u0412\u0456\u0434\u043a\u0440\u0438\u0439\u0442\u0435 \u0437\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f \u0432 \u0437\u0430\u0441\u0442\u043e\u0441\u0443\u043d\u043a\u0443.',
-      { navigateTo: 'SupportRequest', supportQuestionId: item.id, answerPreview: answer.slice(0, 140) }
+      {
+        navigateTo: 'SupportRequest',
+        supportQuestionId: item.id,
+        recipientUserId: item.userId,
+        answerPreview: answer.slice(0, 140),
+      }
     );
   }
 }
@@ -80,6 +86,32 @@ async function askSupportQuestion(req, res) {
   }
 }
 
+async function askPublicSupportQuestion(req, res) {
+  const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+
+  if (question.length < 2) {
+    return res.status(400).json({ error: 'Напишіть питання трохи детальніше.' });
+  }
+
+  if (question.length > 800) {
+    return res.status(400).json({ error: 'Питання занадто довге. Скоротіть його, будь ласка.' });
+  }
+
+  try {
+    const result = await answerSupportQuestion({
+      question,
+      role: null,
+      allowAi: false,
+      publicMode: true,
+    });
+    return res.json(result);
+  } catch {
+    return res.status(500).json({
+      error: 'Не вдалося підготувати відповідь. Спробуйте ще раз трохи пізніше.',
+    });
+  }
+}
+
 async function listMySupportQuestions(req, res) {
   const items = await SupportQuestion.findAll({
     where: { userId: req.user.id },
@@ -91,18 +123,24 @@ async function listMySupportQuestions(req, res) {
 
 async function createSupportQuestion(req, res) {
   const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+  const photos = Array.isArray(req.files)
+    ? req.files.map((file) => pathToUploadUrl(file?.path)).filter(Boolean)
+    : [];
 
   if (question.length < 5) {
+    await cleanupUploadUrls(photos);
     return res.status(400).json({ error: 'Опишіть питання трохи детальніше.' });
   }
 
   if (question.length > 1200) {
+    await cleanupUploadUrls(photos);
     return res.status(400).json({ error: 'Питання занадто довге. Скоротіть його, будь ласка.' });
   }
 
   const item = await SupportQuestion.create({
     userId: req.user.id,
     question,
+    photos,
   });
 
   const created = await SupportQuestion.findByPk(item.id, {
@@ -119,6 +157,7 @@ async function createSupportQuestion(req, res) {
   return res.status(201).json({
     id: item.id,
     status: item.status,
+    photos: item.photos,
     message:
       'Питання передано розробникам. Ви отримаєте відповідь у застосунку найближчим часом.',
   });
@@ -207,6 +246,7 @@ async function telegramWebhook(req, res) {
 
 module.exports = {
   askSupportQuestion,
+  askPublicSupportQuestion,
   listMySupportQuestions,
   createSupportQuestion,
   telegramWebhook,

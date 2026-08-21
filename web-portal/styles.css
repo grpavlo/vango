@@ -564,6 +564,19 @@ tr:last-child td {
   line-height: 1.35;
 }
 
+.support-attachment-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-top: 8px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--brand-strong);
+  background: #e7f4ec;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .support-question-open {
   display: block;
   width: 100%;
@@ -841,6 +854,28 @@ tr:last-child td {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.support-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.support-photo-link {
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  aspect-ratio: 1;
+}
+
+.support-photo-link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .support-answer-form {

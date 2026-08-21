@@ -56,7 +56,27 @@ function RootNavigator({ introComplete, onIntroComplete }) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {token == null ? (
-        <Stack.Screen name="Login" component={PhoneAuthScreen} />
+        <>
+          <Stack.Screen name="Login" component={PhoneAuthScreen} />
+          <Stack.Screen
+            name="LoginSupportChat"
+            component={SupportChatScreen}
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Допомога з входом',
+              headerTitleAlign: 'center',
+              headerStyle: { backgroundColor: '#f9fafb' },
+              headerTitleStyle: {
+                color: '#273033',
+                fontSize: 20,
+                fontWeight: '800',
+              },
+              headerTintColor: '#273033',
+              headerShadowVisible: true,
+            }}
+          />
+        </>
       ) : role == null ? (
         <Stack.Screen name="Role" component={RoleScreen} />
       ) : needsProfileSetup ? (
@@ -348,26 +368,28 @@ export default function App() {
   }, [executeNavigationAction]);
 
   useEffect(() => {
-    const storeNotification = (notification, read = false) => {
+    const storeNotification = async (notification, read = false) => {
       const request = notification?.request;
       const content = request?.content;
-      if (!request || !content) return;
-      addStoredNotification({
+      if (!request || !content) return null;
+      return addStoredNotification({
         id: request.identifier,
         content,
         read,
-      }).catch(() => {});
+      }).catch(() => null);
     };
 
-    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
-      storeNotification(notification, false);
+    const receivedSub = Notifications.addNotificationReceivedListener(async (notification) => {
+      const stored = await storeNotification(notification, false);
+      if (!stored) return;
       const data = notification?.request?.content?.data || {};
       notifyOrderChangeFromPush(data);
       showInAppNotification(notification);
     });
 
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      storeNotification(response?.notification, true);
+    const sub = Notifications.addNotificationResponseReceivedListener(async (response) => {
+      const stored = await storeNotification(response?.notification, true);
+      if (!stored) return;
       const notificationId = response?.notification?.request?.identifier;
       const data = response?.notification?.request?.content?.data;
       notifyOrderChangeFromPush(data || {});
@@ -376,7 +398,8 @@ export default function App() {
     (async () => {
       const lastResponse = await Notifications.getLastNotificationResponseAsync();
       if (lastResponse) {
-        storeNotification(lastResponse?.notification, true);
+        const stored = await storeNotification(lastResponse?.notification, true);
+        if (!stored) return;
         const notificationId = lastResponse?.notification?.request?.identifier;
         const data = lastResponse?.notification?.request?.content?.data;
         notifyOrderChangeFromPush(data || {});
