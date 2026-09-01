@@ -20,12 +20,27 @@ The Android manifest references this string via:
 
 ## 2) iOS
 
-- Open `mobile-app/ios/mobile/Info.plist` and set the `GMSApiKey` value:
+- Set the iOS key in `mobile-app/app.json` so Expo/EAS prebuilds keep the key:
+
+```
+"ios": {
+  "config": {
+    "googleMapsApiKey": "YOUR_IOS_KEY"
+  },
+  "infoPlist": {
+    "GMSApiKey": "YOUR_IOS_KEY"
+  }
+}
+```
+
+- For direct native/Xcode builds, `mobile-app/ios/mobile/Info.plist` must also contain the same `GMSApiKey` value:
 
 ```
 <key>GMSApiKey</key>
 <string>YOUR_IOS_KEY</string>
 ```
+
+- In Google Cloud Console, the iOS key must have **Maps SDK for iOS** enabled and, if restricted, must allow bundle id `com.pashagr.mobile`.
 
 - Install pods after changing the key or updating dependencies:
 

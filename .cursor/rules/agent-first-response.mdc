@@ -1,0 +1,13 @@
+---
+description: New-session context order for repository agents.
+alwaysApply: true
+---
+
+Follow `AGENTS.md`.
+
+New sessions start with repository canon before code scanning:
+
+1. Read `README.md`.
+2. Read `25-AgentGraph/MOC - graph map.md`.
+3. Read targeted vault notes as needed.
+4. Use targeted code reads/searches on known touchpoints.

@@ -1,0 +1,31 @@
+export function VIcon({ name, size = 21 }: { name: string; size?: number }) {
+  const paths: Record<string, React.ReactNode> = {
+    case:<><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2"/></>,
+    eye:<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
+    shield:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/></>,
+    plus:<><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></>,
+    settings:<><circle cx="12" cy="12" r="3"/><path d="M19 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.5-2.4 1A8 8 0 0 0 14 5l-.3-3h-4l-.3 3a8 8 0 0 0-2.6 1.5l-2.4-1L2.4 9l2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.5 2.4-1A8 8 0 0 0 9.4 19l.3 3h4l.3-3a8 8 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z"/></>,
+    bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>,
+    headset:<><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M18 19h1a2 2 0 0 0 2-2v-3h-4v5h1ZM6 19H5a2 2 0 0 1-2-2v-3h4v5H6Z"/></>,
+    edit:<><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10L4 20Z"/><path d="m13.5 7 3.5 3.5"/></>,
+    chevron:<path d="m9 18 6-6-6-6"/>, user:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+    cube:<><path d="m21 8-9 5-9-5 9-5 9 5Z"/><path d="m3 8 9 5 9-5v8l-9 5-9-5V8ZM12 13v8"/></>,
+    car:<><path d="M5 17h14M5 17v2M19 17v2M4 12l2-5h12l2 5v5H4v-5Z"/><circle cx="7" cy="14" r="1"/><circle cx="17" cy="14" r="1"/></>,
+    arrow:<path d="m15 18-6-6 6-6"/>, upload:<><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v5h16v-5"/></>,
+    logout:<><path d="M10 17l5-5-5-5M15 12H3M15 4h5a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-5"/></>,
+    clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>, pin:<><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
+    route:<><path d="M6 18h.01M18 6h.01"/><path d="M6 18c0-7 12-5 12-12"/></>, "trail-sign":<><path d="M12 22V3"/><path d="M6 6h10l3 3-3 3H6l-3-3 3-3Z"/><path d="M8 14h10l3 3-3 3H8l-3-3 3-3Z"/></>, image:<><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4-4L5 20"/></>,
+    send:<><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></>, phone:<><path d="M22 16.9v3a2 2 0 0 1-2.2 2 20 20 0 0 1-8.7-3.1 19.6 19.6 0 0 1-6-6A20 20 0 0 1 2 4.1 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c1 .4 2 .6 3 .7a2 2 0 0 1 1.7 2Z"/></>,
+    check:<path d="m5 12 4 4L19 6"/>, calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
+    chart:<><path d="M4 20V10M10 20V4M16 20v-7M22 20V7"/><path d="M2 20h22"/></>,
+    card:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></>,
+    money:<><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9v.01M18 15v.01"/></>,
+    list:<><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></>,
+    map:<><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></>,
+    kanban:<><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/></>,
+    refresh:<><path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v4h4"/><path d="M6 22v-4H2"/></>,
+    sun:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></>,
+    moon:<path d="M21 13.8A8.5 8.5 0 1 1 10.2 3a6.5 6.5 0 0 0 10.8 10.8Z"/>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}

@@ -1085,7 +1085,12 @@ async function listMyOrders(req, res) {
   const now = new Date();
 
   let where = {};
-  const visibleCustomerIds = await getVisibleCustomerIds(req.user);
+  const ownCustomerOrdersOnly =
+    req.query.scope === "own" ||
+    req.query.own === "true";
+  const visibleCustomerIds = ownCustomerOrdersOnly
+    ? [req.user.id]
+    : await getVisibleCustomerIds(req.user);
 
   if (role === "CUSTOMER") {
 
@@ -2183,7 +2188,15 @@ async function updateStatus(req, res) {
     const prevHistory = Array.isArray(order.history) ? order.history : [];
     order.history = [...prevHistory, historyEntry];
     await order.save();
-    broadcastOrder(order);
+    const updatedOrder = await Order.findByPk(order.id, {
+      include: [
+        userIncludeWithProfile("driver"),
+        userIncludeWithProfile("candidateDriver"),
+        userIncludeWithProfile("reservedDriver"),
+        { model: User, as: "customer" },
+      ],
+    });
+    broadcastOrder(updatedOrder || order);
     if (status === OrderStatus.IN_PROGRESS && order.customerId) {
 
       const customer = await User.findByPk(order.customerId);
@@ -2262,7 +2275,13 @@ async function updateStatus(req, res) {
 
     }
 
-    res.json(order);
+    const responseOrder = updatedOrder
+      ? sanitizeOrderForUser(
+          await applyRoleRatingsToOrderJsons(updatedOrder.toJSON()),
+          req.user
+        )
+      : order;
+    res.json(responseOrder);
 
   } catch (err) {
 

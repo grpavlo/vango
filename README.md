@@ -36,4 +36,14 @@ Users must explicitly agree to receiving push notifications. Call
 to enable notifications for the current user. Pass `false` to revoke the
 consent.
 
+## Agent Workspace
+
+Agent setup is documented in `AGENTS.md`.
+
+- Graph map: `25-AgentGraph/MOC - graph map.md`
+- Saved plans: `10-Projects/plans/`
+- Planning template: `templates/Agent-planning-brief.md`
+- Agent graph node template: `templates/Agent-graph-node.md`
+
+The repository root also acts as the vault root for agent notes and plans.
 

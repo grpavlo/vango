@@ -4,7 +4,9 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development node src/index.js",
+    "dev": "node scripts/dev.js",
+    "dev:api": "cross-env NODE_ENV=development node src/index.js",
+    "dev:web": "npm --prefix webUserPortal run dev",
     "prod": "cross-env NODE_ENV=production node src/index.js",
     "seed": "cross-env NODE_ENV=development node src/seed.js",
     "seedprod": "cross-env NODE_ENV=production node src/seed.js"

@@ -64,6 +64,7 @@ async function notifySupportAnswerUser(item, answer) {
 
 async function askSupportQuestion(req, res) {
   const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+  const history = Array.isArray(req.body?.history) ? req.body.history : [];
 
   if (question.length < 2) {
     return res.status(400).json({ error: 'Напишіть питання трохи детальніше.' });
@@ -77,6 +78,7 @@ async function askSupportQuestion(req, res) {
     const result = await answerSupportQuestion({
       question,
       role: req.user?.role,
+      history,
     });
     return res.json(result);
   } catch {

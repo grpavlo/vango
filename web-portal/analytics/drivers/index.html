@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VanGo Driver Analytics</title>
+    <link rel="stylesheet" href="/portal/styles.css" />
+  </head>
+  <body data-page="analytics-drivers">
+    <aside class="sidebar">
+      <a class="brand" href="/portal/">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <span>VanGo</span>
+      </a>
+      <nav class="nav">
+        <div class="nav-group" id="adminNavGroup">
+          <div class="nav-group-head">
+            <a class="nav-link nav-parent-link" href="/portal/admin">Адмін</a>
+            <button class="nav-collapse-button" type="button" data-admin-nav-toggle aria-expanded="false" aria-label="Розгорнути меню Адмін"></button>
+          </div>
+          <div class="admin-subnav" id="adminSubnav">
+            <a class="admin-subnav-link" href="/portal/orders">Замовлення</a>
+            <a class="admin-subnav-link" href="/portal/users">Користувачі</a>
+            <a class="admin-subnav-link" href="/portal/admins">Адміни</a>
+            <a class="admin-subnav-link" href="/portal/groups">Команди</a>
+            <a class="admin-subnav-link" href="/portal/support">Звернення</a>
+          </div>
+        </div>
+        <div class="nav-group open">
+          <div class="nav-group-head active">
+            <a class="nav-link nav-parent-link active" href="/portal/analytics/">Аналітика</a>
+          </div>
+          <div class="admin-subnav">
+            <a class="admin-subnav-link" href="/portal/analytics/">Огляд</a>
+            <a class="admin-subnav-link active" href="/portal/analytics/drivers/">По водіях</a>
+            <a class="admin-subnav-link" href="/portal/analytics/orders/">По замовленнях</a>
+          </div>
+        </div>
+      </nav>
+      <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
+    </aside>
+
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Аналітика</p>
+          <h1>Статистика по водіях</h1>
+        </div>
+        <div class="filters">
+          <select id="analyticsDriver" aria-label="Водій">
+            <option value="ALL">Усі водії</option>
+          </select>
+          <input id="analyticsDateFrom" type="date" aria-label="Дата від" />
+          <input id="analyticsDateTo" type="date" aria-label="Дата до" />
+          <select id="analyticsDays" aria-label="Період">
+            <option value="7">7 днів</option>
+            <option value="30" selected>30 днів</option>
+            <option value="90">90 днів</option>
+          </select>
+          <button class="primary-button" id="refreshButton" type="button">Оновити</button>
+        </div>
+      </header>
+
+      <section class="table-panel analytics-report-panel full-height-report">
+        <div class="panel-heading">
+          <h2>Статистика по водіях</h2>
+          <span id="driverReportCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="analytics-table">
+            <thead>
+              <tr>
+                <th>Водій</th>
+                <th>Замовлень</th>
+                <th>Виконано</th>
+                <th>Активні</th>
+                <th>Скасовано</th>
+                <th>Сума оформлення</th>
+                <th>Км</th>
+                <th>Сер. км</th>
+                <th>Сер. час</th>
+                <th>Отримав -> віддав</th>
+              </tr>
+            </thead>
+            <tbody id="driverReportTable"></tbody>
+            <tfoot id="driverReportFooter"></tfoot>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+    <div class="auth-backdrop hidden" id="authGate">
+      <form class="auth-card" id="loginForm">
+        <img src="/portal/logo.png" alt="VanGo" />
+        <h2>Вхід в аналітику</h2>
+        <div class="auth-methods" role="tablist" aria-label="Спосіб входу">
+          <button class="auth-method active" type="button" data-auth-method="phone">Телефон</button>
+          <button class="auth-method" type="button" data-auth-method="email">Email</button>
+        </div>
+        <div data-auth-panel="phone">
+          <label>
+            Номер телефону адміністратора
+            <input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="+380" />
+          </label>
+          <label>
+            SMS-код
+            <div class="code-row">
+              <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+              <button class="action-button dirty" id="sendCodeButton" type="button">Надіслати код</button>
+            </div>
+          </label>
+        </div>
+        <div class="hidden" data-auth-panel="email">
+          <label>
+            Email адміністратора
+            <input name="email" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Пароль
+            <input name="password" type="password" autocomplete="current-password" />
+          </label>
+        </div>
+        <button class="primary-button wide" id="loginSubmitButton" type="submit">Увійти</button>
+        <p class="form-error" id="loginError"></p>
+      </form>
+    </div>
+
+    <script src="/portal/app.js"></script>
+  </body>
+</html>

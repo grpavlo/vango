@@ -15,6 +15,7 @@ const favoriteRoutes = require('./routes/favoriteRoutes');
 const savedSearchRoutes = require('./routes/savedSearchRoutes');
 const driverProfileRoutes = require('./routes/driverProfileRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { setupWebSocket } = require('./ws');
 const Order = require('./models/order');
 const { OrderStatus } = require('./models/order');
@@ -23,6 +24,7 @@ require('./models/orderRouteSearchEvent');
 require('./models/group');
 require('./models/supportQuestion');
 require('./models/portalAdmin');
+require('./models/notification');
 const { startOrderLifecycleScheduler } = require('./services/orderLifecycleScheduler');
 const {
   ensurePortalAdminFromEnv,
@@ -44,6 +46,15 @@ app.get('/portal/logo.png', (_req, res) => {
 });
 app.get('/portal/analytics', (_req, res) => {
   res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
+});
+app.get('/portal/analytics/drivers', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/analytics/drivers/index.html'));
+});
+app.get('/portal/analytics/orders', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/analytics/orders/index.html'));
+});
+app.get('/portal/create-order', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-portal/create-order/index.html'));
 });
 app.get('/portal/analysts', (_req, res) => {
   res.sendFile(path.join(__dirname, '../web-portal/analytics/index.html'));
@@ -79,6 +90,7 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/saved-searches', savedSearchRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use("/api", driverProfileRoutes);
 
 

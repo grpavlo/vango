@@ -1,0 +1,10 @@
+---
+description: Mandatory verification after saved-plan implementation.
+alwaysApply: true
+---
+
+Follow `AGENTS.md` Post-Implementation Verification.
+
+After implementing from a saved brief under `10-Projects/plans/`, run the
+verification skill before declaring completion. Post `## Verification report`
+first, then `## Implementation agenda` only after the gate passes.

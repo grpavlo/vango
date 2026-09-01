@@ -2,6 +2,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const PortalAdmin = require('../models/portalAdmin');
 const { UserRole } = require('../models/user');
 const Group = require('../models/group');
 const { JWT_SECRET } = require('../config');
@@ -13,6 +14,7 @@ const { normalizePushTokens } = require('../utils/push');
 const { Op, fn, col, where } = require('sequelize');
 
 const AUTH_TOKEN_EXPIRES_IN = '90d';
+const PORTAL_ADMIN_TOKEN_EXPIRES_IN = '90d';
 const ADMIN_PHONE_NUMBERS = new Set(['380979386433']);
 
 function pathToUrl(p) {
@@ -70,6 +72,39 @@ function isAdminPhone(phone) {
   return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone));
 }
 
+async function findLinkedPortalAdmin(user) {
+  const conditions = [];
+  const email = String(user.email || '').trim().toLowerCase();
+
+  if (email) {
+    conditions.push({ email });
+  }
+  if (user.phone) {
+    conditions.push({
+      [Op.or]: buildPhoneLookupVariants(user.phone).map((phoneVariant) =>
+        where(fn('regexp_replace', col('phone'), '[^0-9]', '', 'g'), phoneVariant)
+      ),
+    });
+  }
+  if (!conditions.length) return null;
+
+  return PortalAdmin.findOne({
+    where: {
+      active: true,
+      [Op.or]: conditions,
+    },
+    order: [['id', 'DESC']],
+  });
+}
+
+function signPortalAdminToken(admin) {
+  return jwt.sign(
+    { portalAdminId: admin.id, type: 'portal-admin' },
+    JWT_SECRET,
+    { expiresIn: PORTAL_ADMIN_TOKEN_EXPIRES_IN }
+  );
+}
+
 function mapSmsErrorToMessage(error) {
   const text = String(error || '').toUpperCase();
   if (text.includes('INSUFFICIENTFUNDS') || text.includes('LOW_BALANCE') || text.includes('NOT_ENOUGH')) {
@@ -96,6 +131,10 @@ function mapSmsErrorToMessage(error) {
   };
 }
 
+function canUseDevSmsFallback() {
+  return process.env.NODE_ENV !== 'production' && process.env.DISABLE_DEV_SMS_FALLBACK !== 'true';
+}
+
 async function sendPhoneCode(req, res) {
   const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
   const appHash = sanitizeSmsAppHash(req.body?.appHash);
@@ -108,6 +147,17 @@ async function sendPhoneCode(req, res) {
   const smsText = buildLoginCodeSms(code, appHash);
   const result = await sendSms(phone, smsText);
   if (!result.ok) {
+    if (canUseDevSmsFallback()) {
+      console.warn('[auth] SMS delivery failed; using local dev code fallback', {
+        phone: digits.replace(/\d(?=\d{4})/g, '*'),
+        error: result.error,
+      });
+      return res.json({
+        sent: true,
+        smsSkipped: true,
+        devCode: code,
+      });
+    }
     const mapped = mapSmsErrorToMessage(result.error);
     return res.status(mapped.status).send(mapped.message);
   }
@@ -203,11 +253,13 @@ async function profile(req, res) {
     customerRating,
     driverCompletedOrders,
     customerCompletedOrders,
+    linkedPortalAdmin,
   ] = await Promise.all([
     getRoleRating(u.id, UserRole.DRIVER),
     getRoleRating(u.id, UserRole.CUSTOMER),
     getCompletedOrderCount(u.id, UserRole.DRIVER),
     getCompletedOrderCount(u.id, UserRole.CUSTOMER),
+    findLinkedPortalAdmin(u),
   ]);
   res.json({
     id: u.id,
@@ -228,8 +280,28 @@ async function profile(req, res) {
     customerRating,
     driverCompletedOrders,
     customerCompletedOrders,
+    hasPortalAdminAccess: Boolean(linkedPortalAdmin),
     blocked: u.blocked,
     pushConsent: u.pushConsent,
+  });
+}
+
+async function switchToPortalAdmin(req, res) {
+  const admin = await findLinkedPortalAdmin(req.user);
+  if (!admin) {
+    return res.status(404).send('Адміністратора для цього користувача не знайдено');
+  }
+
+  res.json({
+    token: signPortalAdminToken(admin),
+    admin: {
+      id: admin.id,
+      name: admin.name,
+      email: admin.email,
+      phone: admin.phone,
+      selfiePhoto: req.user.selfiePhoto || null,
+      isPortalAdmin: true,
+    },
   });
 }
 
@@ -389,6 +461,7 @@ module.exports = {
   sendPhoneCode,
   verifyPhoneCode,
   profile,
+  switchToPortalAdmin,
   updateProfile,
   updateCustomerProfile,
   updateRole,

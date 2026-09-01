@@ -17,6 +17,7 @@ const {
   updateServiceFee,
   analytics,
   analyticsOverview,
+  analyticsOrderReport,
   analyticsGmv,
   analyticsActiveUsers,
   analyticsLiquidity,
@@ -48,6 +49,7 @@ router.get('/support-questions', listSupportQuestions);
 router.patch('/support-questions/:id', updateSupportQuestion);
 router.get('/analytics', analytics);
 router.get('/analytics/overview', analyticsOverview);
+router.get('/analytics/order-report', analyticsOrderReport);
 router.get('/analytics/gmv', analyticsGmv);
 router.get('/analytics/active-users', analyticsActiveUsers);
 router.get('/analytics/liquidity', analyticsLiquidity);

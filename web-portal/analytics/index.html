@@ -26,7 +26,16 @@
             <a class="admin-subnav-link" href="/portal/support">Звернення</a>
           </div>
         </div>
-        <a class="nav-link active" href="/portal/analytics/">Аналітика</a>
+        <div class="nav-group open">
+          <div class="nav-group-head active">
+            <a class="nav-link nav-parent-link active" href="/portal/analytics/">Аналітика</a>
+          </div>
+          <div class="admin-subnav">
+            <a class="admin-subnav-link active" href="/portal/analytics/">Огляд</a>
+            <a class="admin-subnav-link" href="/portal/analytics/drivers/">По водіях</a>
+            <a class="admin-subnav-link" href="/portal/analytics/orders/">По замовленнях</a>
+          </div>
+        </div>
       </nav>
       <button class="ghost-button" id="logoutButton" type="button">Вийти</button>
     </aside>
@@ -63,7 +72,20 @@
           <div id="retentionRows"></div>
         </article>
       </section>
+
+      <section class="report-shortcuts">
+        <a class="report-shortcut" href="/portal/analytics/drivers/">
+          <strong>По водіях</strong>
+          <span>Замовлення, суми, кілометри та середній час</span>
+        </a>
+        <a class="report-shortcut" href="/portal/analytics/orders/">
+          <strong>По замовленнях</strong>
+          <span>Деталізація маршруту, статусів, часу та суми</span>
+        </a>
+      </section>
     </main>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 
     <div class="auth-backdrop hidden" id="authGate">
       <form class="auth-card" id="loginForm">

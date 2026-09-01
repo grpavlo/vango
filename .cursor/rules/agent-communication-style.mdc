@@ -1,0 +1,11 @@
+---
+description: Chat and vault language conventions.
+alwaysApply: true
+---
+
+Follow `AGENTS.md` Chat Communication.
+
+- Reply in Ukrainian unless the user explicitly requests another language.
+- Use no mandatory salutation.
+- Keep vault markdown in Ukrainian by default unless the user explicitly requests
+  another language.

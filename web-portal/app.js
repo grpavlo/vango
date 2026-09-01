@@ -44,6 +44,7 @@ const state = {
   orders: [],
   groups: [],
   supportQuestions: [],
+  analyticsReport: null,
   tab: getInitialAdminSection(),
   activeGroupId: null,
   activeSupportQuestionId: null,
@@ -92,6 +93,20 @@ function text(value, fallback = "-") {
   return normalized || fallback;
 }
 
+function normalizePhotoList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      return normalizePhotoList(JSON.parse(trimmed));
+    } catch {
+      return [trimmed];
+    }
+  }
+  return [];
+}
+
 function money(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return "-";
@@ -115,6 +130,33 @@ function date(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function dateInputValue(value) {
+  const dt = value ? new Date(value) : new Date();
+  if (Number.isNaN(dt.getTime())) return "";
+  const year = dt.getFullYear();
+  const month = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function duration(value) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes)) return "-";
+  if (minutes < 60) return `${Math.round(minutes)} хв`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  if (hours < 24) return rest ? `${hours} год ${rest} хв` : `${hours} год`;
+  const days = Math.floor(hours / 24);
+  const dayHours = hours % 24;
+  return dayHours ? `${days} д ${dayHours} год` : `${days} д`;
+}
+
+function km(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "-";
+  return `${num.toLocaleString("uk-UA", { maximumFractionDigits: 1 })} км`;
 }
 
 function badge(label, type = "neutral") {
@@ -168,7 +210,14 @@ async function apiFetch(path, options = {}) {
   const response = await fetch(`/api${path}`, { ...options, headers });
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(message || `HTTP ${response.status}`);
+    const trimmed = String(message || "").trim();
+    const isHtml = trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html");
+    const friendlyMessage = isHtml
+      ? `API endpoint недоступний (${response.status}): ${path}`
+      : trimmed || `HTTP ${response.status}`;
+    const error = new Error(friendlyMessage);
+    error.status = response.status;
+    throw error;
   }
   if (response.status === 204) return null;
   const contentType = response.headers.get("content-type") || "";
@@ -546,7 +595,7 @@ function userDisplay(user) {
 }
 
 function getSupportPhotos(item) {
-  return Array.isArray(item?.photos) ? item.photos.filter(Boolean) : [];
+  return normalizePhotoList(item?.photos);
 }
 
 function renderSupportQuestions() {
@@ -1244,6 +1293,283 @@ function metricRow(label, value, percent = null) {
   `;
 }
 
+function getAnalyticsRangeForDays(days) {
+  const parsedDays = Number.parseInt(days, 10);
+  const safeDays = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - safeDays + 1);
+  return {
+    from: dateInputValue(start),
+    to: dateInputValue(end),
+  };
+}
+
+function setAnalyticsDateRangeFromPeriod() {
+  const days = document.getElementById("analyticsDays")?.value || "30";
+  const range = getAnalyticsRangeForDays(days);
+  const fromInput = document.getElementById("analyticsDateFrom");
+  const toInput = document.getElementById("analyticsDateTo");
+  if (fromInput) fromInput.value = range.from;
+  if (toInput) toInput.value = range.to;
+}
+
+function syncAnalyticsDriverOptions(drivers = []) {
+  const select = document.getElementById("analyticsDriver");
+  if (!select) return;
+  const selected = select.value || "ALL";
+  select.innerHTML = [
+    `<option value="ALL">Усі водії</option>`,
+    ...drivers.map((driver) => {
+      const display = userDisplay(driver);
+      return `<option value="${escapeHtml(driver.id)}">${escapeHtml(display.name)}${display.contact !== "-" ? ` · ${escapeHtml(display.contact)}` : ""}</option>`;
+    }),
+  ].join("");
+  select.value = [...select.options].some((option) => option.value === selected) ? selected : "ALL";
+}
+
+function getAnalyticsReportQuery() {
+  const params = new URLSearchParams();
+  const days = document.getElementById("analyticsDays")?.value || "30";
+  const driverId = document.getElementById("analyticsDriver")?.value || "ALL";
+  const dateFrom = document.getElementById("analyticsDateFrom")?.value || "";
+  const dateTo = document.getElementById("analyticsDateTo")?.value || "";
+
+  params.set("days", days);
+  if (driverId && driverId !== "ALL") params.set("driverId", driverId);
+  if (dateFrom) params.set("dateFrom", dateFrom);
+  if (dateTo) params.set("dateTo", dateTo);
+  return params;
+}
+
+function sumBy(rows, field) {
+  return rows.reduce((total, row) => {
+    const value = Number(row?.[field]);
+    return Number.isFinite(value) ? total + value : total;
+  }, 0);
+}
+
+function renderDriverReport(report) {
+  const table = document.getElementById("driverReportTable");
+  const footer = document.getElementById("driverReportFooter");
+  const count = document.getElementById("driverReportCount");
+  if (!table || !count) return;
+
+  const rows = report?.driverRows || [];
+  count.textContent = `${rows.length} водіїв`;
+  if (!rows.length) {
+    table.innerHTML = `<tr><td colspan="10" class="muted">Немає даних за вибраний період</td></tr>`;
+    if (footer) footer.innerHTML = "";
+    return;
+  }
+
+  table.innerHTML = rows
+    .map((row) => {
+      const display = row.driver ? userDisplay(row.driver) : { name: "Без водія", contact: "-" };
+      return `
+        <tr>
+          <td class="user-cell">
+            <strong>${escapeHtml(display.name)}</strong>
+            <span class="muted">${escapeHtml(display.contact)}</span>
+          </td>
+          <td><strong>${number(row.orderCount)}</strong></td>
+          <td>${number(row.completedCount)}</td>
+          <td>${number(row.activeCount)}</td>
+          <td>${number(row.cancelledCount)}</td>
+          <td>${escapeHtml(money(row.totalRevenue))}</td>
+          <td>${escapeHtml(km(row.totalDistanceKm))}</td>
+          <td>${escapeHtml(km(row.avgDistanceKm))}</td>
+          <td>${escapeHtml(duration(row.avgTotalDurationMinutes))}</td>
+          <td>${escapeHtml(duration(row.avgCargoDurationMinutes))}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  if (footer) {
+    const totalOrders = sumBy(rows, "orderCount");
+    const totalCompleted = sumBy(rows, "completedCount");
+    const totalActive = sumBy(rows, "activeCount");
+    const totalCancelled = sumBy(rows, "cancelledCount");
+    const totalRevenue = sumBy(rows, "totalRevenue");
+    const totalDistance = sumBy(rows, "totalDistanceKm");
+    footer.innerHTML = `
+      <tr class="table-total-row">
+        <td>Разом</td>
+        <td>${number(totalOrders)}</td>
+        <td>${number(totalCompleted)}</td>
+        <td>${number(totalActive)}</td>
+        <td>${number(totalCancelled)}</td>
+        <td>${escapeHtml(money(totalRevenue))}</td>
+        <td>${escapeHtml(km(totalDistance))}</td>
+        <td colspan="3"></td>
+      </tr>
+    `;
+  }
+}
+
+function orderRouteText(order) {
+  return `${text(order.pickupCity || order.pickupLocation)} → ${text(order.dropoffCity || order.dropoffLocation)}`;
+}
+
+function getOrderPhotos(order) {
+  return normalizePhotoList(order?.photos);
+}
+
+function mergeOrderPhotosIntoReport(report, orders = []) {
+  const photosByOrderId = new Map(
+    orders
+      .map((order) => [String(order.id), getOrderPhotos(order)])
+      .filter(([, photos]) => photos.length > 0)
+  );
+
+  return {
+    ...report,
+    orderRows: (report?.orderRows || []).map((order) => {
+      const photos = getOrderPhotos(order);
+      if (photos.length) return { ...order, photos };
+      return { ...order, photos: photosByOrderId.get(String(order.id)) || [] };
+    }),
+  };
+}
+
+function renderOrderPhotoGallery(order) {
+  const photos = getOrderPhotos(order);
+  if (!photos.length) {
+    return `
+      <div class="order-photo-section empty">
+        <span class="detail-label">Фото</span>
+        <span class="muted">Фото не додано</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="order-photo-section">
+      <span class="detail-label">Фото</span>
+      <div class="order-photo-gallery">
+        ${photos
+          .map(
+            (photo, index) => `
+              <a class="order-photo-link" href="${escapeHtml(photo)}" target="_blank" rel="noopener">
+                <img src="${escapeHtml(photo)}" alt="Фото замовлення ${index + 1}" loading="lazy" />
+              </a>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderOrderReport(report) {
+  const table = document.getElementById("orderReportTable");
+  const footer = document.getElementById("orderReportFooter");
+  const count = document.getElementById("orderReportCount");
+  if (!table || !count) return;
+
+  const rows = report?.orderRows || [];
+  count.textContent = `${rows.length} замовлень`;
+  if (!rows.length) {
+    table.innerHTML = `<tr><td colspan="10" class="muted">Немає замовлень за вибраний період</td></tr>`;
+    if (footer) footer.innerHTML = "";
+    return;
+  }
+
+  table.innerHTML = rows
+    .map((order) => {
+      const driver = order.driver ? userDisplay(order.driver) : { name: "Без водія", contact: "-" };
+      const route = orderRouteText(order);
+      const detailId = `order-report-detail-${order.id}`;
+      const photos = getOrderPhotos(order);
+      return `
+        <tr>
+          <td>
+            <button class="expand-button" type="button" data-order-report-toggle="${escapeHtml(detailId)}" aria-expanded="false" aria-label="Деталі замовлення">⌄</button>
+          </td>
+          <td><strong>${escapeHtml(order.orderNumber || order.id)}</strong></td>
+          <td class="route-cell">
+            <strong>${escapeHtml(route)}</strong>
+            <span class="muted">${escapeHtml(order.cargoType || "-")}</span>
+            ${photos.length ? `<span class="support-attachment-note">${photos.length} фото</span>` : ""}
+          </td>
+          <td class="user-cell">
+            <strong>${escapeHtml(driver.name)}</strong>
+            <span class="muted">${escapeHtml(driver.contact)}</span>
+          </td>
+          <td>${statusBadge(order.status)}</td>
+          <td>${escapeHtml(km(order.roadDistanceKm))}</td>
+          <td>${escapeHtml(duration(order.totalDurationMinutes))}</td>
+          <td>${escapeHtml(duration(order.cargoDurationMinutes))}</td>
+          <td>${escapeHtml(money(order.revenue))}</td>
+          <td class="muted">${escapeHtml(date(order.createdAt))}</td>
+        </tr>
+        <tr class="order-detail-row hidden" id="${escapeHtml(detailId)}">
+          <td colspan="10">
+            <div class="order-detail-grid">
+              <div>
+                <span class="detail-label">Завантаження</span>
+                <strong>${escapeHtml(text(order.pickupCity || order.pickupLocation))}</strong>
+                <span class="muted">${escapeHtml(text(order.pickupAddress))}</span>
+              </div>
+              <div>
+                <span class="detail-label">Вивантаження</span>
+                <strong>${escapeHtml(text(order.dropoffCity || order.dropoffLocation))}</strong>
+                <span class="muted">${escapeHtml(text(order.dropoffAddress))}</span>
+              </div>
+              <div>
+                <span class="detail-label">Створено</span>
+                <strong>${escapeHtml(date(order.createdAt))}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Прийнято</span>
+                <strong>${escapeHtml(date(order.acceptedAt))}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Отримав</span>
+                <strong>${escapeHtml(date(order.receivedAt))}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Віддав</span>
+                <strong>${escapeHtml(date(order.deliveredAt))}</strong>
+              </div>
+              <div>
+                <span class="detail-label">Сума оформлення</span>
+                <strong>${escapeHtml(money(order.revenue))}</strong>
+              </div>
+              ${renderOrderPhotoGallery(order)}
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  if (footer) {
+    const totalRevenue = sumBy(rows, "revenue");
+    const totalDistance = sumBy(rows, "roadDistanceKm");
+    footer.innerHTML = `
+      <tr class="table-total-row">
+        <td colspan="5">Разом</td>
+        <td>${escapeHtml(km(totalDistance))}</td>
+        <td colspan="2"></td>
+        <td>${escapeHtml(money(totalRevenue))}</td>
+        <td></td>
+      </tr>
+    `;
+  }
+}
+
+function renderAnalyticsReport(report) {
+  syncAnalyticsDriverOptions(report?.drivers || []);
+  renderDriverReport(report);
+  renderOrderReport(report);
+}
+
+function isAnalyticsReportPage() {
+  return page === "analytics-drivers" || page === "analytics-orders";
+}
+
 function renderAnalytics(data) {
   document.getElementById("analyticsStats").innerHTML = [
     metricCard("GMV за період", money(data?.gmv?.period?.value), `${data?.periodDays || 30} днів`),
@@ -1271,6 +1597,18 @@ async function loadAnalytics() {
   setLoading(true);
   try {
     const days = document.getElementById("analyticsDays").value;
+    if (isAnalyticsReportPage()) {
+      const reportQuery = getAnalyticsReportQuery();
+      const [report, orders] = await Promise.all([
+        apiFetch(`/admin/analytics/order-report?${reportQuery.toString()}`),
+        apiFetch("/admin/orders?limit=500&status=ALL").catch(() => []),
+      ]);
+      state.orders = Array.isArray(orders) ? orders : [];
+      state.analyticsReport = mergeOrderPhotosIntoReport(report, state.orders);
+      renderAnalyticsReport(state.analyticsReport);
+      return;
+    }
+
     const data = await apiFetch(`/admin/analytics/overview?days=${encodeURIComponent(days)}`);
     renderAnalytics(data);
   } finally {
@@ -1279,8 +1617,24 @@ async function loadAnalytics() {
 }
 
 function bindAnalytics() {
+  setAnalyticsDateRangeFromPeriod();
   document.getElementById("refreshButton").addEventListener("click", loadAnalytics);
-  document.getElementById("analyticsDays").addEventListener("change", loadAnalytics);
+  document.getElementById("analyticsDays").addEventListener("change", () => {
+    setAnalyticsDateRangeFromPeriod();
+    loadAnalytics();
+  });
+  document.getElementById("analyticsDriver")?.addEventListener("change", loadAnalytics);
+  document.getElementById("analyticsDateFrom")?.addEventListener("change", loadAnalytics);
+  document.getElementById("analyticsDateTo")?.addEventListener("change", loadAnalytics);
+  document.getElementById("orderReportTable")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-order-report-toggle]");
+    if (!button) return;
+    const row = document.getElementById(button.dataset.orderReportToggle);
+    const isOpen = !row?.classList.contains("hidden");
+    row?.classList.toggle("hidden", isOpen);
+    button.classList.toggle("open", !isOpen);
+    button.setAttribute("aria-expanded", String(!isOpen));
+  });
 }
 
 function debounce(fn, delay) {
@@ -1296,20 +1650,27 @@ async function boot() {
     showAuth(true);
     return;
   }
+
   try {
     await loadProfile();
     if (!state.user?.isPortalAdmin) {
       throw new Error("Потрібен адмінський доступ");
     }
     showAuth(false);
-    if (page === "admin") {
-      await loadAdminData();
-    } else if (page === "analytics") {
-      await loadAnalytics();
-    }
   } catch (error) {
     loginError.textContent = error.message || "Сесія недійсна";
     logout();
+    return;
+  }
+
+  try {
+    if (page === "admin") {
+      await loadAdminData();
+    } else if (page === "analytics" || isAnalyticsReportPage()) {
+      await loadAnalytics();
+    }
+  } catch (error) {
+    showToast(error.message || "Не вдалося завантажити дані сторінки", "error");
   }
 }
 
@@ -1332,5 +1693,5 @@ document.querySelector("[data-admin-nav-toggle]")?.addEventListener("click", tog
 
 setAuthMethod(state.authMethod);
 if (page === "admin") bindAdmin();
-if (page === "analytics") bindAnalytics();
+if (page === "analytics" || isAnalyticsReportPage()) bindAnalytics();
 boot();

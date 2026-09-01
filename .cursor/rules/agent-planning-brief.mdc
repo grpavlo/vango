@@ -1,0 +1,13 @@
+---
+description: Planning-mode handoff workflow.
+alwaysApply: true
+---
+
+Follow `AGENTS.md` Planning Briefs.
+
+For planning requests, read `templates/Agent-planning-brief.md` and
+`.cursor/skills/planning-clarifications/SKILL.md`, discover from vault canon,
+clarify blockers, then save the brief to `10-Projects/plans/`.
+
+Do not edit code during planning-only work unless the user explicitly requests
+execution in the same turn.

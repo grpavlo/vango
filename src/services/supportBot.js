@@ -78,6 +78,22 @@ const KNOWLEDGE_BASE = [
       'Якщо замовлення не створюється, перевірте обовʼязкові поля: адреси, дату, параметри вантажу, оплату та опис. Якщо додаєте фото, дочекайтесь завершення завантаження. Після цього перевірте інтернет і спробуйте створити замовлення ще раз.',
   },
   {
+    id: 'delete-order',
+    keywords: [
+      'видалити замовлення',
+      'видалення замовлення',
+      'видалити заявку',
+      'прибрати замовлення',
+      'удалити замовлення',
+      'скасувати замовлення',
+      'відмінити замовлення',
+      'delete order',
+      'cancel order',
+    ],
+    answer:
+      'Замовник може видалити лише своє замовлення зі статусом "Створено", поки водій ще не підтверджений і виконання не почалося. Якщо замовлення вже прийняте, в роботі, доставлене або виконане, видалити його не можна: можна скасувати підтвердженого водія, якщо така дія доступна, або передати питання у техпідтримку.',
+  },
+  {
     id: 'search-orders',
     keywords: ['як шукати замовлення', 'шукати замовлення', 'пошук замовлень', 'знайти замовлення', 'де знайти замовлення', 'відгукнутися на замовлення'],
     answer:
@@ -164,9 +180,27 @@ function isOrderCreateProblemQuestion(normalized) {
   return hasOrder && hasProblem;
 }
 
+function isOrderDeleteQuestion(normalized) {
+  const hasOrder = normalized.includes('замовлен') || normalized.includes('заявк') || normalized.includes('order');
+  const hasDelete =
+    normalized.includes('видал') ||
+    normalized.includes('удал') ||
+    normalized.includes('прибрат') ||
+    normalized.includes('скас') ||
+    normalized.includes('відмін') ||
+    normalized.includes('delete') ||
+    normalized.includes('cancel');
+
+  return hasOrder && hasDelete;
+}
+
 function findLocalAnswer(question) {
   const normalized = normalizeQuestion(question);
   if (!normalized) return null;
+
+  if (isOrderDeleteQuestion(normalized)) {
+    return getKnowledgeItem('delete-order')?.answer || null;
+  }
 
   if (isOrderSearchQuestion(normalized)) {
     return getKnowledgeItem('search-orders')?.answer || null;
@@ -244,7 +278,35 @@ function extractAiText(data) {
   return chunks.join('\n').trim();
 }
 
-async function askConfiguredAi({ question, role }) {
+function normalizeChatHistory(history) {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .map((item) => ({
+      role: item?.role === 'user' ? 'user' : 'assistant',
+      content: String(item?.text || item?.content || '').trim(),
+    }))
+    .filter((item) => item.content)
+    .slice(-8);
+}
+
+function buildAiInput(question, history = []) {
+  const normalizedHistory = normalizeChatHistory(history);
+  if (normalizedHistory.length === 0) return question;
+
+  return [
+    ...normalizedHistory.map((item) => ({
+      role: item.role,
+      content: item.content,
+    })),
+    {
+      role: 'user',
+      content: question,
+    },
+  ];
+}
+
+async function askConfiguredAi({ question, role, history = [] }) {
   const apiKey = process.env.SUPPORT_BOT_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey || typeof fetch !== 'function') {
     return null;
@@ -263,7 +325,7 @@ async function askConfiguredAi({ question, role }) {
       body: JSON.stringify({
         model: DEFAULT_SUPPORT_MODEL,
         instructions: buildInstructions(role),
-        input: question,
+        input: buildAiInput(question, history),
         max_output_tokens: 220,
       }),
       signal: controller.signal,
@@ -282,18 +344,19 @@ async function askConfiguredAi({ question, role }) {
   }
 }
 
-async function answerSupportQuestion({ question, role, allowAi = true, publicMode = false }) {
+async function answerSupportQuestion({ question, role, allowAi = true, publicMode = false, history = [] }) {
   const trimmedQuestion = String(question || '').trim();
-  const localAnswer = findLocalAnswer(trimmedQuestion);
-  if (localAnswer) {
-    return { answer: localAnswer, source: 'local' };
-  }
 
-  if (allowAi) {
-    const aiAnswer = await askConfiguredAi({ question: trimmedQuestion, role });
+  if (allowAi && !publicMode) {
+    const aiAnswer = await askConfiguredAi({ question: trimmedQuestion, role, history });
     if (aiAnswer) {
       return { answer: aiAnswer, source: 'ai' };
     }
+  }
+
+  const localAnswer = findLocalAnswer(trimmedQuestion);
+  if (localAnswer) {
+    return { answer: localAnswer, source: 'local' };
   }
 
   return {

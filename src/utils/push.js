@@ -24,6 +24,44 @@ function normalizePushTokens(to) {
   return [];
 }
 
+async function storeNotifications(tokens, title, body, data) {
+  try {
+    const User = require('../models/user');
+    const Notification = require('../models/notification');
+    const normalizedRecipientId = Number(data?.recipientUserId);
+    const users = Number.isInteger(normalizedRecipientId) && normalizedRecipientId > 0
+      ? await User.findAll({ where: { id: normalizedRecipientId } })
+      : await User.findAll({ where: { pushConsent: true } });
+    const recipientIds = new Set();
+
+    for (const user of users) {
+      if (normalizedRecipientId) {
+        recipientIds.add(user.id);
+        continue;
+      }
+      const userTokens = normalizePushTokens(user.pushToken);
+      if (userTokens.some((token) => tokens.includes(token))) {
+        recipientIds.add(user.id);
+      }
+    }
+
+    const notificationData = {
+      ...(data || {}),
+      recipientUserId: normalizedRecipientId || data?.recipientUserId,
+    };
+    const rows = [...recipientIds].map((userId) => ({
+      userId,
+      title: String(title || '').trim() || 'Сповіщення',
+      body: String(body || '').trim(),
+      data: notificationData,
+      receivedAt: new Date(),
+    }));
+    if (rows.length > 0) await Notification.bulkCreate(rows);
+  } catch (err) {
+    console.error('Failed to store notification', err);
+  }
+}
+
 async function sendPush(to, title, body, data = {}) {
   const tokens = normalizePushTokens(to);
   const validTokens = tokens.filter((token) => Expo.isExpoPushToken(token));
@@ -37,6 +75,7 @@ async function sendPush(to, title, body, data = {}) {
   }
   try {
     console.log('Sending push', { to: validTokens, title, body, data });
+    await storeNotifications(validTokens, title, body, data);
     const messages = validTokens.map((token) => ({
       to: token,
       title,

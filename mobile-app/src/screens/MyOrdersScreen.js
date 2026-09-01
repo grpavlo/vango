@@ -948,6 +948,12 @@ export default function MyOrdersScreen({ navigation, route }) {
     return o.status === "CREATED" && !o.reservedBy && !hasActiveResponses;
   }).length;
 
+  useEffect(() => {
+    if (role === "CUSTOMER" && filter === "active" && activeCount === 0 && postedCount > 0) {
+      setFilter("posted");
+    }
+  }, [role, filter, activeCount, postedCount]);
+
   const showTabsScrollTrack = tabsContentWidth > tabsViewportWidth + 1;
   const tabsThumbWidth = showTabsScrollTrack
     ? Math.max((tabsViewportWidth / tabsContentWidth) * tabsViewportWidth, 44)
@@ -1017,7 +1023,7 @@ export default function MyOrdersScreen({ navigation, route }) {
         >
           {renderFilterLabel(
             role === "DRIVER" ? "На підтвердженні" : "Створено",
-            role === "DRIVER" ? postedCount : 0,
+            postedCount,
             filter === "posted"
           )}
         </Pressable>

@@ -87,7 +87,7 @@ export default function PhoneAuthScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      await apiFetch('/auth/send-code', {
+      const data = await apiFetch('/auth/send-code', {
         method: 'POST',
         body: JSON.stringify({
           phone: digits,
@@ -95,8 +95,13 @@ export default function PhoneAuthScreen({ navigation }) {
         }),
       });
       setStep('code');
-      setCode('');
-      toast.show('Код надіслано на ваш номер');
+      if (data?.devCode) {
+        setCode(String(data.devCode));
+        toast.show(`Локальний код: ${data.devCode}`);
+      } else {
+        setCode('');
+        toast.show('Код надіслано на ваш номер');
+      }
     } catch (err) {
       toast.show(err.message || 'Не вдалося надіслати код');
     } finally {

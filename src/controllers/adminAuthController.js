@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { Op, fn, col, where } = require('sequelize');
 const PortalAdmin = require('../models/portalAdmin');
+const User = require('../models/user');
 const { JWT_SECRET } = require('../config');
 const { sendSms } = require('../services/turbosms');
 const {
@@ -11,13 +13,52 @@ const {
 } = require('../services/authCodes');
 
 const ADMIN_TOKEN_EXPIRES_IN = '90d';
+const USER_TOKEN_EXPIRES_IN = '90d';
 
-function serializeAdmin(admin) {
+function buildPhoneLookupVariants(phone) {
+  const normalizedPhone = normalizePhone(phone);
+  const variants = new Set([normalizedPhone]);
+
+  if (normalizedPhone.startsWith('380') && normalizedPhone.length === 12) {
+    variants.add(`0${normalizedPhone.slice(3)}`);
+  }
+
+  return [...variants];
+}
+
+function phoneWhere(phone) {
+  return {
+    [Op.or]: buildPhoneLookupVariants(phone).map((phoneVariant) =>
+      where(fn('regexp_replace', col('phone'), '[^0-9]', '', 'g'), phoneVariant)
+    ),
+  };
+}
+
+async function findLinkedUser(admin) {
+  const conditions = [];
+  const email = String(admin.email || '').trim().toLowerCase();
+
+  if (email) {
+    conditions.push({ email });
+  }
+  if (admin.phone) {
+    conditions.push(phoneWhere(admin.phone));
+  }
+  if (!conditions.length) return null;
+
+  return User.findOne({
+    where: { [Op.or]: conditions },
+    order: [['id', 'DESC']],
+  });
+}
+
+function serializeAdmin(admin, linkedUser = null) {
   return {
     id: admin.id,
     name: admin.name,
     email: admin.email,
     phone: admin.phone,
+    selfiePhoto: linkedUser?.selfiePhoto || null,
     isPortalAdmin: true,
   };
 }
@@ -32,6 +73,10 @@ function signAdminToken(admin) {
     JWT_SECRET,
     { expiresIn: ADMIN_TOKEN_EXPIRES_IN }
   );
+}
+
+function signUserToken(user) {
+  return jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: USER_TOKEN_EXPIRES_IN });
 }
 
 async function loginPortalAdmin(req, res) {
@@ -53,8 +98,9 @@ async function loginPortalAdmin(req, res) {
   }
 
   const token = signAdminToken(admin);
+  const linkedUser = await findLinkedUser(admin);
 
-  res.json({ token, admin: serializeAdmin(admin), isPortalAdmin: true });
+  res.json({ token, admin: serializeAdmin(admin, linkedUser), isPortalAdmin: true });
 }
 
 async function sendPortalAdminCode(req, res) {
@@ -102,11 +148,42 @@ async function verifyPortalAdminCode(req, res) {
   }
 
   const token = signAdminToken(admin);
-  return res.json({ token, admin: serializeAdmin(admin), isPortalAdmin: true });
+  const linkedUser = await findLinkedUser(admin);
+  return res.json({ token, admin: serializeAdmin(admin, linkedUser), isPortalAdmin: true });
 }
 
 async function portalAdminProfile(req, res) {
-  res.json(serializeAdmin(req.portalAdmin));
+  const linkedUser = await findLinkedUser(req.portalAdmin);
+  res.json(serializeAdmin(req.portalAdmin, linkedUser));
+}
+
+async function switchPortalAdminToUser(req, res) {
+  const linkedUser = await findLinkedUser(req.portalAdmin);
+  if (!linkedUser || linkedUser.blocked) {
+    return res.status(404).send('Пов’язаний користувач не знайдений або заблокований');
+  }
+
+  const token = signUserToken(linkedUser);
+  res.json({
+    token,
+    user: {
+      id: linkedUser.id,
+      name: linkedUser.name,
+      email: linkedUser.email,
+      phone: linkedUser.phone,
+      role: linkedUser.role,
+      isAdmin: linkedUser.isAdmin,
+      groupId: linkedUser.groupId,
+      firstName: linkedUser.firstName,
+      lastName: linkedUser.lastName,
+      patronymic: linkedUser.patronymic,
+      selfiePhoto: linkedUser.selfiePhoto,
+      city: linkedUser.city,
+      rating: linkedUser.rating,
+      blocked: linkedUser.blocked,
+      pushConsent: linkedUser.pushConsent,
+    },
+  });
 }
 
 module.exports = {
@@ -114,4 +191,5 @@ module.exports = {
   sendPortalAdminCode,
   verifyPortalAdminCode,
   portalAdminProfile,
+  switchPortalAdminToUser,
 };
