@@ -24,15 +24,17 @@ function authorize(roles) {
       return res.status(403).send('Доступ заборонено');
 
     }
-    if (roles.includes(req.user.role)) {
+    const allowedRoles = roles.map((role) => String(role || '').trim().toUpperCase());
+    const userRole = String(req.user.role || '').trim().toUpperCase();
+    if (allowedRoles.includes(userRole)) {
       return next();
     }
-    if (roles.includes('ADMIN') && (req.user.isAdmin || req.user.role === 'ADMIN')) {
+    if (allowedRoles.includes('ADMIN') && (req.user.isAdmin || userRole === 'ADMIN')) {
       return next();
     }
     if (
-      req.user.role === 'BOTH' &&
-      (roles.includes('DRIVER') || roles.includes('CUSTOMER'))
+      userRole === 'BOTH' &&
+      (allowedRoles.includes('DRIVER') || allowedRoles.includes('CUSTOMER'))
     ) {
       return next();
     }

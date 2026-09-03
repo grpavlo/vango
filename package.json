@@ -8,6 +8,7 @@
     "dev:api": "cross-env NODE_ENV=development node src/index.js",
     "dev:web": "npm --prefix webUserPortal run dev",
     "prod": "cross-env NODE_ENV=production node src/index.js",
+    "seed:demo": "cross-env NODE_ENV=development node scripts/seed-demo-data.js",
     "seed": "cross-env NODE_ENV=development node src/seed.js",
     "seedprod": "cross-env NODE_ENV=production node src/seed.js"
 

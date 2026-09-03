@@ -9,7 +9,13 @@ const { JWT_SECRET } = require('../config');
 const DriverProfile = require('../models/driverProfile');
 const { getCompletedOrderCount, getRoleRating } = require('../utils/ratingStats');
 const { sendSms } = require('../services/turbosms');
-const { generateCode, set: setCode, verifyAndConsume, normalizePhone } = require('../services/authCodes');
+const {
+  generateCode,
+  set: setCode,
+  verifyAndConsumeOrDev,
+  normalizePhone,
+  getDevAuthCode,
+} = require('../services/authCodes');
 const { normalizePushTokens } = require('../utils/push');
 const { Op, fn, col, where } = require('sequelize');
 
@@ -105,6 +111,18 @@ function signPortalAdminToken(admin) {
   );
 }
 
+function isTechnicalDisplayName(value) {
+  return /^(user|portal)_\d+@vango\.(phone|admin)$/i.test(String(value || '').trim());
+}
+
+function userDisplayName(user) {
+  if (!user) return '';
+  const profileName = [user.lastName, user.firstName, user.patronymic].filter(Boolean).join(' ').trim();
+  const name = String(user.name || '').trim();
+  if (name && !isTechnicalDisplayName(name)) return name;
+  return profileName || user.phone || user.email || '';
+}
+
 function mapSmsErrorToMessage(error) {
   const text = String(error || '').toUpperCase();
   if (text.includes('INSUFFICIENTFUNDS') || text.includes('LOW_BALANCE') || text.includes('NOT_ENOUGH')) {
@@ -132,7 +150,11 @@ function mapSmsErrorToMessage(error) {
 }
 
 function canUseDevSmsFallback() {
-  return process.env.NODE_ENV !== 'production' && process.env.DISABLE_DEV_SMS_FALLBACK !== 'true';
+  return Boolean(getDevAuthCode());
+}
+
+function shouldSkipSmsInDev() {
+  return process.env.DEV_SMS_BYPASS === '1' && canUseDevSmsFallback();
 }
 
 async function sendPhoneCode(req, res) {
@@ -142,8 +164,17 @@ async function sendPhoneCode(req, res) {
   if (digits.length < 10) {
     return res.status(400).send('Вкажіть коректний номер телефону');
   }
-  const code = generateCode();
+  const devCode = getDevAuthCode();
+  const skipSms = shouldSkipSmsInDev();
+  const code = skipSms && devCode ? devCode : generateCode();
   setCode(phone, code);
+  if (skipSms) {
+    return res.json({
+      sent: true,
+      smsSkipped: true,
+      devCode: code,
+    });
+  }
   const smsText = buildLoginCodeSms(code, appHash);
   const result = await sendSms(phone, smsText);
   if (!result.ok) {
@@ -174,7 +205,7 @@ async function verifyPhoneCode(req, res) {
   if (!code || code.length !== 6) {
     return res.status(400).send('Введіть 6-значний код');
   }
-  if (!verifyAndConsume(phone, code)) {
+  if (!verifyAndConsumeOrDev(phone, code)) {
     return res.status(400).send('Невірний або прострочений код');
   }
   const phoneVariants = buildPhoneLookupVariants(phone);
@@ -296,10 +327,26 @@ async function switchToPortalAdmin(req, res) {
     token: signPortalAdminToken(admin),
     admin: {
       id: admin.id,
-      name: admin.name,
+      name: userDisplayName(req.user) || admin.name,
       email: admin.email,
       phone: admin.phone,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      patronymic: req.user.patronymic,
       selfiePhoto: req.user.selfiePhoto || null,
+      linkedUser: {
+        id: req.user.id,
+        name: userDisplayName(req.user),
+        email: req.user.email,
+        phone: req.user.phone,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        patronymic: req.user.patronymic,
+        selfiePhoto: req.user.selfiePhoto,
+        role: req.user.role,
+        isAdmin: req.user.isAdmin,
+        blocked: req.user.blocked,
+      },
       isPortalAdmin: true,
     },
   });

@@ -1,6 +1,7 @@
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 хвилин
 
 const store = new Map();
+const DEFAULT_DEV_AUTH_CODE = '111111';
 
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -33,4 +34,30 @@ function verifyAndConsume(phone, code) {
   return true;
 }
 
-module.exports = { generateCode, set, get, verifyAndConsume, normalizePhone };
+function canUseDevAuthCode() {
+  return process.env.NODE_ENV !== 'production'
+    && process.env.DISABLE_DEV_SMS_FALLBACK !== 'true'
+    && process.env.DEV_SMS_BYPASS !== '0';
+}
+
+function getDevAuthCode() {
+  if (!canUseDevAuthCode()) return null;
+  const configured = String(process.env.DEV_AUTH_CODE || DEFAULT_DEV_AUTH_CODE).trim();
+  return /^\d{6}$/.test(configured) ? configured : DEFAULT_DEV_AUTH_CODE;
+}
+
+function verifyAndConsumeOrDev(phone, code) {
+  if (verifyAndConsume(phone, code)) return true;
+  const devCode = getDevAuthCode();
+  return Boolean(devCode && String(code).trim() === devCode);
+}
+
+module.exports = {
+  generateCode,
+  set,
+  get,
+  verifyAndConsume,
+  verifyAndConsumeOrDev,
+  normalizePhone,
+  getDevAuthCode,
+};

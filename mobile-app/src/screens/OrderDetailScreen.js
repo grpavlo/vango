@@ -220,6 +220,8 @@ function parseBooleanLike(value) {
 }
 
 function isOrderDateOutdated(order) {
+  if (String(order?.timingOption || '').trim().toUpperCase() === 'ASAP') return false;
+
   const backendOutdated = parseBooleanLike(order?.isDateOutdated);
   if (backendOutdated === true) return true;
 
@@ -341,6 +343,33 @@ function RatingSummary({ label, rating, completedOrders, style }) {
       <Text style={styles.ratingSummaryText}>{displayRating.toFixed(1)}</Text>
       <Ionicons name="checkmark-circle" size={15} color={colors.green} style={styles.completedSummaryIcon} />
       <Text style={styles.completedSummaryText}>{getCompletedOrders(completedOrders)}</Text>
+    </View>
+  );
+}
+
+function OrderRatingCard({ title, rating }) {
+  const displayRating = getDisplayRating(rating?.rating);
+  if (!displayRating) return null;
+
+  return (
+    <View style={styles.orderRatingCard}>
+      <View style={styles.orderRatingHeader}>
+        <Text style={styles.orderRatingTitle}>{title}</Text>
+        <View style={styles.orderRatingStars}>
+          {[1, 2, 3, 4, 5].map((value) => (
+            <Ionicons
+              key={value}
+              name={value <= Math.round(displayRating) ? 'star' : 'star-outline'}
+              size={18}
+              color="#F59E0B"
+            />
+          ))}
+          <Text style={styles.orderRatingValue}>{displayRating.toFixed(1)}</Text>
+        </View>
+      </View>
+      {!!rating?.comment && (
+        <Text style={styles.orderRatingComment}>{rating.comment}</Text>
+      )}
     </View>
   );
 }
@@ -2165,6 +2194,14 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const timingOptionDetail = formatTimingOptionDetail(order);
   const customerRating = Number(order?.customer?.rating);
+  const receivedRatingTitle =
+    role === 'CUSTOMER'
+      ? 'Водій залишив вам оцінку'
+      : 'Замовник залишив вам оцінку';
+  const myRatingTitle =
+    role === 'CUSTOMER'
+      ? 'Ваша оцінка водію'
+      : 'Ваша оцінка замовнику';
 
   return (
     <Screen disableKeyboardAvoiding>
@@ -2320,6 +2357,9 @@ export default function OrderDetailScreen({ route, navigation }) {
           </View>
         </View>
       )}
+
+      <OrderRatingCard title={receivedRatingTitle} rating={order.receivedRating} />
+      <OrderRatingCard title={myRatingTitle} rating={order.myRating} />
 
       {renderCustomerResponses()}
 
@@ -2652,6 +2692,48 @@ const styles = StyleSheet.create({
   },
   responseRatingSummary: {
     marginTop: 2,
+  },
+  orderRatingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 12,
+    marginHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  orderRatingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  orderRatingTitle: {
+    flex: 1,
+    color: colors.gray900,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  orderRatingStars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  orderRatingValue: {
+    marginLeft: 6,
+    color: colors.gray900,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  orderRatingComment: {
+    marginTop: 10,
+    color: '#4B5563',
+    fontSize: 14,
+    lineHeight: 20,
   },
   mapIconBtn: { padding: 6 },
   detailsCard: {

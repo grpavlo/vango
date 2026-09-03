@@ -7,6 +7,7 @@ const Transaction = require("../models/transaction");
 const User = require("../models/user");
 
 const DriverProfile = require("../models/driverProfile");
+const Rating = require("../models/rating");
 const SavedSearch = require("../models/savedSearch");
 const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
 
@@ -149,6 +150,57 @@ async function applyRoleRatingsToOrderJsons(orderJsons) {
         order[key].completedOrders = driverCompletedOrders[order[key].id] ?? 0;
       }
     });
+  });
+
+  return Array.isArray(orderJsons) ? list : list[0];
+}
+
+function serializeOrderRating(rating) {
+  if (!rating) return null;
+  return {
+    id: rating.id,
+    orderId: rating.orderId,
+    fromUserId: rating.fromUserId,
+    toUserId: rating.toUserId,
+    rating: rating.rating,
+    comment: rating.comment || "",
+    createdAt: rating.createdAt,
+  };
+}
+
+async function attachCurrentUserOrderRatings(orderJsons, user) {
+  const list = Array.isArray(orderJsons) ? orderJsons : [orderJsons].filter(Boolean);
+  if (!user?.id || list.length === 0) return orderJsons;
+
+  const { Op } = require("sequelize");
+  const orderIds = [...new Set(list.map((order) => order?.id).filter(Boolean))];
+  if (orderIds.length === 0) return orderJsons;
+
+  const ratings = await Rating.findAll({
+    where: {
+      orderId: { [Op.in]: orderIds },
+      [Op.or]: [{ fromUserId: user.id }, { toUserId: user.id }],
+    },
+    order: [["createdAt", "DESC"], ["id", "DESC"]],
+  });
+  const ratingsByOrderId = new Map();
+
+  ratings.forEach((rating) => {
+    const orderId = Number(rating.orderId);
+    const current = ratingsByOrderId.get(orderId) || { myRating: null, receivedRating: null };
+    if (!current.myRating && hasOrderUserId(rating.fromUserId, user.id)) {
+      current.myRating = serializeOrderRating(rating);
+    }
+    if (!current.receivedRating && hasOrderUserId(rating.toUserId, user.id)) {
+      current.receivedRating = serializeOrderRating(rating);
+    }
+    ratingsByOrderId.set(orderId, current);
+  });
+
+  list.forEach((order) => {
+    const orderRatings = ratingsByOrderId.get(Number(order.id)) || {};
+    order.myRating = orderRatings.myRating || null;
+    order.receivedRating = orderRatings.receivedRating || null;
   });
 
   return Array.isArray(orderJsons) ? list : list[0];
@@ -1208,12 +1260,13 @@ async function listMyOrders(req, res) {
     }
   }
 
-  const enrichedOrders = await applyRoleRatingsToOrderJsons(orders.map((o) => {
+  const roleRatedOrders = await applyRoleRatingsToOrderJsons(orders.map((o) => {
     const json = o.toJSON();
     json.responseCount = myResponseCounts[json.id] || 0;
     json.myResponseStatus = myResponseStatuses[json.id] || null;
     return sanitizeOrderForUser(json, req.user);
   }));
+  const enrichedOrders = await attachCurrentUserOrderRatings(roleRatedOrders, req.user);
 
   res.json(enrichedOrders);
 
@@ -1261,8 +1314,11 @@ async function getOrder(req, res) {
       },
     });
 
-    const json = sanitizeOrderForUser(
-      await applyRoleRatingsToOrderJsons(order.toJSON()),
+    const json = await attachCurrentUserOrderRatings(
+      sanitizeOrderForUser(
+        await applyRoleRatingsToOrderJsons(order.toJSON()),
+        req.user
+      ),
       req.user
     );
     json.responseCount = responseCount;
@@ -2237,7 +2293,13 @@ async function updateStatus(req, res) {
 
           "\u0412\u043e\u0434\u0456\u0439 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u0438\u0432 \u043f\u0440\u043e \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0443",
 
-          { orderId: order.id, navigateTo: "orderDetail" }
+          {
+            orderId: order.id,
+            navigateTo: "rateOrder",
+            toUserId: order.driverId,
+            targetName: updatedOrder?.driver?.name,
+            targetRole: "DRIVER",
+          }
 
         );
 
@@ -2705,6 +2767,12 @@ const MAX_ACTIVE_RESPONSES = 5;
 const CONFIRM_TIMEOUT_MS = 30 * 60 * 1000;
 const DISCUSSING_TIMEOUT_MS = 60 * 60 * 1000;
 const OFFER_ETA_VALUES = new Set(Object.values(ArrivalEta));
+const OFFER_ETA_ALIASES = {
+  "15m": ArrivalEta.UP_TO_15_MIN,
+  "30m": ArrivalEta.UP_TO_30_MIN,
+  "1h": ArrivalEta.UP_TO_1_HOUR,
+  several_hours: ArrivalEta.SEVERAL_HOURS,
+};
 const ACTIVE_RESPONSE_STATUSES = [
   ResponseStatus.RESPONDED,
   ResponseStatus.CALL_MADE,
@@ -2717,6 +2785,11 @@ function normalizeOfferNumber(value) {
   if (value === null || value === undefined) return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeOfferArrivalEta(value) {
+  const eta = String(value || "");
+  return OFFER_ETA_ALIASES[eta] || eta;
 }
 
 function resolveResponseFinalPrice(order, response) {
@@ -2894,7 +2967,7 @@ async function respondToOrder(req, res) {
     if (isIntraCity) {
       hourlyRate = normalizeOfferNumber(req.body?.hourlyRate);
       minHours = normalizeOfferNumber(req.body?.minHours);
-      arrivalEta = req.body?.arrivalEta;
+      arrivalEta = normalizeOfferArrivalEta(req.body?.arrivalEta);
 
       if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
         return res.status(400).send("\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0443 \u0441\u0442\u0430\u0432\u043a\u0443 \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443");

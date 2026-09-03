@@ -14,6 +14,8 @@ function formatDate(date) {
 }
 
 function isOrderDateOutdated(order) {
+  if (String(order?.timingOption || "").trim().toUpperCase() === "ASAP") return false;
+
   const backendOutdated = parseBooleanLike(order?.isDateOutdated);
   if (backendOutdated === true) return true;
 

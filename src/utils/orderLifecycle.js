@@ -38,8 +38,13 @@ function validDate(value) {
   return d;
 }
 
+function normalizedTimingOption(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 function getOrderReferenceDate(order) {
   if (!order) return null;
+  if (!order.freeDate && normalizedTimingOption(order.timingOption) === "ASAP") return null;
   if (order.freeDate) {
     return validDate(order.freeDateUntil || order.unloadTo || order.loadTo || order.loadFrom);
   }

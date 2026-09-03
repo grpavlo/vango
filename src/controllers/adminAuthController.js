@@ -8,8 +8,9 @@ const { sendSms } = require('../services/turbosms');
 const {
   generateCode,
   set: setCode,
-  verifyAndConsume,
+  verifyAndConsumeOrDev,
   normalizePhone,
+  getDevAuthCode,
 } = require('../services/authCodes');
 
 const ADMIN_TOKEN_EXPIRES_IN = '90d';
@@ -52,19 +53,58 @@ async function findLinkedUser(admin) {
   });
 }
 
+function isTechnicalDisplayName(value) {
+  return /^(user|portal)_\d+@vango\.(phone|admin)$/i.test(String(value || '').trim());
+}
+
+function linkedUserDisplayName(user) {
+  if (!user) return '';
+  const profileName = [user.lastName, user.firstName, user.patronymic].filter(Boolean).join(' ').trim();
+  const name = String(user.name || '').trim();
+  if (name && !isTechnicalDisplayName(name)) return name;
+  return profileName || user.phone || user.email || '';
+}
+
+function adminDisplayName(admin, linkedUser = null) {
+  const linkedName = linkedUserDisplayName(linkedUser);
+  const adminName = String(admin.name || '').trim();
+  if (linkedName) return linkedName;
+  if (adminName && !isTechnicalDisplayName(adminName)) return adminName;
+  return admin.phone || admin.email || '';
+}
+
 function serializeAdmin(admin, linkedUser = null) {
   return {
     id: admin.id,
-    name: admin.name,
+    name: adminDisplayName(admin, linkedUser),
     email: admin.email,
     phone: admin.phone,
     selfiePhoto: linkedUser?.selfiePhoto || null,
+    linkedUser: linkedUser
+      ? {
+          id: linkedUser.id,
+          name: linkedUserDisplayName(linkedUser),
+          email: linkedUser.email,
+          phone: linkedUser.phone,
+          firstName: linkedUser.firstName,
+          lastName: linkedUser.lastName,
+          patronymic: linkedUser.patronymic,
+          selfiePhoto: linkedUser.selfiePhoto,
+          role: linkedUser.role,
+          isAdmin: linkedUser.isAdmin,
+          blocked: linkedUser.blocked,
+        }
+      : null,
     isPortalAdmin: true,
   };
 }
 
 function buildAdminLoginCodeSms(code) {
   return `${code} - код для входу в портал VanGo. Дійсний 5 хв.`;
+}
+
+function shouldSkipSmsInDev() {
+  return process.env.DEV_SMS_BYPASS === '1' && Boolean(getDevAuthCode());
 }
 
 function signAdminToken(admin) {
@@ -116,8 +156,17 @@ async function sendPortalAdminCode(req, res) {
     return res.status(400).send('Адміністратора з таким номером не знайдено');
   }
 
-  const code = generateCode();
+  const devCode = getDevAuthCode();
+  const skipSms = shouldSkipSmsInDev();
+  const code = skipSms && devCode ? devCode : generateCode();
   setCode(normalizedPhone, code);
+  if (skipSms) {
+    return res.json({
+      sent: true,
+      smsSkipped: true,
+      devCode: code,
+    });
+  }
   const result = await sendSms(normalizedPhone, buildAdminLoginCodeSms(code));
   if (!result.ok) {
     return res.status(503).send('Не вдалося надіслати SMS. Спробуйте пізніше.');
@@ -138,7 +187,7 @@ async function verifyPortalAdminCode(req, res) {
   }
 
   const normalizedPhone = normalizePhone(phone);
-  if (!verifyAndConsume(normalizedPhone, code)) {
+  if (!verifyAndConsumeOrDev(normalizedPhone, code)) {
     return res.status(400).send('Невірний або прострочений код');
   }
 

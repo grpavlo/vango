@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { GooglePlacePicker, type GooglePoint } from "../google-maps";
 import { FactVisual } from "./fact-visual";
 import Reports from "./reports/reports";
@@ -77,6 +77,8 @@ type CustomerOrder = {
   unloadHelp?: boolean;
   photos?: string[] | string;
   history?: Array<{ status?: string; at?: string; photo?: string | string[]; photos?: string[] | string }>;
+  myRating?: RatingResult | null;
+  receivedRating?: RatingResult | null;
 };
 
 type CustomerOrderResponse = {
@@ -134,8 +136,12 @@ type SupportBotMessage = {
 
 type RatingResult = {
   id?: number;
+  orderId?: number;
+  fromUserId?: number;
+  toUserId?: number;
   rating?: number;
   comment?: string | null;
+  createdAt?: string;
 };
 
 type AdminSwitchResult = {
@@ -154,6 +160,7 @@ const TOKEN_KEY = "vango.webUserPortal.token";
 const KIND_KEY = "vango.webUserPortal.kind";
 const THEME_KEY = "vango.webUserPortal.customerTheme";
 const NOTIFICATION_BADGE_EVENT = "vango:web-notifications-updated";
+const PORTAL_AUTO_REFRESH_MS = 10000;
 
 async function customerApiFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -316,6 +323,25 @@ function customerDateTime(value?: string) {
   return date.toLocaleString("uk-UA", { dateStyle: "short", timeStyle: "short" });
 }
 
+const ASAP_SCHEDULE_LABEL = "\u042f\u043a\u043d\u0430\u0439\u0448\u0432\u0438\u0434\u0448\u0435";
+const WITHIN_HOUR_SCHEDULE_LABEL = "\u0414\u043e 1 \u0433\u043e\u0434\u0438\u043d\u0438";
+
+function normalizedTimingOption(value?: string | null) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isAsapOrder(order: Pick<CustomerOrder, "timingOption">) {
+  return normalizedTimingOption(order.timingOption) === "ASAP";
+}
+
+function customerLoadDateTime(order: CustomerOrder) {
+  return isAsapOrder(order) ? ASAP_SCHEDULE_LABEL : customerDateTime(order.loadFrom);
+}
+
+function customerUnloadDateTime(order: CustomerOrder) {
+  return isAsapOrder(order) ? ASAP_SCHEDULE_LABEL : customerDateTime(order.unloadFrom || order.unloadTo);
+}
+
 function dateInputValue(value?: string) {
   if (!value) return "";
   const date = new Date(value);
@@ -342,6 +368,7 @@ function dateTimeFromInputs(dateValue: FormDataEntryValue | null, timeValue: For
 }
 
 function isOrderDateOutdated(order: CustomerOrder) {
+  if (isAsapOrder(order)) return false;
   const anchor = order.freeDate ? order.freeDateUntil || order.loadFrom : order.loadFrom;
   if (!anchor) return false;
   const date = new Date(anchor);
@@ -550,8 +577,9 @@ function orderDimensions(order: CustomerOrder) {
 }
 
 function orderSchedule(order: CustomerOrder) {
-  if (order.timingOption === "ASAP") return "Якнайшвидше";
-  if (order.timingOption === "WITHIN_1_HOUR") return "До 1 години";
+  const timingOption = normalizedTimingOption(order.timingOption);
+  if (timingOption === "ASAP") return ASAP_SCHEDULE_LABEL;
+  if (timingOption === "WITHIN_1_HOUR" || timingOption === "WITHIN_HOUR") return WITHIN_HOUR_SCHEDULE_LABEL;
   return customerDateTime(order.loadFrom);
 }
 
@@ -790,13 +818,20 @@ function DriverOffers({
 }
 
 function CustomerRatingCard({ order, driver }: { order: CustomerOrder; driver?: UserProfile | null }) {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
+  const savedRating = Number(order.myRating?.rating) || 0;
+  const [rating, setRating] = useState(savedRating);
+  const [comment, setComment] = useState(order.myRating?.comment || "");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const targetId = driver?.id || order.driverId;
   const canRate = Boolean(targetId && ["DELIVERED", "COMPLETED"].includes(order.status || ""));
+
+  useEffect(() => {
+    setRating(Number(order.myRating?.rating) || 0);
+    setComment(order.myRating?.comment || "");
+    setMessage(order.myRating?.rating ? "Оцінку вже збережено" : "");
+  }, [order.id, order.myRating?.comment, order.myRating?.rating]);
 
   if (!canRate) return null;
 
@@ -840,8 +875,19 @@ function CustomerRatingCard({ order, driver }: { order: CustomerOrder; driver?: 
       <label>Коментар<textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="За бажанням" maxLength={1000}/></label>
       {error && <p className="customer-form-error">{error}</p>}
       {message && <p className="rating-success">{message}</p>}
-      <button className="customer-primary" type="submit" disabled={submitting || !rating}>{submitting ? "Зберігаємо..." : message ? "Оновити оцінку" : "Надіслати оцінку"}</button>
+      <button className="customer-primary" type="submit" disabled={submitting || !rating}>{submitting ? "Зберігаємо..." : order.myRating || message ? "Оновити оцінку" : "Надіслати оцінку"}</button>
     </form>
+  </section>;
+}
+
+function OrderReceivedRatingCard({ rating }: { rating?: RatingResult | null }) {
+  const value = Number(rating?.rating);
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return <section className="customer-card order-received-rating-card">
+    <span>Оцінка від водія</span>
+    <strong>{"★".repeat(Math.max(1, Math.min(5, Math.round(value))))} <b>{value.toFixed(1).replace(".", ",")}</b></strong>
+    {rating?.comment && <p>{rating.comment}</p>}
   </section>;
 }
 
@@ -1102,6 +1148,7 @@ function LiveOrderDetailView({ order, responses, notification, onOrderUpdated, o
         </section> : <section className="customer-card active-driver">
           <div><span className="mini-avatar green">VG</span><div><small>Водій</small><h3>Ще не призначено</h3><p>{order.responseCount ? `${order.responseCount} пропозицій від водіїв` : "Очікуємо пропозиції від водіїв"}</p></div></div>
         </section>}
+        <OrderReceivedRatingCard rating={order.receivedRating}/>
         {(driver || order.driverId) && <CustomerRatingCard order={order} driver={driver}/>}
         <DriverOffers order={order} responses={responses} onOrderUpdated={onOrderUpdated} onResponsesUpdated={onResponsesUpdated}/>
         <section className="customer-card order-facts-card">
@@ -1111,8 +1158,8 @@ function LiveOrderDetailView({ order, responses, notification, onOrderUpdated, o
             <i className="to"/><div><span>Куди</span><strong>{orderAddress(order.dropoffAddress, order.dropoffLocation, order.dropoffCity)}</strong></div>
           </div>
           <div className="facts-visual-grid">
-            <FactVisual icon="calendar" label="Дата завантаження" value={customerDateTime(order.loadFrom)} tone="blue"/>
-            <FactVisual icon="clock" label="Дата розвантаження" value={customerDateTime(order.unloadFrom || order.unloadTo)} tone="green"/>
+            <FactVisual icon="calendar" label="Дата завантаження" value={customerLoadDateTime(order)} tone="blue"/>
+            <FactVisual icon="clock" label="Дата розвантаження" value={customerUnloadDateTime(order)} tone="green"/>
             <FactVisual icon="route" label="Відстань" value={order.distance ? `≈ ${Number(order.distance).toLocaleString("uk-UA")} км` : "-"} tone="blue"/>
             <FactVisual icon="cube" label="Габарити" value={orderDimensions(order)} tone="violet"/>
             <FactVisual icon="case" label="Вага" value={order.cargoWeight ? `${Number(order.cargoWeight).toLocaleString("uk-UA")} кг` : "-"} tone="orange"/>
@@ -1264,12 +1311,15 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async (silent = false) => {
       const token = getStoredUserToken();
       if (!token) {
         window.location.href = "/";
         return;
+      }
+      if (!silent) {
+        setLoading(true);
+        setError("");
       }
       try {
         let profileResult = await customerApiFetch<UserProfile>("/auth/me", token);
@@ -1303,13 +1353,23 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
         setOrderNotification(view === "orderDetail" ? matchedNotification : null);
         setOrderResponses(Array.isArray(responsesResult) ? responsesResult : []);
       } catch (err) {
+        if (silent) return;
         setError(err instanceof Error ? err.message : "Не вдалося завантажити дані");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    }
-    load();
   }, [view, orderId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   function logout() {
     window.localStorage.removeItem(TOKEN_KEY);
@@ -1655,27 +1715,32 @@ export function Notifications({ role = "customer" }: { role?: "customer" | "driv
   const [error, setError] = useState("");
   const unreadCount = items.filter((item) => !item.read).length;
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async (silent = false) => {
     const token = getStoredUserToken();
     if (!token) {
       window.location.href = "/";
       return;
     }
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const nextItems = await customerApiFetch<PortalNotification[]>("/notifications", token);
       setItems(Array.isArray(nextItems) ? nextItems : []);
       setError("");
     } catch (err) {
+      if (silent) return;
       setError(err instanceof Error ? err.message : "Не вдалося завантажити сповіщення");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    void loadNotifications();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadNotifications(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [loadNotifications]);
 
   async function markAllRead() {
     const token = getStoredUserToken();

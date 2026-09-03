@@ -140,6 +140,7 @@
 .portal-stat{min-width:0;padding:18px;display:grid;grid-template-columns:56px minmax(0,1fr);gap:13px;align-items:center;border:1px solid #dfe7e2;border-radius:16px;background:#fff;box-shadow:0 5px 18px rgba(25,45,34,.035)}
 .portal-stat-icon{position:relative;width:42px;height:42px;display:block;justify-self:center;align-self:center;border-radius:12px;line-height:0}.portal-stat-icon svg{position:absolute;left:50%;top:50%;display:block;transform:translate(-50%,-50%)}.portal-stat-icon.green{background:#e2f8eb;color:#118d47}.portal-stat-icon.blue{background:#e8f2fd;color:#2c6ecb}.portal-stat-icon.orange{background:#fff0e4;color:#d96716}.portal-stat-icon.dark{background:#eef1f2;color:#536073}
 .portal-stat small,.portal-stat strong,.portal-stat span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.portal-stat small{margin-bottom:6px;color:#6e7a7b;font-size:11px}.portal-stat strong{font-size:23px}.portal-stat span{margin-top:5px;color:#7c8788;font-size:10px}
+.portal-role-hero{margin-bottom:18px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid #dfe7e2;border-radius:18px;background:#fff;box-shadow:0 7px 24px rgba(25,45,34,.04)}.portal-role-hero>div{display:flex;align-items:center;gap:15px;min-width:0}.portal-role-hero small,.portal-role-card small{display:block;color:#6e7a7b;font-size:11px;font-weight:800}.portal-role-hero h2{margin:4px 0 6px;font-size:25px;line-height:1.2}.portal-role-hero p{margin:0;color:#6f7b7c;font-size:13px}.portal-role-hero>span{padding:8px 11px;border-radius:999px;background:#e9f9ef;color:#108d47;font-size:12px;font-weight:900;white-space:nowrap}.portal-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.portal-role-card{min-height:170px;padding:24px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border:1px solid #dfe7e2;border-radius:18px;background:#fff;color:#20292a;text-decoration:none;box-shadow:0 7px 24px rgba(25,45,34,.04);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.portal-role-card:hover{transform:translateY(-2px);border-color:#bfe7cf;box-shadow:0 16px 38px rgba(24,169,87,.1)}.portal-role-card>span{width:58px;height:58px;display:grid;place-items:center;border-radius:16px;background:#e9f9ef;color:#108d47}.portal-role-card.driver>span{background:#e8f2fd;color:#2c6ecb}.portal-role-card strong{display:block;margin:8px 0 8px;font-size:20px;line-height:1.25}.portal-role-card p{margin:0;color:#6f7b7c;font-size:13px}.portal-role-card em{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#f4f7f5;color:#526061;font-style:normal}.portal-role-card:hover em{background:#18a957;color:#fff}
 .portal-admin-area{margin-top:20px}.portal-section-title{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:4px 0 16px}.portal-section-title h2{margin:0 0 5px;font-size:22px}.portal-section-title p{margin:0;color:#6f7b7c;font-size:13px}.portal-section-title>a{height:38px;padding:0 13px;display:flex;align-items:center;border:1px solid #bee6cc;border-radius:10px;background:#fff;color:#108d47;text-decoration:none;font-size:12px;font-weight:800}
 .portal-analytics-grid{display:grid;grid-template-columns:minmax(320px,.7fr) minmax(0,1.3fr);gap:16px}
 .portal-panel{min-width:0;overflow:hidden;border:1px solid #dfe7e2;border-radius:16px;background:#fff;box-shadow:0 5px 18px rgba(25,45,34,.035)}
@@ -190,6 +191,16 @@
 .price-row .toggle-row input{position:absolute;width:1px;min-width:0;height:1px;opacity:0;pointer-events:none}
 .price-row .toggle-row>i{align-self:center}
 @media(max-width:720px){.price-row .toggle-row.compact{min-width:0;width:100%}}
+.portal-role-grid{container-type:inline-size}
+@media(max-width:720px){.portal-role-hero{align-items:flex-start;flex-direction:column}.portal-role-grid{grid-template-columns:1fr}.portal-role-card{min-height:140px;grid-template-columns:auto minmax(0,1fr);align-items:flex-start}.portal-role-card em{grid-column:1/-1;width:100%;height:34px}.portal-role-card strong{font-size:17px}}
+html.customer-dark .portal-role-hero,
+html.customer-dark .portal-role-card{border-color:#24372f;background:#111d18;color:#edf7f1}
+html.customer-dark .portal-role-hero p,
+html.customer-dark .portal-role-card p,
+html.customer-dark .portal-role-hero small,
+html.customer-dark .portal-role-card small{color:#a9bbb3}
+html.customer-dark .portal-role-card em{background:#192720;color:#b7cac2}
+html.customer-dark .portal-role-card:hover em{background:#1fb965;color:#fff}
 .notification-item:is(button){width:100%;border:1px solid #dfe5e2;text-align:left;font:inherit;cursor:pointer}
 .notification-item:is(button):hover,.notification-item:is(a):hover{border-color:#b8edcb}
 .driver-offers-live{padding:22px;border-color:#bde9cd}.offer-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}.offer-section-head h3{margin:0 0 4px;font-size:17px}.offer-section-head p{margin:0;color:#748081;font-size:12px}.offer-section-head>span{min-width:28px;height:28px;padding:0 8px;display:grid;place-items:center;border-radius:99px;background:#e3f8eb;color:#0f9549;font-size:13px;font-weight:800}.driver-offers-list{display:grid;gap:12px}.driver-offer-card{padding:16px;border:1px solid #e1e7e4;border-radius:12px;background:#fff}.driver-offer-card .offer-title{grid-template-columns:auto 1fr auto}.driver-offer-card .offer-values{margin:14px 0;grid-template-columns:repeat(4,minmax(0,1fr))}.choose-driver-button{width:100%;border:0;cursor:pointer}.choose-driver-button:disabled{opacity:.65;cursor:wait}@media(max-width:720px){.driver-offer-card .offer-title{grid-template-columns:auto 1fr}.driver-offer-card .offer-title>span:last-child{grid-column:1/-1}.driver-offer-card .offer-values{grid-template-columns:1fr 1fr}}
@@ -974,3 +985,35 @@ html.customer-dark .portal-modal-backdrop{background:rgba(2,8,6,.68)}
 html.customer-dark .admin-portal-switch{background:#163b28;border-color:#2d6a4e;color:#73f3a8}
 html.customer-dark .admin-portal-switch:hover{background:#19482d}
 html.customer-dark .settings-message{color:#f5b47d}
+.customer-phone-link{width:max-content;max-width:100%;margin-top:9px;display:inline-flex;align-items:center;gap:7px;color:#0f9449;text-decoration:none;font-size:14px;font-weight:800;overflow-wrap:anywhere}.customer-phone-link:hover{text-decoration:underline}html.customer-dark .customer-phone-link{color:#73f3a8}
+.order-received-rating-card{padding:22px;display:grid;gap:10px}
+.order-received-rating-card>span{color:#6c797a;font-size:13px;font-weight:800}
+.order-received-rating-card>strong{color:#e2a20b;font-size:22px;letter-spacing:0}
+.order-received-rating-card>strong b{color:#253033;font-size:18px}
+.order-received-rating-card>p{margin:0;color:#4e5b5d;font-size:14px;line-height:1.5}
+html.customer-dark .order-received-rating-card{background:#0f2019;border-color:#2a4038}
+html.customer-dark .order-received-rating-card>span,html.customer-dark .order-received-rating-card>p{color:#c3d2cb}
+html.customer-dark .order-received-rating-card>strong b{color:#f1fbf5}
+.driver-completion-backdrop{position:fixed;inset:0;z-index:110;padding:24px;display:grid;place-items:center;overflow:hidden;background:rgba(15,23,42,.56);backdrop-filter:blur(6px);animation:driver-completion-fade .18s ease-out}
+.driver-completion-burst{position:absolute;left:50%;top:44%;width:1px;height:1px;z-index:2;pointer-events:none}
+.driver-completion-burst i{position:absolute;left:0;top:0;width:var(--completion-size);height:var(--completion-size);border-radius:50%;background:var(--completion-color);box-shadow:0 0 10px rgba(255,255,255,.88);animation:driver-completion-burst 1.68s cubic-bezier(.18,.86,.32,1) infinite;transform:translate(-50%,-50%) scale(.7);opacity:0}
+.driver-completion-card{position:relative;z-index:3;width:min(360px,100%);padding:30px 24px 22px;display:grid;justify-items:center;border:1px solid #dce8e1;border-radius:24px;background:#fff;color:#0f172a;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.24);animation:driver-completion-card-in .28s cubic-bezier(.2,.9,.2,1.16)}
+.driver-completion-icon{width:76px;height:76px;margin-bottom:16px;display:grid;place-items:center;border:5px solid #dcfce7;border-radius:50%;background:#16a34a;color:#fff}
+.driver-completion-card h3{margin:0;font-size:24px;line-height:1.25;font-weight:900}
+.driver-completion-card p{margin:10px 0 0;color:#273033;font-size:17px;line-height:1.4;font-weight:800}
+.driver-completion-card .driver-completion-subtitle{margin-top:12px;color:#64748b;font-size:15px}
+.driver-completion-card strong{margin-top:4px;color:#16a34a;font-size:34px;line-height:1.18;font-weight:950}
+.driver-completion-card button{width:100%;height:50px;margin-top:22px;border:0;border-radius:14px;background:#ef7624;color:#fff;font-size:16px;font-weight:900;cursor:pointer}
+.driver-completion-card button:hover{background:#df6818}
+@keyframes driver-completion-fade{from{opacity:0}to{opacity:1}}
+@keyframes driver-completion-card-in{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:scale(1)}}
+@keyframes driver-completion-burst{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}12%{opacity:1}70%{opacity:1;transform:translate(calc(var(--completion-x) - 50%),calc(var(--completion-y) - 50%)) scale(1.85)}100%{opacity:0;transform:translate(calc(var(--completion-x-end) - 50%),calc(var(--completion-y-end) - 50%)) scale(.35)}}
+html.customer-dark .driver-completion-card{background:#0f2019;border-color:#315545;color:#f5fff9;box-shadow:0 24px 80px rgba(0,0,0,.46)}
+html.customer-dark .driver-completion-card p{color:#dcece5}
+html.customer-dark .driver-completion-card .driver-completion-subtitle{color:#a8bbb3}
+@media(max-width:520px){.driver-completion-backdrop{padding:18px}.driver-completion-burst{top:43%}.driver-completion-card{border-radius:22px;padding:28px 20px 20px}.driver-completion-card h3{font-size:23px}.driver-completion-card strong{font-size:31px}.driver-completion-card p{font-size:16px}}
+.saved-search-message{margin:-4px 0 0;padding:10px 12px;border:1px solid #ccebd8;border-radius:10px;background:#f0fbf4;color:#216b40;font-size:12px;font-weight:800;line-height:1.35}
+html.customer-dark .saved-search-message{background:#10231c;border-color:#2e5f47;color:#cfe0d8}
+.support-chat-screen .support-chat-input{grid-template-columns:minmax(0,1fr) 56px}
+.support-chat-screen .support-chat-input:before{content:none!important;display:none!important}
+@media(max-width:720px){.support-chat-screen .support-chat-input{grid-template-columns:minmax(0,1fr) 48px}}

@@ -54,6 +54,7 @@ export default function AllOrdersScreen({ navigation }) {
   const wsShouldReconnectRef = useRef(true);
   const wsReconnectTimerRef = useRef(null);
   const autoRefreshTimerRef = useRef(null);
+  const driverRoleReadyRef = useRef(false);
   const isScreenFocusedRef = useRef(
     typeof navigation?.isFocused === "function" ? navigation.isFocused() : false
   );
@@ -329,9 +330,26 @@ export default function AllOrdersScreen({ navigation }) {
     };
   }
 
+  async function ensureDriverRoleForSavedSearches() {
+    if (driverRoleReadyRef.current || !token) return;
+    const me = await apiFetch("/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const serverRole = String(me?.role || "").trim().toUpperCase();
+    if (serverRole === "CUSTOMER") {
+      await apiFetch("/auth/role", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ role: "BOTH" }),
+      });
+    }
+    driverRoleReadyRef.current = true;
+  }
+
   async function loadSavedSearches() {
     try {
       setSavedSearchesLoading(true);
+      await ensureDriverRoleForSavedSearches();
       const data = await apiFetch("/saved-searches", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -349,6 +367,7 @@ export default function AllOrdersScreen({ navigation }) {
 
     try {
       setSavingSearch(true);
+      await ensureDriverRoleForSavedSearches();
       await apiFetch("/saved-searches", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -366,6 +385,7 @@ export default function AllOrdersScreen({ navigation }) {
   async function removeSavedSearch(id) {
     try {
       setDeletingSearchId(id);
+      await ensureDriverRoleForSavedSearches();
       await apiFetch(`/saved-searches/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -635,6 +655,8 @@ export default function AllOrdersScreen({ navigation }) {
   }
 
   function isDateOutdated(order) {
+    if (String(order?.timingOption || "").trim().toUpperCase() === "ASAP") return false;
+
     const backendOutdated = parseBooleanLike(order?.isDateOutdated);
     if (backendOutdated === true) return true;
 

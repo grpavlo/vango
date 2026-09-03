@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type CSSProperties } from "react";
 import { FactVisual } from "../customer/fact-visual";
 import { VIcon } from "../customer/v-icon";
 import { DriverLayout } from "./driver-portal";
@@ -54,6 +54,8 @@ type DriverOrderData = {
   requestedOrderType?: string;
   isIntraCity?: boolean;
   photos?: string[] | string;
+  myRating?: RatingResult | null;
+  receivedRating?: RatingResult | null;
   customer?: {
     id?: number;
     name?: string;
@@ -77,17 +79,44 @@ type DriverOrderResponse = {
   finalPriceOffer?: number | string | null;
   customerCounterPrice?: number | string | null;
   arrivalEta?: string | null;
+  customerPhone?: string | null;
+  customerName?: string | null;
   expiresAt?: string | null;
 };
 
 type RatingResult = {
   id?: number;
+  orderId?: number;
+  fromUserId?: number;
+  toUserId?: number;
   rating?: number;
   comment?: string | null;
+  createdAt?: string;
 };
 
 const TOKEN_KEY = "vango.webUserPortal.token";
 const KIND_KEY = "vango.webUserPortal.kind";
+const PORTAL_AUTO_REFRESH_MS = 10000;
+const COMPLETION_FIREWORKS = [
+  { x: -168, y: -156, color: "#F59E0B", size: 16 },
+  { x: -124, y: -218, color: "#22C55E", size: 13 },
+  { x: -58, y: -188, color: "#38BDF8", size: 15 },
+  { x: 18, y: -226, color: "#F97316", size: 13 },
+  { x: 92, y: -190, color: "#84CC16", size: 16 },
+  { x: 162, y: -134, color: "#F43F5E", size: 14 },
+  { x: 188, y: -54, color: "#FBBF24", size: 15 },
+  { x: 150, y: 34, color: "#2DD4BF", size: 13 },
+  { x: 78, y: 100, color: "#A855F7", size: 14 },
+  { x: -12, y: 118, color: "#10B981", size: 13 },
+  { x: -96, y: 82, color: "#FB7185", size: 15 },
+  { x: -188, y: 18, color: "#60A5FA", size: 13 },
+  { x: -214, y: -76, color: "#FDE047", size: 12 },
+  { x: -136, y: -34, color: "#EC4899", size: 11 },
+  { x: -44, y: -78, color: "#34D399", size: 12 },
+  { x: 50, y: -92, color: "#FACC15", size: 11 },
+  { x: 132, y: -28, color: "#818CF8", size: 12 },
+  { x: 54, y: 42, color: "#FB923C", size: 11 },
+];
 
 async function apiFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
@@ -121,6 +150,18 @@ function money(value: unknown, agreedPrice?: boolean) {
   const number = numberValue(value);
   if (number == null || number <= 0) return "Пропонується водієм";
   return `${number.toLocaleString("uk-UA")} грн`;
+}
+
+function getOrderCompletionEarnings(order?: DriverOrderData | null) {
+  const finalPrice = numberValue(order?.finalPrice);
+  const price = numberValue(order?.price);
+  const value = finalPrice && finalPrice > 0 ? finalPrice : price && price > 0 ? price : null;
+  return value === null ? null : Math.round(value);
+}
+
+function formatCompletionEarnings(value?: number | null) {
+  if (value == null || !Number.isFinite(Number(value))) return "- грн";
+  return `${Math.round(Number(value)).toLocaleString("uk-UA")} грн`;
 }
 
 function dateTime(value?: string) {
@@ -194,8 +235,9 @@ function typeText(order: DriverOrderData) {
 }
 
 function scheduleText(order: DriverOrderData) {
-  if (order.timingOption === "asap") return "Якнайшвидше";
-  if (order.timingOption === "within_hour") return "До 1 години";
+  const timingOption = String(order.timingOption || "").trim().toUpperCase();
+  if (timingOption === "ASAP") return "Якнайшвидше";
+  if (timingOption === "WITHIN_1_HOUR" || timingOption === "WITHIN_HOUR") return "До 1 години";
   if (order.freeDateUntil) return `Вільна дата до ${dateTime(order.freeDateUntil)}`;
   if (order.loadFrom) return dateTime(order.loadFrom);
   return "Час подачі не вказано";
@@ -387,14 +429,71 @@ function DriverSystemConfirm({
   </div>;
 }
 
+function DriverCompletionCelebration({ visible, earnings, onClose }: { visible: boolean; earnings?: number | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!visible) return undefined;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, visible]);
+
+  if (!visible) return null;
+
+  return <div className="driver-completion-backdrop" role="presentation" onClick={onClose}>
+    <div className="driver-completion-burst" aria-hidden="true">
+      {COMPLETION_FIREWORKS.map((dot, index) => (
+        <i
+          key={`${dot.color}-${index}`}
+          style={{
+            "--completion-x": `${dot.x}px`,
+            "--completion-y": `${dot.y}px`,
+            "--completion-x-end": `${dot.x * 1.14}px`,
+            "--completion-y-end": `${dot.y * 1.14}px`,
+            "--completion-color": dot.color,
+            "--completion-size": `${dot.size}px`,
+          } as CSSProperties}
+        />
+      ))}
+    </div>
+    <section className="driver-completion-card" role="dialog" aria-modal="true" aria-labelledby="driver-completion-title" onClick={(event) => event.stopPropagation()}>
+      <span className="driver-completion-icon"><VIcon name="check" size={52}/></span>
+      <h3 id="driver-completion-title">Замовлення виконане</h3>
+      <p className="driver-completion-subtitle">Ваш заробіток</p>
+      <strong>{formatCompletionEarnings(earnings)}</strong>
+      <p>Ви молодець! Так тримати!</p>
+      <button type="button" onClick={onClose}>Супер</button>
+    </section>
+  </div>;
+}
+
+function OrderReceivedRatingCard({ rating, label }: { rating?: RatingResult | null; label: string }) {
+  const value = Number(rating?.rating);
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  return <section className="customer-card order-received-rating-card">
+    <span>{label}</span>
+    <strong>{"★".repeat(Math.max(1, Math.min(5, Math.round(value))))} <b>{value.toFixed(1).replace(".", ",")}</b></strong>
+    {rating?.comment && <p>{rating.comment}</p>}
+  </section>;
+}
+
 function DriverRatingCard({ order, customer }: { order: DriverOrderData; customer: string }) {
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
+  const savedRating = Number(order.myRating?.rating) || 0;
+  const [rating, setRating] = useState(savedRating);
+  const [comment, setComment] = useState(order.myRating?.comment || "");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const targetId = order.customer?.id || order.customerId;
   const canRate = Boolean(targetId && ["DELIVERED", "COMPLETED"].includes(order.status || ""));
+
+  useEffect(() => {
+    setRating(Number(order.myRating?.rating) || 0);
+    setComment(order.myRating?.comment || "");
+    setMessage(order.myRating?.rating ? "Оцінку вже збережено" : "");
+  }, [order.id, order.myRating?.comment, order.myRating?.rating]);
 
   if (!canRate) return null;
 
@@ -438,7 +537,7 @@ function DriverRatingCard({ order, customer }: { order: DriverOrderData; custome
       <label>Коментар<textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="За бажанням" maxLength={1000}/></label>
       {error && <p className="customer-form-error">{error}</p>}
       {message && <p className="rating-success">{message}</p>}
-      <button className="customer-primary" type="submit" disabled={submitting || !rating}>{submitting ? "Зберігаємо..." : message ? "Оновити оцінку" : "Надіслати оцінку"}</button>
+      <button className="customer-primary" type="submit" disabled={submitting || !rating}>{submitting ? "Зберігаємо..." : order.myRating || message ? "Оновити оцінку" : "Надіслати оцінку"}</button>
     </form>
   </section>;
 }
@@ -457,20 +556,21 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState("");
   const [statusConfirmAction, setStatusConfirmAction] = useState<ReturnType<typeof nextDriverStatusAction>>(null);
+  const [completionCelebration, setCompletionCelebration] = useState<{ visible: boolean; earnings: number | null }>({ visible: false, earnings: null });
 
   useEffect(() => {
     let active = true;
-    async function loadOrder() {
+    async function loadOrder(silent = false) {
       const token = getToken();
       if (!token) {
         window.location.href = "/";
         return;
       }
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         let nextProfile = await apiFetch<DriverProfile>("/auth/me", token);
         if (nextProfile.role === "CUSTOMER") {
-          await apiFetch<{ role: string }>("/auth/role", token, { method: "PUT", body: JSON.stringify({ role: "DRIVER" }) });
+          await apiFetch<{ role: string }>("/auth/role", token, { method: "PUT", body: JSON.stringify({ role: "BOTH" }) });
           nextProfile = await apiFetch<DriverProfile>("/auth/me", token);
         }
         const nextOrder = await apiFetch<DriverOrderData>(`/orders/${orderId}`, token);
@@ -482,18 +582,36 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
           setError("");
         }
       } catch (err) {
+        if (silent) return;
         if (active) setError(err instanceof Error ? err.message : "Не вдалося завантажити замовлення");
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
     loadOrder();
-    return () => { active = false; };
-  }, [orderId]);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible" && !submitting && !negotiationLoading && !statusLoading) void loadOrder(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [negotiationLoading, orderId, statusLoading, submitting]);
 
   function notify(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(""), 2800);
+  }
+
+  function normalizeArrivalEta(value: FormDataEntryValue | null) {
+    const eta = String(value || "");
+    const aliases: Record<string, string> = {
+      "15m": "UP_TO_15_MIN",
+      "30m": "UP_TO_30_MIN",
+      "1h": "UP_TO_1_HOUR",
+      several_hours: "SEVERAL_HOURS",
+    };
+    return aliases[eta] || eta;
   }
 
   async function submitProposal(event: FormEvent<HTMLFormElement>) {
@@ -505,7 +623,7 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
       ? {
           hourlyRate: Number(data.get("hourlyRate")),
           minHours: Number(data.get("minHours")),
-          arrivalEta: String(data.get("arrivalEta") || ""),
+          arrivalEta: normalizeArrivalEta(data.get("arrivalEta")),
         }
       : {
           finalPrice: Number(data.get("finalPrice")),
@@ -605,6 +723,9 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
         body: JSON.stringify({ status: action.status }),
       });
       setOrder({ ...updated, myResponseStatus: myResponse?.status || updated.myResponseStatus });
+      if (action.status === "DELIVERED") {
+        setCompletionCelebration({ visible: true, earnings: getOrderCompletionEarnings(updated) });
+      }
       notify(action.successText);
     } catch (err) {
       setStatusError(err instanceof Error ? err.message : "Не вдалося оновити статус");
@@ -630,21 +751,24 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
   const photoList = orderPhotos(order);
   const price = money(order.finalPrice ?? order.price, order.agreedPrice);
   const statusAction = nextDriverStatusAction(order);
+  const customerPhone = cleanText(myResponse?.customerPhone);
 
   return <DriverLayout view={currentStage === "available" ? "map" : "orders"} title={`Замовлення № ${order.orderNumber || order.id}`} toast={toast} profile={profile}>
     <a className="back-link" href={backHref}><VIcon name="arrow"/>{backText}</a>
     <div className="order-detail-head"><div><small>{dateTime(order.createdAt)}</small><h2>{typeText(order)} · {distanceText(order).replace("≈ ", "")}</h2></div><span className={`big-status ${currentStage === "active" ? "blue" : "green"}`}>{statusText(order, currentStage)}</span></div>
     <div className="driver-order-grid"><div>
-      <section className="customer-card customer-owner"><span className="mini-avatar green">{initials(customer)}</span><div><strong>{customer}</strong><small>Рейтинг замовника: ★ {rating != null ? rating.toFixed(1) : "5.0"} · ✓ {checks}</small></div></section>
+      <section className="customer-card customer-owner"><span className="mini-avatar green">{initials(customer)}</span><div><strong>{customer}</strong><small>Рейтинг замовника: ★ {rating != null ? rating.toFixed(1) : "5.0"} · ✓ {checks}</small>{customerPhone ? <a className="customer-phone-link" href={`tel:${customerPhone}`}><VIcon name="phone" size={16}/>{customerPhone}</a> : null}</div></section>
       <section className="customer-card order-facts-card"><h3>Маршрут і деталі</h3><div className="fact-route order-point-route"><i className="from"/><div><span>Звідки</span><div className="route-point-line"><strong>{locationText(order, "pickup")}</strong><a href={mapPointUrl(order, "pickup")} target="_blank" rel="noreferrer"><VIcon name="pin" size={16}/>Мапа</a></div></div><i className="to"/><div><span>Куди</span><div className="route-point-line"><strong>{locationText(order, "dropoff")}</strong><a href={mapPointUrl(order, "dropoff")} target="_blank" rel="noreferrer"><VIcon name="pin" size={16}/>Мапа</a></div></div></div><div className="facts-visual-grid"><FactVisual icon="route" label="Відстань" value={distanceText(order)} tone="blue"/><FactVisual icon="cube" label="Габарити" value={dimensionsText(order)} tone="violet"/><FactVisual icon="case" label="Вага" value={order.cargoWeight ? `${Number(order.cargoWeight).toLocaleString("uk-UA")} кг` : "-"} tone="orange"/><FactVisual icon="car" label="Подача авто" value={scheduleText(order)} tone="green"/><FactVisual icon="card" label="Оплата" value={order.payment === "card" ? "Карта" : "Готівка"} tone="teal"/><FactVisual icon="upload" label="Завантаження допомагає" value={order.loadHelp ? "Так" : "Ні"} tone="green"/><FactVisual icon="upload" label="Розвантаження допомагає" value={order.unloadHelp ? "Так" : "Ні"} tone="orange"/><FactVisual icon="money" label="Ціна" value={price} tone="teal"/><FactVisual icon="edit" label="Опис" value={order.cargoType || "-"} tone="slate" wide/></div>{photoList.length > 0 ? <div className="order-photo-grid">{photoList.map((photo) => <a href={photo} target="_blank" rel="noreferrer" key={photo}><img src={photo} alt="Фото вантажу"/></a>)}</div> : <div className="cargo-photo-placeholder"><VIcon name="image" size={28}/><span>Фото вантажу</span></div>}</section>
     </div><aside>
       {currentStage === "completed" ? <section className="customer-card completed-order-summary"><span><VIcon name="check" size={26}/></span><h3>Замовлення виконано</h3><p>Вантаж передано замовнику, оплату підтверджено.</p></section>
       : currentStage === "active" ? <section className="customer-card distant-order-actions"><div className="proposal-form-head"><span><VIcon name="route"/></span><div><h3>Перевезення в роботі</h3><p>{statusAction ? "Оновіть етап виконання замовлення" : "Очікуємо підтвердження замовника"}</p></div></div>{statusAction ? <button className="customer-primary" onClick={() => setStatusConfirmAction(statusAction)} disabled={statusLoading}>{statusLoading ? "Оновлюємо..." : statusAction.label}</button> : <div className="status-wait-note">Ви повідомили про доставку. Замовник має підтвердити завершення.</div>}{statusError && <p className="customer-form-error">{statusError}</p>}</section>
       : myResponse && !proposal && !isLocal(order) ? <DriverNegotiationPanel key={`${myResponse.status || myResponse.id}-${myResponse.finalPriceOffer || ""}-${myResponse.customerCounterPrice || ""}`} order={order} response={myResponse} loading={negotiationLoading} error={negotiationError} onAccept={acceptCounterOffer} onReject={rejectCounterOffer} onCounter={submitDriverCounterOffer}/>
       : !proposal ? <section className="customer-card driver-cta"><span><VIcon name="send" size={28}/></span><h3>Готові виконати замовлення?</h3><p>Укажіть свою ставку, мінімальну кількість годин і час прибуття.</p><a className="customer-primary" href={`/driver/orders/${order.id}/proposal`}>Запропонувати ціну</a><small>Замовник отримає пропозицію та підтвердить її</small></section>
-      : <form className="customer-card proposal-form" onSubmit={submitProposal}><div className="proposal-form-head"><span><VIcon name="send"/></span><div><h3>Дані для пропозиції</h3><p>Умови, які побачить замовник</p></div></div>{isLocal(order) ? <><label>Ставка, грн/год<input name="hourlyRate" type="number" min="1" defaultValue="450"/></label><label>Мінімум годин<input name="minHours" type="number" min="1" step="0.5" defaultValue="1"/></label><fieldset><legend>Час прибуття</legend><div className="arrival-options"><label><input name="arrivalEta" value="15m" type="radio"/>до 15 хв</label><label><input name="arrivalEta" value="30m" type="radio" defaultChecked/>до 30 хв</label><label><input name="arrivalEta" value="1h" type="radio"/>до 1 год</label><label><input name="arrivalEta" value="several_hours" type="radio"/>кілька годин</label></div></fieldset></> : <><label>Фінальна ціна, грн<input name="finalPrice" type="number" min="100" step="100" defaultValue={numberValue(order.finalPrice ?? order.price) || ""}/></label><label className="checkbox-line"><input name="immediateConfirm" type="checkbox"/> Підтвердити відразу</label></>}<div className="proposal-total"><span>{isLocal(order) ? "Разом за мінімальний час" : "Пропозиція водія"}</span><strong>{isLocal(order) ? "450 грн" : price}</strong></div>{formError && <p className="customer-form-error">{formError}</p>}<button className="customer-primary" disabled={submitting}>{submitting ? "Надсилання..." : "Запропонувати ціну"}</button><small>Замовник отримає пропозицію та підтвердить її</small></form>}
+      : <form className="customer-card proposal-form" onSubmit={submitProposal}><div className="proposal-form-head"><span><VIcon name="send"/></span><div><h3>Дані для пропозиції</h3><p>Умови, які побачить замовник</p></div></div>{isLocal(order) ? <><label>Ставка, грн/год<input name="hourlyRate" type="number" min="1" defaultValue="450"/></label><label>Мінімум годин<input name="minHours" type="number" min="1" step="0.5" defaultValue="1"/></label><fieldset><legend>Час прибуття</legend><div className="arrival-options"><label><input name="arrivalEta" value="UP_TO_15_MIN" type="radio"/>до 15 хв</label><label><input name="arrivalEta" value="UP_TO_30_MIN" type="radio" defaultChecked/>до 30 хв</label><label><input name="arrivalEta" value="UP_TO_1_HOUR" type="radio"/>до 1 год</label><label><input name="arrivalEta" value="SEVERAL_HOURS" type="radio"/>кілька годин</label></div></fieldset></> : <><label>Фінальна ціна, грн<input name="finalPrice" type="number" min="100" step="100" defaultValue={numberValue(order.finalPrice ?? order.price) || ""}/></label><label className="checkbox-line"><input name="immediateConfirm" type="checkbox"/> Підтвердити відразу</label></>}<div className="proposal-total"><span>{isLocal(order) ? "Разом за мінімальний час" : "Пропозиція водія"}</span><strong>{isLocal(order) ? "450 грн" : price}</strong></div>{formError && <p className="customer-form-error">{formError}</p>}<button className="customer-primary" disabled={submitting}>{submitting ? "Надсилання..." : "Запропонувати ціну"}</button><small>Замовник отримає пропозицію та підтвердить її</small></form>}
+      <OrderReceivedRatingCard rating={order.receivedRating} label="Оцінка від замовника"/>
       <DriverRatingCard order={order} customer={customer}/>
     </aside></div>
     {statusConfirmAction && <DriverSystemConfirm title="Оновити статус замовлення?" message={statusConfirmAction.confirmText} confirmLabel={statusConfirmAction.label} loading={statusLoading} onConfirm={updateDriverStatus} onCancel={() => setStatusConfirmAction(null)}/>}
+    <DriverCompletionCelebration visible={completionCelebration.visible} earnings={completionCelebration.earnings} onClose={() => setCompletionCelebration({ visible: false, earnings: null })}/>
   </DriverLayout>;
 }

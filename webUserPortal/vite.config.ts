@@ -37,8 +37,11 @@ function getSharedGoogleMapsApiKey() {
 
 process.env.VITE_GOOGLE_MAPS_API_KEY = getSharedGoogleMapsApiKey();
 
-// macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
+// Some local/dev environments miss filesystem events, so polling keeps HMR reliable.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+const shouldUsePolling =
+  process.env.VANGO_WEB_POLLING === "1" ||
+  (process.env.VANGO_WEB_POLLING !== "0" && (isCodexSeatbeltSandbox || process.platform === "win32"));
 
 const localBindingConfig = {
   main: "./worker/index.ts",
@@ -86,8 +89,15 @@ export default defineConfig(async () => {
           changeOrigin: true,
         },
       },
-      ...(isCodexSeatbeltSandbox
-        ? { watch: { useFsEvents: false, usePolling: true } }
+      ...(shouldUsePolling
+        ? {
+            watch: {
+              useFsEvents: false,
+              usePolling: true,
+              interval: 300,
+              ignored: ["**/node_modules/**", "**/dist/**", "**/.wrangler/**"],
+            },
+          }
         : {}),
     },
     plugins: [

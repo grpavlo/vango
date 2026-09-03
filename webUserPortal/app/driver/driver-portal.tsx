@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState, type MouseEvent } from "react";
 import { NotificationBell, Notifications, Support, ThemeToggle } from "../customer/customer-portal";
 import { VIcon } from "../customer/v-icon";
-import { GoogleOrdersMap, GoogleRoutePreview, type GoogleRoutePoint } from "../google-maps";
+import { GoogleOrdersMap, GoogleRoutePreview, loadGoogleMaps, type GoogleRoutePoint } from "../google-maps";
 
 export type DriverView = "map" | "filter" | "saved" | "orders" | "settings" | "profile" | "notifications" | "support";
 
 const TOKEN_KEY = "vango.webUserPortal.token";
 const KIND_KEY = "vango.webUserPortal.kind";
+const PORTAL_AUTO_REFRESH_MS = 10000;
 
 type DriverUserProfile = {
   id: number;
@@ -66,6 +67,16 @@ type DriverSavedSearch = {
   radius?: number | string | null;
 };
 
+type DriverSavedSearchPayload = {
+  pickupCity: string;
+  dropoffCity: string | null;
+  lat: number;
+  lon: number;
+  dropoffLat: number | null;
+  dropoffLon: number | null;
+  radius: number;
+};
+
 async function driverApiFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...options,
@@ -117,6 +128,40 @@ function DriverAvatar({ profile, className, tone = "" }: { profile?: DriverUserP
 function driverNumber(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function formText(data: FormData, key: string) {
+  return String(data.get(key) || "").trim();
+}
+
+function formNumber(data: FormData, key: string) {
+  const value = formText(data, key);
+  if (!value) return null;
+  return driverNumber(value);
+}
+
+async function geocodeDriverSearchPoint(query: string) {
+  const value = query.trim();
+  if (!value) return null;
+  const google = await loadGoogleMaps();
+  return new Promise<{ lat: number; lon: number } | null>((resolve, reject) => {
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode(
+      { address: `${value}, Україна`, componentRestrictions: { country: "UA" } },
+      (results: any[], status: string) => {
+        if (status !== "OK") {
+          reject(new Error("Не вдалося визначити координати міста"));
+          return;
+        }
+        const location = results?.[0]?.geometry?.location;
+        if (!location) {
+          resolve(null);
+          return;
+        }
+        resolve({ lat: location.lat(), lon: location.lng() });
+      }
+    );
+  });
 }
 
 function driverMoney(value: unknown, agreedPrice?: boolean) {
@@ -256,8 +301,9 @@ function savedSearchHref(item: DriverSavedSearch) {
 }
 
 function driverSchedule(order: DriverAvailableOrder) {
-  if (order.timingOption === "asap") return "Якнайшвидше";
-  if (order.timingOption === "within_hour") return "До 1 години";
+  const timingOption = String(order.timingOption || "").trim().toUpperCase();
+  if (timingOption === "ASAP") return "Якнайшвидше";
+  if (timingOption === "WITHIN_1_HOUR" || timingOption === "WITHIN_HOUR") return "До 1 години";
   if (order.freeDateUntil) return `Вільна дата до ${new Date(order.freeDateUntil).toLocaleDateString("uk-UA")}`;
   if (order.loadFrom) return new Date(order.loadFrom).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   return "Час подачі не вказано";
@@ -375,6 +421,8 @@ function FilterPanel({ search }: { search: string }) {
   const initialRadius = driverNumber(params.get("radius")) || 30;
   const [radius, setRadius] = useState(initialRadius);
   const [savedCount, setSavedCount] = useState<number | null>(null);
+  const [savingSearch, setSavingSearch] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -389,10 +437,89 @@ function FilterPanel({ search }: { search: string }) {
       }
     }
     loadSavedCount();
-    return () => { active = false; };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadSavedCount();
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
-  return <aside className="customer-card map-side-panel"><div className="panel-title"><div><h2>Фільтр пошуку</h2><p>Оберіть дату, напрямок і радіус</p></div><a href="/driver/map" aria-label="Закрити">×</a></div><form key={search} className="filter-form" action="/driver/map" method="get"><fieldset><legend>Дата завантаження</legend><div className="two-fields"><label>З<input type="date" name="dateFrom" defaultValue={params.get("dateFrom") || params.get("date") || ""}/></label><label>По<input type="date" name="dateTo" defaultValue={params.get("dateTo") || params.get("date") || ""}/></label></div></fieldset><label>Місце завантаження<input name="pickupCity" defaultValue={params.get("pickupCity") || params.get("city") || ""} placeholder="Наприклад, Одеса"/></label><label>Місце розвантаження<input name="dropoffCity" defaultValue={params.get("dropoffCity") || ""} placeholder="Будь-яке місце"/></label>{params.get("lat") && <input type="hidden" name="lat" value={params.get("lat") || ""} readOnly/>} {params.get("lon") && <input type="hidden" name="lon" value={params.get("lon") || ""} readOnly/>} {params.get("dropoffLat") && <input type="hidden" name="dropoffLat" value={params.get("dropoffLat") || ""} readOnly/>} {params.get("dropoffLon") && <input type="hidden" name="dropoffLon" value={params.get("dropoffLon") || ""} readOnly/>} {params.get("dropoffRadius") && <input type="hidden" name="dropoffRadius" value={params.get("dropoffRadius") || ""} readOnly/>}<fieldset><legend>Радіус пошуку, км</legend><input type="hidden" name="radius" value={radius} readOnly/><div className="radius-control"><button type="button" onClick={() => setRadius(Math.max(5, radius - 5))}>−</button><strong>{radius}</strong><button type="button" onClick={() => setRadius(Math.min(100, radius + 5))}>+</button></div></fieldset><div className="filter-actions"><a className="secondary" href="/driver/map">Очистити</a><button className="primary" type="submit">Пошук</button></div><a className="saved-search-link" href="/driver/map/saved-searches"><span><strong>Збережені критерії пошуку</strong><small>{savedCount == null ? "Ваші збережені фільтри" : `${savedCount} критеріїв`}</small></span>{savedCount != null && <b>{savedCount}</b>}<VIcon name="chevron"/></a></form></aside>;
+  async function refreshSavedCount(token: string) {
+    const data = await driverApiFetch<DriverSavedSearch[]>("/saved-searches", token);
+    setSavedCount(Array.isArray(data) ? data.length : 0);
+  }
+
+  async function buildSavedSearchPayload(form: HTMLFormElement): Promise<DriverSavedSearchPayload | null> {
+    const data = new FormData(form);
+    const pickupCity = formText(data, "pickupCity") || formText(data, "city");
+    const dropoffCity = formText(data, "dropoffCity");
+    const radiusValue = formNumber(data, "radius");
+    let lat = formNumber(data, "lat");
+    let lon = formNumber(data, "lon");
+    let dropoffLat = formNumber(data, "dropoffLat");
+    let dropoffLon = formNumber(data, "dropoffLon");
+
+    if (!pickupCity) {
+      setSaveMessage("Вкажіть місто завантаження");
+      return null;
+    }
+    if (!radiusValue || radiusValue <= 0) {
+      setSaveMessage("Вкажіть коректний радіус");
+      return null;
+    }
+
+    if (lat == null || lon == null) {
+      const pickupPoint = await geocodeDriverSearchPoint(pickupCity);
+      lat = pickupPoint?.lat ?? null;
+      lon = pickupPoint?.lon ?? null;
+    }
+    if (dropoffCity && (dropoffLat == null || dropoffLon == null)) {
+      const dropoffPoint = await geocodeDriverSearchPoint(dropoffCity).catch(() => null);
+      dropoffLat = dropoffPoint?.lat ?? null;
+      dropoffLon = dropoffPoint?.lon ?? null;
+    }
+    if (lat == null || lon == null) {
+      setSaveMessage("Не вдалося визначити координати міста завантаження");
+      return null;
+    }
+
+    return {
+      pickupCity,
+      dropoffCity: dropoffCity || null,
+      lat,
+      lon,
+      dropoffLat,
+      dropoffLon,
+      radius: radiusValue,
+    };
+  }
+
+  async function saveCurrentSearch(event: MouseEvent<HTMLButtonElement>) {
+    const token = getStoredDriverToken();
+    const form = event.currentTarget.form;
+    if (!token || !form) return;
+
+    setSavingSearch(true);
+    setSaveMessage("");
+    try {
+      const payload = await buildSavedSearchPayload(form);
+      if (!payload) return;
+      await driverApiFetch<DriverSavedSearch>("/saved-searches", token, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await refreshSavedCount(token);
+      setSaveMessage("Критерій пошуку збережено");
+    } catch (err) {
+      setSaveMessage(err instanceof Error ? err.message : "Не вдалося зберегти критерій пошуку");
+    } finally {
+      setSavingSearch(false);
+    }
+  }
+
+  return <aside className="customer-card map-side-panel"><div className="panel-title"><div><h2>Фільтр пошуку</h2><p>Оберіть дату, напрямок і радіус</p></div><a href="/driver/map" aria-label="Закрити">×</a></div><form key={search} className="filter-form" action="/driver/map" method="get"><fieldset><legend>Дата завантаження</legend><div className="two-fields"><label>З<input type="date" name="dateFrom" defaultValue={params.get("dateFrom") || params.get("date") || ""}/></label><label>По<input type="date" name="dateTo" defaultValue={params.get("dateTo") || params.get("date") || ""}/></label></div></fieldset><label>Місце завантаження<input name="pickupCity" defaultValue={params.get("pickupCity") || params.get("city") || ""} placeholder="Наприклад, Одеса"/></label><label>Місце розвантаження<input name="dropoffCity" defaultValue={params.get("dropoffCity") || ""} placeholder="Будь-яке місце"/></label>{params.get("lat") && <input type="hidden" name="lat" value={params.get("lat") || ""} readOnly/>} {params.get("lon") && <input type="hidden" name="lon" value={params.get("lon") || ""} readOnly/>} {params.get("dropoffLat") && <input type="hidden" name="dropoffLat" value={params.get("dropoffLat") || ""} readOnly/>} {params.get("dropoffLon") && <input type="hidden" name="dropoffLon" value={params.get("dropoffLon") || ""} readOnly/>} {params.get("dropoffRadius") && <input type="hidden" name="dropoffRadius" value={params.get("dropoffRadius") || ""} readOnly/>}<fieldset><legend>Радіус пошуку, км</legend><input type="hidden" name="radius" value={radius} readOnly/><div className="radius-control"><button type="button" onClick={() => setRadius(Math.max(5, radius - 5))}>−</button><strong>{radius}</strong><button type="button" onClick={() => setRadius(Math.min(100, radius + 5))}>+</button></div></fieldset><div className="filter-actions"><a className="secondary" href="/driver/map">Очистити</a><button className="primary" type="submit">Пошук</button></div><button className="save-search" type="button" onClick={saveCurrentSearch} disabled={savingSearch}>{savingSearch ? "Зберігаємо..." : "Зберегти пошук"}</button>{saveMessage && <p className="saved-search-message">{saveMessage}</p>}<a className="saved-search-link" href="/driver/map/saved-searches"><span><strong>Збережені критерії пошуку</strong><small>{savedCount == null ? "Ваші збережені фільтри" : `${savedCount} критеріїв`}</small></span>{savedCount != null && <b>{savedCount}</b>}<VIcon name="chevron"/></a></form></aside>;
 }
 
 function SavedSearches() {
@@ -402,24 +529,31 @@ function SavedSearches() {
 
   useEffect(() => {
     let active = true;
-    async function loadSavedSearches() {
+    async function loadSavedSearches(silent = false) {
       const token = getStoredDriverToken();
       if (!token) return;
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const data = await driverApiFetch<DriverSavedSearch[]>("/saved-searches", token);
         if (active) {
           setItems(data);
           setError("");
         }
       } catch (err) {
+        if (silent) return;
         if (active) setError(err instanceof Error ? err.message : "Не вдалося завантажити збережені критерії");
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
     loadSavedSearches();
-    return () => { active = false; };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadSavedSearches(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   async function deleteSavedSearch(item: DriverSavedSearch) {
@@ -444,11 +578,11 @@ function DriverMap({ mode, profile }: { mode: "map" | "filter" | "saved"; profil
 
   useEffect(() => {
     let active = true;
-    async function loadOrders() {
+    async function loadOrders(silent = false) {
       const token = getStoredDriverToken();
       if (!token) return;
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const nextSearch = currentDriverMapSearch();
         if (active) setSearch(nextSearch);
         const data = await driverApiFetch<{ available?: DriverAvailableOrder[] } | DriverAvailableOrder[]>(buildDriverOrdersPath(nextSearch), token);
@@ -458,13 +592,20 @@ function DriverMap({ mode, profile }: { mode: "map" | "filter" | "saved"; profil
           setError("");
         }
       } catch (err) {
+        if (silent) return;
         if (active) setError(err instanceof Error ? err.message : "Не вдалося завантажити доступні замовлення");
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
     loadOrders();
-    return () => { active = false; };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadOrders(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [mode]);
 
   const mapOrders = orders.flatMap((order) => {
@@ -508,24 +649,31 @@ function DriverOrders({ profile }: { profile: DriverUserProfile | null }) {
 
   useEffect(() => {
     let active = true;
-    async function loadOrders() {
+    async function loadOrders(silent = false) {
       const token = getStoredDriverToken();
       if (!token) return;
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const data = await driverApiFetch<DriverAvailableOrder[]>("/orders/my?role=DRIVER", token);
         if (active) {
           setOrders(data);
           setError("");
         }
       } catch (err) {
+        if (silent) return;
         if (active) setError(err instanceof Error ? err.message : "Не вдалося завантажити ваші замовлення");
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
     loadOrders();
-    return () => { active = false; };
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadOrders(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const work = orders.filter((order) => driverOrderTab(order) === "work");
@@ -544,29 +692,36 @@ export default function DriverPortal({ view }: { view: DriverView }) {
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
 
   useEffect(() => {
-    async function loadProfile() {
+    async function loadProfile(silent = false) {
       const token = getStoredDriverToken();
       if (!token) {
         window.location.href = "/";
         return;
       }
       try {
+        if (!silent) setLoading(true);
         let nextProfile = await driverApiFetch<DriverUserProfile>("/auth/me", token);
         if (nextProfile.role === "CUSTOMER") {
           await driverApiFetch<{ role: string; isAdmin?: boolean }>("/auth/role", token, {
             method: "PUT",
-            body: JSON.stringify({ role: "DRIVER" }),
+            body: JSON.stringify({ role: "BOTH" }),
           });
           nextProfile = await driverApiFetch<DriverUserProfile>("/auth/me", token);
         }
         setProfile(nextProfile);
+        setAuthError("");
       } catch (err) {
+        if (silent) return;
         setAuthError(err instanceof Error ? err.message : "Не вдалося завантажити профіль");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     }
     loadProfile();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadProfile(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
   }, []);
 
   function logout() {

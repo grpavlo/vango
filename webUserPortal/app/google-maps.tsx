@@ -36,7 +36,7 @@ function buildOrderMarkerIcon(google: any, order: DriverMapOrder) {
   return buildPinIcon(google, order.markerColor || "#16a34a");
 }
 
-function loadGoogleMaps() {
+export function loadGoogleMaps() {
   if (typeof window === "undefined") return Promise.reject(new Error("Google Maps доступний тільки в браузері"));
   if (window.google?.maps?.Map && window.google?.maps?.places?.Autocomplete) return Promise.resolve(window.google);
   if (!googleMapsApiKey) return Promise.reject(new Error("missing-key"));

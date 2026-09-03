@@ -13,6 +13,9 @@ type UserProfile = {
   name?: string;
   email?: string;
   phone?: string;
+  firstName?: string;
+  lastName?: string;
+  patronymic?: string;
   role?: Role;
   isAdmin?: boolean;
   blocked?: boolean;
@@ -31,9 +34,13 @@ type PortalAdminProfile = {
   name?: string;
   email?: string;
   phone?: string;
+  firstName?: string;
+  lastName?: string;
+  patronymic?: string;
   selfiePhoto?: string | null;
   photo?: string | null;
   avatarUrl?: string | null;
+  linkedUser?: UserProfile | null;
   isPortalAdmin: true;
 };
 
@@ -156,6 +163,26 @@ type Session = {
 
 const TOKEN_KEY = "vango.webUserPortal.token";
 const KIND_KEY = "vango.webUserPortal.kind";
+const PORTAL_AUTO_REFRESH_MS = 10000;
+
+class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function isAuthError(err: unknown) {
+  return err instanceof ApiError && err.status === 401;
+}
+
+function clearStoredSession() {
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(KIND_KEY);
+}
 
 async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -170,7 +197,7 @@ async function apiFetch<T>(path: string, token?: string, options: RequestInit = 
 
   if (!response.ok) {
     const message = (await response.text()).trim();
-    throw new Error(message || `HTTP ${response.status}`);
+    throw new ApiError(message || `HTTP ${response.status}`, response.status);
   }
 
   if (response.status === 204) return null as T;
@@ -182,8 +209,23 @@ function asArray<T>(value: T[] | unknown): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function isTechnicalDisplayName(value?: string | null) {
+  return /^(user|portal)_\d+@vango\.(phone|admin)$/i.test(String(value || "").trim());
+}
+
+function profileFullName(profile?: Pick<UserProfile, "firstName" | "lastName" | "patronymic"> | null) {
+  return [profile?.lastName, profile?.firstName, profile?.patronymic].filter(Boolean).join(" ").trim();
+}
+
 function displayName(profile?: UserProfile | PortalAdminProfile | null) {
-  return profile?.name || profile?.phone || profile?.email || "Користувач VanGo";
+  const linkedUser = "linkedUser" in (profile || {}) ? (profile as PortalAdminProfile).linkedUser : null;
+  const linkedName = linkedUser ? displayName(linkedUser) : "";
+  const fullName = profileFullName(profile);
+  const name = String(profile?.name || "").trim();
+  if (linkedName) return linkedName;
+  if (fullName) return fullName;
+  if (name && !isTechnicalDisplayName(name)) return name;
+  return profile?.phone || profile?.email || "Користувач VanGo";
 }
 
 function initials(profile?: UserProfile | PortalAdminProfile | null) {
@@ -376,17 +418,14 @@ function isUserProfile(profile?: Session["profile"] | null): profile is UserProf
 }
 
 function hasAdminAccess(session: Session | null) {
-  if (!session) return false;
-  if (session.kind === "portal-admin") return true;
-  const profile = session.profile;
-  return isUserProfile(profile) && (profile.isAdmin || profile.role === "ADMIN" || profile.role === "ANALYST");
+  return session?.kind === "portal-admin";
 }
 
 function hasAnalyticsAccess(session: Session | null) {
   return hasAdminAccess(session);
 }
 
-function usePortalData(session: Session | null) {
+function usePortalData(session: Session | null, onAuthExpired?: () => void) {
   const [myOrders, setMyOrders] = useState<Order[]>([]);
   const [adminOrders, setAdminOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -394,10 +433,10 @@ function usePortalData(session: Session | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function load() {
+  async function load(silent = false) {
     if (!session) return;
-    setLoading(true);
-    setError("");
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       if (session.kind === "user") {
         const orders = await apiFetch<Order[]>("/orders/my", session.token).catch(() => []);
@@ -421,14 +460,27 @@ function usePortalData(session: Session | null) {
         setAnalytics(null);
       }
     } catch (err) {
+      if (isAuthError(err)) {
+        onAuthExpired?.();
+        return;
+      }
+      if (silent) return;
       setError(err instanceof Error ? err.message : "Не вдалося завантажити дані");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
+  }, [session?.token, session?.kind]);
+
+  useEffect(() => {
+    if (!session?.token) return undefined;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
   }, [session?.token, session?.kind]);
 
   return { myOrders, adminOrders, users, analytics, loading, error, reload: load };
@@ -447,10 +499,15 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
     setLoading(true);
     setMessage("");
     try {
-      await apiFetch(`${authBase}/send-code`, undefined, {
+      const result = await apiFetch<{ devCode?: string | number; smsSkipped?: boolean }>(`${authBase}/send-code`, undefined, {
         method: "POST",
         body: JSON.stringify({ phone }),
       });
+      if (result?.devCode) {
+        setCode(String(result.devCode));
+        setMessage(`Тестовий код: ${result.devCode}`);
+        return;
+      }
       setMessage("SMS-код надіслано");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Не вдалося надіслати SMS");
@@ -519,6 +576,44 @@ function StatCard({ icon, label, value, note, tone = "green" }: { icon: string; 
   );
 }
 
+function PortalRoleChoice({ profile, myOrdersCount, completedCount, rating }: { profile: Session["profile"]; myOrdersCount: number; completedCount?: number; rating?: number }) {
+  return (
+    <>
+      <section className="portal-role-hero">
+        <div>
+          <PortalAvatar profile={profile} className="portal-avatar" />
+          <div>
+            <small>Головний екран</small>
+            <h2>{displayName(profile)}</h2>
+            <p>Оберіть, у якому кабінеті працювати зараз.</p>
+          </div>
+        </div>
+        <span>{isUserProfile(profile) ? roleLabel(profile.role) : "Користувач"}</span>
+      </section>
+      <div className="portal-role-grid">
+        <a className="portal-role-card customer" href="/customer/orders">
+          <span><VIcon name="user" /></span>
+          <div>
+            <small>Кабінет замовника</small>
+            <strong>Створювати та керувати замовленнями</strong>
+            <p>{number(myOrdersCount)} замовлень у цьому акаунті</p>
+          </div>
+          <em><VIcon name="chevron" /></em>
+        </a>
+        <a className="portal-role-card driver" href="/driver/map">
+          <span><VIcon name="car" /></span>
+          <div>
+            <small>Кабінет водія</small>
+            <strong>Шукати перевезення та вести роботу</strong>
+            <p>★ {number(rating)} · ✓ {number(completedCount)} завершених</p>
+          </div>
+          <em><VIcon name="chevron" /></em>
+        </a>
+      </div>
+    </>
+  );
+}
+
 function OrdersTable({ title, orders, emptyText }: { title: string; orders: Order[]; emptyText: string }) {
   return (
     <section className="portal-panel">
@@ -566,6 +661,7 @@ function AdminSection({
   onReload,
   tab,
   onSessionChange,
+  onAuthExpired,
 }: {
   session: Session;
   orders: Order[];
@@ -574,6 +670,7 @@ function AdminSection({
   onReload: () => void;
   tab: AdminTab;
   onSessionChange: (session: Session) => void;
+  onAuthExpired: () => void;
 }) {
   const [groups, setGroups] = useState<AdminGroup[]>([]);
   const [portalAdmins, setPortalAdmins] = useState<PortalAdminItem[]>([]);
@@ -748,8 +845,8 @@ function AdminSection({
     return params.toString();
   }
 
-  async function loadAdminTools() {
-    setLoadingTools(true);
+  async function loadAdminTools(silent = false) {
+    if (!silent) setLoadingTools(true);
     try {
       const reportQuery = getReportQuery();
       const [groupsResult, adminsResult, supportResult, reportResult] = await Promise.all([
@@ -763,9 +860,14 @@ function AdminSection({
       setSupportQuestions(asArray<SupportQuestionItem>(supportResult));
       setReport(reportResult);
     } catch (err) {
+      if (isAuthError(err)) {
+        onAuthExpired();
+        return;
+      }
+      if (silent) return;
       setMessage(err instanceof Error ? err.message : "Не вдалося завантажити службові дані");
     } finally {
-      setLoadingTools(false);
+      if (!silent) setLoadingTools(false);
     }
   }
 
@@ -920,9 +1022,9 @@ function AdminSection({
         body: JSON.stringify({ answer, status: supportAnswerStatus }),
       });
       setSupportQuestions((items) => items.map((item) => (Number(item.id) === Number(updated.id) ? updated : item)));
-      setActiveSupportQuestionId(updated.id);
-      setSupportAnswer(updated.answer || "");
-      setSupportAnswerStatus(updated.status || "ANSWERED");
+      setActiveSupportQuestionId(null);
+      setSupportAnswer("");
+      setSupportAnswerStatus("ANSWERED");
       setMessage("Відповідь збережено");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Не вдалося зберегти відповідь");
@@ -932,6 +1034,11 @@ function AdminSection({
   }
 
   async function switchToLinkedUser() {
+    if (session.kind === "user") {
+      window.location.href = "/customer/settings";
+      return;
+    }
+
     setSwitchingToUser(true);
     setMessage("");
     try {
@@ -941,6 +1048,10 @@ function AdminSection({
       onSessionChange({ token: result.token, kind: "user", profile: result.user });
       window.location.href = "/customer/settings";
     } catch (err) {
+      if (isAuthError(err)) {
+        onAuthExpired();
+        return;
+      }
       setMessage(err instanceof Error ? err.message : "Не вдалося перемкнутись на користувача");
     } finally {
       setSwitchingToUser(false);
@@ -970,6 +1081,13 @@ function AdminSection({
   useEffect(() => {
     loadAdminTools();
   }, [session.token, reportDriverId, reportDateFrom, reportDateTo]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible" && !saving) void loadAdminTools(true);
+    }, PORTAL_AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [session.token, reportDriverId, reportDateFrom, reportDateTo, saving]);
 
   useEffect(() => {
     if (activeGroupId && !groups.some((group) => Number(group.id) === Number(activeGroupId))) {
@@ -1597,7 +1715,7 @@ function AdminSection({
 }
 
 function PortalShell({ session, onLogout, onSessionChange }: { session: Session; onLogout: () => void; onSessionChange: (session: Session) => void }) {
-  const data = usePortalData(session);
+  const data = usePortalData(session, onLogout);
   const profile = session.profile;
   const admin = hasAdminAccess(session);
   const analytics = hasAnalyticsAccess(session);
@@ -1664,33 +1782,16 @@ function PortalShell({ session, onLogout, onSessionChange }: { session: Session;
         </header>
         <div className="portal-content">
           {data.error && <div className="portal-alert">{data.error}</div>}
-          {!admin && (
-            <>
-              <section className="portal-hero">
-                <div>
-                  <PortalAvatar profile={profile} className="portal-avatar" />
-                  <div>
-                    <h2>{displayName(profile)}</h2>
-                    <p>{isUserProfile(profile) ? `${roleLabel(profile.role)}${profile.isAdmin ? " · admin access" : ""}` : ""}</p>
-                  </div>
-                </div>
-                <div className="portal-badges">
-                  {analytics && <span>Аналітика</span>}
-                  {isUserProfile(profile) && profile.group?.name && <span>{profile.group.name}</span>}
-                </div>
-              </section>
-
-              <div className="portal-stats">
-                <StatCard icon="case" label="Мої замовлення" value={number(data.myOrders.length)} note="з API /orders/my" tone="green" />
-                <StatCard icon="car" label="Рейтинг" value={number(userStats?.rating)} note={`${number(userStats?.completed)} завершених`} tone="blue" />
-                <StatCard icon="settings" label="Права" value={roleLabel(isUserProfile(profile) ? profile.role : "ADMIN")} note={analytics ? "аналітика доступна" : "звичайний доступ"} tone="orange" />
-                <StatCard icon="chart" label="База" value="API" note="через бекенд" tone="dark" />
-              </div>
-            </>
+          {!admin ? (
+            <PortalRoleChoice
+              profile={profile}
+              myOrdersCount={data.myOrders.length}
+              completedCount={userStats?.completed}
+              rating={userStats?.rating}
+            />
+          ) : (
+            <div id="admin"><AdminSection session={session} orders={data.adminOrders} users={data.users} analytics={data.analytics} onReload={data.reload} tab={adminTab} onSessionChange={onSessionChange} onAuthExpired={onLogout} /></div>
           )}
-
-          {session.kind === "user" && <OrdersTable title="Мої замовлення" orders={data.myOrders} emptyText="Замовлень для цього акаунта ще немає." />}
-          {admin && <div id="admin"><AdminSection session={session} orders={data.adminOrders} users={data.users} analytics={data.analytics} onReload={data.reload} tab={adminTab} onSessionChange={onSessionChange} /></div>}
         </div>
       </section>
     </main>
@@ -1715,8 +1816,7 @@ export default function PortalDashboard() {
         const profile = await apiFetch<UserProfile | PortalAdminProfile>(profilePath, token);
         setSession({ token, kind, profile });
       } catch {
-        window.localStorage.removeItem(TOKEN_KEY);
-        window.localStorage.removeItem(KIND_KEY);
+        clearStoredSession();
       } finally {
         setBooting(false);
       }
@@ -1726,8 +1826,7 @@ export default function PortalDashboard() {
   }, []);
 
   function logout() {
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.localStorage.removeItem(KIND_KEY);
+    clearStoredSession();
     setSession(null);
   }
 

@@ -65,6 +65,18 @@ function getNavigationTarget(item) {
     };
   }
 
+  if (target === 'rateOrder' && orderId && data.toUserId) {
+    return {
+      route: 'RateUser',
+      params: {
+        orderId,
+        toUserId: data.toUserId,
+        targetName: data.targetName,
+        targetRole: data.targetRole,
+      },
+    };
+  }
+
   if (target === 'SupportRequest' || target === 'supportRequest') {
     return {
       route: 'SupportRequest',
