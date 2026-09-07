@@ -215,6 +215,8 @@ function setupWebSocket(server) {
   wssInstance = wss;
 
   server.on('upgrade', async (req, socket, head) => {
+    if (req._vangoPortalProxyHandled) return;
+
     const pathname = url.parse(req.url).pathname;
     if (pathname === '/api/orders/stream') {
       wss.handleUpgrade(req, socket, head, (ws) => {

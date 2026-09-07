@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { GooglePlacePicker, type GooglePoint } from "../google-maps";
+import { portalPath } from "../portal-path";
 import { FactVisual } from "./fact-visual";
 import Reports from "./reports/reports";
 import { VIcon } from "./v-icon";
@@ -448,12 +449,12 @@ function OrderViewSwitch({ value, onChange }: { value: OrdersViewMode; onChange:
 
 function CustomerOrderRow({ order }: { order: CustomerOrder }) {
   const driver = order.driver || order.candidateDriver || order.reservedDriver || null;
-  return <a className="created-order-row" href={`/customer/orders/${order.id}`}><div><span className={`big-status ${orderTab(order.status) === "В роботі" ? "blue" : "green"}`}>{customerOrderBadgeLabel(order)}</span><h3>Замовлення № {order.orderNumber || order.id}</h3><p>{customerRoute(order)}</p></div><div><span>Водій</span><strong>{driver ? customerDisplayName(driver) : "Ще не призначено"}</strong></div><div><span>Оновлення</span><strong>{customerOrderUpdate(order)}</strong></div><div><span>Сума</span><strong>{customerMoney(order.finalPrice ?? order.price)}</strong></div><VIcon name="chevron"/></a>;
+  return <a className="created-order-row" href={portalPath(`/customer/orders/${order.id}`)}><div><span className={`big-status ${orderTab(order.status) === "В роботі" ? "blue" : "green"}`}>{customerOrderBadgeLabel(order)}</span><h3>Замовлення № {order.orderNumber || order.id}</h3><p>{customerRoute(order)}</p></div><div><span>Водій</span><strong>{driver ? customerDisplayName(driver) : "Ще не призначено"}</strong></div><div><span>Оновлення</span><strong>{customerOrderUpdate(order)}</strong></div><div><span>Сума</span><strong>{customerMoney(order.finalPrice ?? order.price)}</strong></div><VIcon name="chevron"/></a>;
 }
 
 function CustomerKanbanCard({ order }: { order: CustomerOrder }) {
   const driver = order.driver || order.candidateDriver || order.reservedDriver || null;
-  return <a className="customer-kanban-card" href={`/customer/orders/${order.id}`}>
+  return <a className="customer-kanban-card" href={portalPath(`/customer/orders/${order.id}`)}>
     <div className="kanban-card-head"><span>№ {order.orderNumber || order.id}</span><strong>{customerMoney(order.finalPrice ?? order.price)}</strong></div>
     <h3>{customerRoute(order)}</h3>
     <div className="kanban-route-points"><p><i className="from"/><span>Завантаження</span><strong>{order.pickupAddress || order.pickupLocation || "-"}</strong></p><p><i className="to"/><span>Розвантаження</span><strong>{order.dropoffAddress || order.dropoffLocation || "-"}</strong></p></div>
@@ -504,11 +505,11 @@ export function ThemeToggle() {
 }
 
 function LiveHeader({ title, profile }: { title: string; profile: UserProfile | null }) {
-  return <header className="customer-topbar"><div><small>Кабінет замовника</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href="/customer/support" aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href="/customer/notifications"/><a className="customer-profile-link" href="/customer/settings" aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/></a></div></header>;
+  return <header className="customer-topbar"><div><small>Кабінет замовника</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href={portalPath("/customer/support")} aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href={portalPath("/customer/notifications")}/><a className="customer-profile-link" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/></a></div></header>;
 }
 
 function LiveCustomerShell({ view, title, profile, children }: { view: CustomerView; title: string; profile: UserProfile | null; children: ReactNode }) {
-  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href="/customer/orders"><span className="customer-brand-logo"><img src="/logo.png" alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href="/customer/settings" aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/><p><strong>{customerDisplayName(profile)}</strong><small>{customerRoleLabel(profile?.role)}</small></p></a></div></aside><section className="customer-workspace"><LiveHeader title={title} profile={profile}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>{children}</div><div className="customer-mobile-nav"><CustomerNav view={view}/></div></section></main>;
+  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href={portalPath("/customer/orders")}><span className="customer-brand-logo"><img src={portalPath("/logo.png")} alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/><p><strong>{customerDisplayName(profile)}</strong><small>{customerRoleLabel(profile?.role)}</small></p></a></div></aside><section className="customer-workspace"><LiveHeader title={title} profile={profile}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>{children}</div><div className="customer-mobile-nav"><CustomerNav view={view}/></div></section></main>;
 }
 
 function LiveOrdersView({ orders }: { orders: CustomerOrder[] }) {
@@ -523,7 +524,7 @@ function LiveOrdersView({ orders }: { orders: CustomerOrder[] }) {
     "Історія": orders.filter((order) => orderTab(order.status) === "Історія").length,
   };
 
-  return <><div className="customer-page-intro"><div><h2>Мої замовлення</h2></div><a className="customer-primary" href="/customer/create"><VIcon name="plus" size={19}/>Створити замовлення</a></div><section className="customer-card orders-empty-card"><div className="customer-tabs">{Object.entries(counts).map(([name, count]) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}<span>{count}</span></button>)}</div>{showViewSwitch && <div className="orders-panel-head"><div><h3>Активні перевезення</h3><p>{visibleOrders.length} замовлень у вибраній вкладці</p></div><OrderViewSwitch value={viewMode} onChange={setViewMode}/></div>}{visibleOrders.length ? activeViewMode === "list" ? <div className="customer-orders-list">{visibleOrders.map((order) => <CustomerOrderRow order={order} key={order.id}/>)}</div> : <CustomerOrdersKanban tab={tab} orders={visibleOrders}/> : <div className="customer-empty compact"><span className="empty-illustration"><VIcon name="case" size={32}/></span><h3>Тут поки немає замовлень</h3><p>У цьому розділі немає записів для вашого акаунта.</p></div>}</section></>;
+  return <><div className="customer-page-intro"><div><h2>Мої замовлення</h2></div><a className="customer-primary" href={portalPath("/customer/create")}><VIcon name="plus" size={19}/>Створити замовлення</a></div><section className="customer-card orders-empty-card"><div className="customer-tabs">{Object.entries(counts).map(([name, count]) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}<span>{count}</span></button>)}</div>{showViewSwitch && <div className="orders-panel-head"><div><h3>Активні перевезення</h3><p>{visibleOrders.length} замовлень у вибраній вкладці</p></div><OrderViewSwitch value={viewMode} onChange={setViewMode}/></div>}{visibleOrders.length ? activeViewMode === "list" ? <div className="customer-orders-list">{visibleOrders.map((order) => <CustomerOrderRow order={order} key={order.id}/>)}</div> : <CustomerOrdersKanban tab={tab} orders={visibleOrders}/> : <div className="customer-empty compact"><span className="empty-illustration"><VIcon name="case" size={32}/></span><h3>Тут поки немає замовлень</h3><p>У цьому розділі немає записів для вашого акаунта.</p></div>}</section></>;
 }
 
 function LiveReportsView({ orders }: { orders: CustomerOrder[] }) {
@@ -844,7 +845,7 @@ function CustomerRatingCard({ order, driver }: { order: CustomerOrder; driver?: 
 
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -923,7 +924,7 @@ function OrderEditForm({ order, onSaved, onCancel }: { order: CustomerOrder; onS
     event.preventDefault();
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -1090,7 +1091,7 @@ function LiveOrderDetailView({ order, responses, notification, onOrderUpdated, o
   async function confirmDelivery() {
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -1112,7 +1113,7 @@ function LiveOrderDetailView({ order, responses, notification, onOrderUpdated, o
   }
 
   return <>
-    <a className="back-link" href="/customer/orders"><VIcon name="arrow"/>До замовлень</a>
+    <a className="back-link" href={portalPath("/customer/orders")}><VIcon name="arrow"/>До замовлень</a>
     <div className="order-detail-head">
       <div>
         <small>Замовлення № {order.orderNumber || order.id} · створено {customerDateTime(createdAt)}</small>
@@ -1188,7 +1189,7 @@ function LiveCreateView({ view }: { view: "create" | "createLocal" | "createLong
     return <><div className="customer-page-intro"><div><h2>Створити далеке перевезення</h2></div></div><CreateForm longDistance/></>;
   }
 
-  return <><div className="create-choice-intro"><span>Нове замовлення</span><h2>Яке перевезення потрібне?</h2></div><div className="transport-types"><a href="/customer/create/local" className="customer-card"><span className="type-icon local"><VIcon name="clock" size={28}/></span><div><h3>Місцеве перевезення</h3><ul><li>Водії запропонують ціну та умови</li><li>Місто та передмістя</li><li>Погодинна оплата</li></ul></div><VIcon name="chevron"/></a><a href="/customer/create/long-distance" className="customer-card"><span className="type-icon long"><VIcon name="trail-sign" size={28}/></span><div><h3>Далеке перевезення</h3><ul><li>Ви пропонуєте ціну або обираєте «Договірна»</li><li>Для маршрутів поза містом</li></ul></div><VIcon name="chevron"/></a></div></>;
+  return <><div className="create-choice-intro"><span>Нове замовлення</span><h2>Яке перевезення потрібне?</h2></div><div className="transport-types"><a href={portalPath("/customer/create/local")} className="customer-card"><span className="type-icon local"><VIcon name="clock" size={28}/></span><div><h3>Місцеве перевезення</h3><ul><li>Водії запропонують ціну та умови</li><li>Місто та передмістя</li><li>Погодинна оплата</li></ul></div><VIcon name="chevron"/></a><a href={portalPath("/customer/create/long-distance")} className="customer-card"><span className="type-icon long"><VIcon name="trail-sign" size={28}/></span><div><h3>Далеке перевезення</h3><ul><li>Ви пропонуєте ціну або обираєте «Договірна»</li><li>Для маршрутів поза містом</li></ul></div><VIcon name="chevron"/></a></div></>;
 }
 
 function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; onLogout: () => void }) {
@@ -1198,7 +1199,7 @@ function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; 
   async function switchToAdminPortal() {
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -1209,7 +1210,7 @@ function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; 
       const result = await customerApiFetch<AdminSwitchResult>("/auth/switch-to-admin", token, { method: "POST" });
       window.localStorage.setItem(TOKEN_KEY, result.token);
       window.localStorage.setItem(KIND_KEY, "portal-admin");
-      window.location.href = "/";
+      window.location.href = portalPath("/");
     } catch (err) {
       setAdminSwitchMessage(err instanceof Error ? err.message : "Не вдалося перейти до порталу адміністраторів");
     } finally {
@@ -1230,7 +1231,7 @@ function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; 
             <p><span>★</span> {Number(profile?.customerRating ?? 5).toFixed(1)} <b>✓ {profile?.customerCompletedOrders || 0}</b></p>
             <small>{profile?.phone || profile?.email || "-"}</small>
           </div>
-          <a className="profile-edit-link" href="/customer/profile">
+          <a className="profile-edit-link" href={portalPath("/customer/profile")}>
             <VIcon name="edit"/>
             <span>
               <strong>Редагувати профіль</strong>
@@ -1251,7 +1252,7 @@ function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; 
             <h3>Режим облікового запису</h3>
             <div className="mode-switch">
               <button className="active"><VIcon name="user"/>Замовник</button>
-              <a href="/driver/settings"><VIcon name="car"/>Водій</a>
+              <a href={portalPath("/driver/settings")}><VIcon name="car"/>Водій</a>
             </div>
           </section>
           {profile?.hasPortalAdminAccess && (
@@ -1299,7 +1300,7 @@ function LiveProfileView({ profile, onProfileSaved }: { profile: UserProfile | n
     }
   }
 
-  return <><a href="/customer/settings" className="back-link"><VIcon name="arrow"/>До налаштувань</a><div className="customer-page-intro"><div><h2>Мій профіль</h2></div></div><form className="customer-card profile-form" onSubmit={submit}><section><div><h3>Особисті дані</h3><p>Ім’я відображається водіям у ваших замовленнях</p></div><div className="profile-form-grid"><label>Прізвище<input value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })}/></label><label>Ім’я<input value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })}/></label><label>По батькові<input value={form.patronymic} onChange={(event) => setForm({ ...form, patronymic: event.target.value })}/></label></div></section><section><div><h3>Контакти</h3><p>Номер використовується для зв’язку</p></div><div className="profile-form-grid one"><label>Номер телефону<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })}/></label><label>Email<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })}/></label></div></section><section><div><h3>Фото профілю</h3><p>Фото профілю можна оновити пізніше.</p></div><div className="photo-actions"><button type="button"><VIcon name="upload"/>Завантажити фото</button><button type="button">Зробити фото</button></div></section><div className="profile-form-actions"><span className="profile-save-message">{message}</span><a href="/customer/settings">Скасувати</a><button className="customer-primary">Зберегти зміни</button></div></form></>;
+  return <><a href={portalPath("/customer/settings")} className="back-link"><VIcon name="arrow"/>До налаштувань</a><div className="customer-page-intro"><div><h2>Мій профіль</h2></div></div><form className="customer-card profile-form" onSubmit={submit}><section><div><h3>Особисті дані</h3><p>Ім’я відображається водіям у ваших замовленнях</p></div><div className="profile-form-grid"><label>Прізвище<input value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })}/></label><label>Ім’я<input value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })}/></label><label>По батькові<input value={form.patronymic} onChange={(event) => setForm({ ...form, patronymic: event.target.value })}/></label></div></section><section><div><h3>Контакти</h3><p>Номер використовується для зв’язку</p></div><div className="profile-form-grid one"><label>Номер телефону<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })}/></label><label>Email<input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })}/></label></div></section><section><div><h3>Фото профілю</h3><p>Фото профілю можна оновити пізніше.</p></div><div className="photo-actions"><button type="button"><VIcon name="upload"/>Завантажити фото</button><button type="button">Зробити фото</button></div></section><div className="profile-form-actions"><span className="profile-save-message">{message}</span><a href={portalPath("/customer/settings")}>Скасувати</a><button className="customer-primary">Зберегти зміни</button></div></form></>;
 }
 
 function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "settings" | "profile" | "create" | "createLocal" | "createLong" | "notifications" | "orderDetail"; orderId?: number }) {
@@ -1314,7 +1315,7 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
   const load = useCallback(async (silent = false) => {
       const token = getStoredUserToken();
       if (!token) {
-        window.location.href = "/";
+        window.location.href = portalPath("/");
         return;
       }
       if (!silent) {
@@ -1374,7 +1375,7 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
   function logout() {
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(KIND_KEY);
-    window.location.href = "/";
+    window.location.href = portalPath("/");
   }
 
   const title = view === "orders" ? "Мої замовлення" : view === "reports" ? "Звіти" : view === "settings" ? "Налаштування" : view === "profile" ? "Мій профіль" : view === "notifications" ? "Сповіщення" : view === "orderDetail" ? `Замовлення № ${order?.orderNumber || orderId || ""}` : "Створити";
@@ -1384,15 +1385,15 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
 function CustomerNav({ view }: { view: CustomerView }) {
   const createActive = view === "create" || view === "createLocal" || view === "createLong";
   return <nav className="customer-nav" aria-label="Навігація кабінету замовника">
-    <a href="/customer/orders" className={view === "orders" || view === "orderDetail" || view === "orderCreated" || view === "orderActive" || view === "orderReport" ? "active" : ""}><VIcon name="case"/><span>Мої замовлення</span></a>
-    <a href="/customer/create" className={createActive ? "active" : ""}><VIcon name="plus"/><span>Створити</span></a>
-    <a href="/customer/reports" className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>Звіти</span></a>
-    <a href="/customer/settings" className={view === "settings" || view === "profile" ? "active" : ""}><VIcon name="settings"/><span>Налаштування</span></a>
+    <a href={portalPath("/customer/orders")} className={view === "orders" || view === "orderDetail" || view === "orderCreated" || view === "orderActive" || view === "orderReport" ? "active" : ""}><VIcon name="case"/><span>Мої замовлення</span></a>
+    <a href={portalPath("/customer/create")} className={createActive ? "active" : ""}><VIcon name="plus"/><span>Створити</span></a>
+    <a href={portalPath("/customer/reports")} className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>Звіти</span></a>
+    <a href={portalPath("/customer/settings")} className={view === "settings" || view === "profile" ? "active" : ""}><VIcon name="settings"/><span>Налаштування</span></a>
   </nav>;
 }
 
 function Header({ title }: { title: string }) {
-  return <header className="customer-topbar"><div><small>Кабінет замовника</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href="/customer/support" aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href="/customer/notifications"/><a className="customer-profile-link" href="/customer/settings" aria-label="Відкрити налаштування профілю"><span className="mini-avatar">РС</span></a></div></header>;
+  return <header className="customer-topbar"><div><small>Кабінет замовника</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href={portalPath("/customer/support")} aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href={portalPath("/customer/notifications")}/><a className="customer-profile-link" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><span className="mini-avatar">РС</span></a></div></header>;
 }
 
 function formatRouteDistance(km: number) {
@@ -1559,7 +1560,7 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
     event.preventDefault();
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -1629,7 +1630,7 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
     setSubmitError("");
     try {
       const created = await customerApiFetch<CustomerOrder>("/orders", token, { method: "POST", body: fd });
-      window.location.href = `/customer/orders/${created.id}`;
+      window.location.href = portalPath(`/customer/orders/${created.id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Не вдалося створити замовлення");
     } finally {
@@ -1638,7 +1639,7 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
   }
 
   return <form className="create-order-form" onSubmit={submit}>
-    <section className="customer-card form-section route-form"><div className="order-type-line"><div><small>Тип замовлення</small><strong>{longDistance ? "Далеке перевезення" : "Місцеве перевезення"}</strong></div><a href="/customer/create">Змінити</a></div>{longDistance && <p className="orange-notice">Маршрут понад 70 км, тому замовлення буде оформлене як далеке.</p>}<AddressFields/></section>
+    <section className="customer-card form-section route-form"><div className="order-type-line"><div><small>Тип замовлення</small><strong>{longDistance ? "Далеке перевезення" : "Місцеве перевезення"}</strong></div><a href={portalPath("/customer/create")}>Змінити</a></div>{longDistance && <p className="orange-notice">Маршрут понад 70 км, тому замовлення буде оформлене як далеке.</p>}<AddressFields/></section>
     <div className="create-form-columns"><div>
       <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="clock"/></span><div><h3>{longDistance ? "Дата та час" : "Коли потрібне авто"}</h3><p>{longDistance ? "Вікно завантаження і розвантаження" : "Оберіть швидкість подачі автомобіля"}</p></div></div>{longDistance ? <><label className="toggle-row"><span><strong>Вільна дата</strong><small>Водій погодить день і час із вами</small></span><input type="checkbox" checked={freeDate} onChange={(event) => setFreeDate(event.target.checked)}/><i aria-hidden="true"/></label><div className="schedule-grid"><label>Завантаження<input name="loadDate" type="date" disabled={freeDate}/></label><label>Час від<input name="loadTimeFrom" type="time" disabled={freeDate}/></label><label>Час до<input name="loadTimeTo" type="time" disabled={freeDate}/></label><label>Розвантаження<input name="unloadDate" type="date" disabled={freeDate}/></label></div></> : <div className="choice-pills" role="group" aria-label="Час подачі автомобіля"><button type="button" className={arrival === "now" ? "active" : ""} aria-pressed={arrival === "now"} onClick={() => setArrival("now")}>Якнайшвидше</button><button type="button" className={arrival === "hour" ? "active" : ""} aria-pressed={arrival === "hour"} onClick={() => setArrival("hour")}>До 1 год</button><button type="button" className={arrival === "planned" ? "active" : ""} aria-pressed={arrival === "planned"} onClick={() => setArrival("planned")}>Запланувати</button></div>}</section>
       <section className="customer-card"><CargoFields/></section>
@@ -1657,8 +1658,8 @@ function OrderFacts() {
 }
 
 function OrderDetail({ active }: { active: boolean }) {
-  return <><a className="back-link" href="/customer/orders"><VIcon name="arrow"/>До замовлень</a><div className="order-detail-head"><div><small>Замовлення № 130 · 26.08.2026, 11:53</small><h2>{active ? "Перевезення в роботі" : "Отримано пропозицію водія"}</h2></div><span className={`big-status ${active ? "blue" : "green"}`}>{active ? "В роботі" : "Створено"}</span></div><div className="order-detail-grid"><div>
-    {!active && <section className="customer-card driver-offer"><div className="offer-title"><span className="mini-avatar green">РС</span><div><strong>Рябенко Сергій</strong><small>★ 5.0 · ✓ 5 виконаних</small></div><span>Готовий виконати</span></div><div className="offer-values"><p><span>Ставка</span><strong>450 грн/год</strong></p><p><span>Мінімум</span><strong>1 година</strong></p><p><span>Прибуде</span><strong>до 30 хв</strong></p></div><div className="offer-actions"><a href="/customer/orders/130/active">Обрати водія</a><button>Відхилити</button></div></section>}
+  return <><a className="back-link" href={portalPath("/customer/orders")}><VIcon name="arrow"/>До замовлень</a><div className="order-detail-head"><div><small>Замовлення № 130 · 26.08.2026, 11:53</small><h2>{active ? "Перевезення в роботі" : "Отримано пропозицію водія"}</h2></div><span className={`big-status ${active ? "blue" : "green"}`}>{active ? "В роботі" : "Створено"}</span></div><div className="order-detail-grid"><div>
+    {!active && <section className="customer-card driver-offer"><div className="offer-title"><span className="mini-avatar green">РС</span><div><strong>Рябенко Сергій</strong><small>★ 5.0 · ✓ 5 виконаних</small></div><span>Готовий виконати</span></div><div className="offer-values"><p><span>Ставка</span><strong>450 грн/год</strong></p><p><span>Мінімум</span><strong>1 година</strong></p><p><span>Прибуде</span><strong>до 30 хв</strong></p></div><div className="offer-actions"><a href={portalPath("/customer/orders/130/active")}>Обрати водія</a><button>Відхилити</button></div></section>}
     {active && <section className="customer-card active-driver"><div><span className="mini-avatar green">РС</span><div><small>Ваш водій</small><h3>Рябенко Сергій</h3><p>★ 5.0 · зелений Fiat Ducato</p></div></div><a href="tel:+380504233382"><VIcon name="phone"/>Зателефонувати</a><div className="progress-steps"><span className="done"><i><VIcon name="check" size={13}/></i>Водія обрано</span><span className="current"><i>2</i>Прямує до вас</span><span><i>3</i>Перевезення</span><span><i>4</i>Завершено</span></div></section>}
     <OrderFacts/>
   </div><aside className="customer-card order-side"><h3>Стан замовлення</h3><div className="timeline"><p className="done"><i/><span><strong>Створено</strong><small>26.08.2026, 11:53</small></span></p><p className={active ? "done" : "current"}><i/><span><strong>{active ? "Водія підтверджено" : "Пропозиція від водія"}</strong><small>{active ? "26.08.2026, 11:58" : "26.08.2026, 11:55"}</small></span></p>{active && <p className="current"><i/><span><strong>Водій прямує до вас</strong><small>Орієнтовно до 30 хв</small></span></p>}</div>{!active && <p className="side-note">Перевірте ставку, рейтинг і час прибуття водія перед підтвердженням.</p>}{active && <p className="side-note blue">Після виконання перевезення ви зможете оцінити водія.</p>}</aside></div></>;
@@ -1678,7 +1679,7 @@ const reportOrders: Record<number, ReportOrder> = {
 
 function ReportOrderDetail({ orderId }: { orderId:number }) {
   const item = reportOrders[orderId] ?? reportOrders[130];
-  return <><a className="back-link" href="/customer/reports"><VIcon name="arrow"/>До звітів</a><div className="order-detail-head"><div><small>Замовлення № {item.id} · {item.date}</small><h2>{item.from.split(",")[0]} → {item.to.split(",")[0]}</h2></div><span className={`big-status ${item.status === "Затримка" ? "orange" : "green"}`}>{item.status}</span></div><div className="order-detail-grid"><div><section className="customer-card active-driver report-driver-card"><div><span className="mini-avatar green">{item.initials}</span><div><small>Водій замовлення</small><h3>{item.driver}</h3><p>Оцінка від замовника: ★ {item.rating}</p></div></div></section><section className="customer-card order-facts-card"><h3>Маршрут і деталі</h3><div className="fact-route"><i className="from"/><div><span>Звідки</span><strong>{item.from}</strong></div><i className="to"/><div><span>Куди</span><strong>{item.to}</strong></div></div><div className="facts-visual-grid"><FactVisual icon="route" label="Відстань дорогами" value={item.distance} tone="blue"/><FactVisual icon="cube" label="Габарити" value={item.dimensions} tone="violet"/><FactVisual icon="case" label="Вага" value={item.weight} tone="orange"/><FactVisual icon="clock" label="Загальний час" value={item.totalTime} tone="blue"/><FactVisual icon="route" label="Від «Отримав» до «Віддав»" value={item.cargoTime} tone="green"/><FactVisual icon="clock" label="Очікування" value={item.idle} tone="orange"/><FactVisual icon="check" label="Фінальна ціна" value={item.price} tone="teal" wide/></div></section></div><aside><section className="customer-card order-side report-order-side"><h3>Історія виконання</h3><div className="timeline"><p className="done"><i/><span><strong>Створено</strong><small>09:10</small></span></p><p className="done"><i/><span><strong>Водія підтверджено</strong><small>09:24</small></span></p><p className="done"><i/><span><strong>Вантаж отримано</strong><small>10:08</small></span></p><p className="done"><i/><span><strong>Вантаж передано</strong><small>11:20</small></span></p><p className="done"><i/><span><strong>Замовлення завершено</strong><small>11:28</small></span></p></div></section><section className="customer-card customer-review-card"><span>Оцінка замовника</span><strong>★ {item.rating}</strong><p>{item.review}</p></section></aside></div></>;
+  return <><a className="back-link" href={portalPath("/customer/reports")}><VIcon name="arrow"/>До звітів</a><div className="order-detail-head"><div><small>Замовлення № {item.id} · {item.date}</small><h2>{item.from.split(",")[0]} → {item.to.split(",")[0]}</h2></div><span className={`big-status ${item.status === "Затримка" ? "orange" : "green"}`}>{item.status}</span></div><div className="order-detail-grid"><div><section className="customer-card active-driver report-driver-card"><div><span className="mini-avatar green">{item.initials}</span><div><small>Водій замовлення</small><h3>{item.driver}</h3><p>Оцінка від замовника: ★ {item.rating}</p></div></div></section><section className="customer-card order-facts-card"><h3>Маршрут і деталі</h3><div className="fact-route"><i className="from"/><div><span>Звідки</span><strong>{item.from}</strong></div><i className="to"/><div><span>Куди</span><strong>{item.to}</strong></div></div><div className="facts-visual-grid"><FactVisual icon="route" label="Відстань дорогами" value={item.distance} tone="blue"/><FactVisual icon="cube" label="Габарити" value={item.dimensions} tone="violet"/><FactVisual icon="case" label="Вага" value={item.weight} tone="orange"/><FactVisual icon="clock" label="Загальний час" value={item.totalTime} tone="blue"/><FactVisual icon="route" label="Від «Отримав» до «Віддав»" value={item.cargoTime} tone="green"/><FactVisual icon="clock" label="Очікування" value={item.idle} tone="orange"/><FactVisual icon="check" label="Фінальна ціна" value={item.price} tone="teal" wide/></div></section></div><aside><section className="customer-card order-side report-order-side"><h3>Історія виконання</h3><div className="timeline"><p className="done"><i/><span><strong>Створено</strong><small>09:10</small></span></p><p className="done"><i/><span><strong>Водія підтверджено</strong><small>09:24</small></span></p><p className="done"><i/><span><strong>Вантаж отримано</strong><small>10:08</small></span></p><p className="done"><i/><span><strong>Вантаж передано</strong><small>11:20</small></span></p><p className="done"><i/><span><strong>Замовлення завершено</strong><small>11:28</small></span></p></div></section><section className="customer-card customer-review-card"><span>Оцінка замовника</span><strong>★ {item.rating}</strong><p>{item.review}</p></section></aside></div></>;
 }
 
 function formatNotificationTime(value?: string) {
@@ -1697,14 +1698,14 @@ function getNotificationHref(item: PortalNotification, role: "customer" | "drive
   const orderId = data.orderId != null ? String(data.orderId) : "";
   const target = data.navigateTo || "";
 
-  if (target === "driverOrders" || target === "driverHistory") return "/driver/orders";
-  if (target === "SupportRequest" || target === "supportRequest") return role === "driver" ? "/driver/support" : "/customer/support";
-  if (target === "ratingDetail") return role === "driver" ? "/driver/orders" : "/customer/reports";
+  if (target === "driverOrders" || target === "driverHistory") return portalPath("/driver/orders");
+  if (target === "SupportRequest" || target === "supportRequest") return portalPath(role === "driver" ? "/driver/support" : "/customer/support");
+  if (target === "ratingDetail") return portalPath(role === "driver" ? "/driver/orders" : "/customer/reports");
   if (orderId) {
-    if (role === "driver") return `/driver/orders/${orderId}`;
+    if (role === "driver") return portalPath(`/driver/orders/${orderId}`);
     const params = new URLSearchParams({ notificationId: item.id });
     if (data.reminderStep) params.set("reminderStep", data.reminderStep);
-    return `/customer/orders/${orderId}?${params.toString()}`;
+    return portalPath(`/customer/orders/${orderId}?${params.toString()}`);
   }
   return "";
 }
@@ -1718,7 +1719,7 @@ export function Notifications({ role = "customer" }: { role?: "customer" | "driv
   const loadNotifications = useCallback(async (silent = false) => {
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
     try {
@@ -1862,7 +1863,7 @@ export function Support({ notify }: { notify: (message: string) => void }) {
   async function loadQuestions(silent = false) {
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
     if (!silent) setLoading(true);
@@ -1905,7 +1906,7 @@ export function Support({ notify }: { notify: (message: string) => void }) {
 
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -1939,7 +1940,7 @@ export function Support({ notify }: { notify: (message: string) => void }) {
 
     const token = getStoredUserToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -2061,18 +2062,18 @@ export default function CustomerPortal({ view, orderId = 130 }: { view: Customer
 
   const [tab, setTab] = useState("Створено"); const [toast, setToast] = useState("");
   const notify = (message:string) => { setToast(message); window.setTimeout(() => setToast(""),2600); };
-  useEffect(()=>{ if(view==="loading"){const timer=window.setTimeout(()=>{window.location.href="/customer/orders"},1800);return()=>window.clearTimeout(timer)}},[view]);
-  if(view==="loading") return <main className="customer-loader"><img src="/customer-loading-truck.png" alt="VanGo вантажівка з коробками"/><div className="loading-line"><span/></div></main>;
+  useEffect(()=>{ if(view==="loading"){const timer=window.setTimeout(()=>{window.location.href=portalPath("/customer/orders")},1800);return()=>window.clearTimeout(timer)}},[view]);
+  if(view==="loading") return <main className="customer-loader"><img src={portalPath("/customer-loading-truck.png")} alt="VanGo вантажівка з коробками"/><div className="loading-line"><span/></div></main>;
   const titles:Record<CustomerView,string>={loading:"Завантаження",orders:"Мої замовлення",reports:"Звіти",settings:"Налаштування",profile:"Мій профіль",create:"Створити",createLocal:"Місцеве перевезення",createLong:"Далеке перевезення",notifications:"Сповіщення",support:"Технічна підтримка",orderCreated:"Замовлення № 130",orderActive:"Замовлення № 130",orderReport:`Замовлення № ${orderId}`};
   const submitProfile=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();notify("Профіль успішно збережено")};
-  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href="/customer/orders"><span className="customer-brand-logo"><img src="/logo.png" alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href="/customer/settings" aria-label="Відкрити налаштування профілю"><span className="mini-avatar">РС</span><p><strong>Сергій Рябенко</strong><small>Замовник</small></p></a></div></aside><section className="customer-workspace"><Header title={titles[view]}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>
-    {view==="create"&&<><div className="create-choice-intro"><span>Нове замовлення</span><h2>Яке перевезення потрібне?</h2></div><div className="transport-types"><a href="/customer/create/local" className="customer-card"><span className="type-icon local"><VIcon name="clock" size={28}/></span><div><h3>Місцеве перевезення</h3><ul><li>Водії запропонують ціну та умови</li><li>Місто та передмістя</li><li>Погодинна оплата</li></ul></div><VIcon name="chevron"/></a><a href="/customer/create/long-distance" className="customer-card"><span className="type-icon long"><VIcon name="trail-sign" size={28}/></span><div><h3>Далеке перевезення</h3><ul><li>Ви пропонуєте ціну або обираєте «Договірна»</li><li>Для маршрутів поза містом</li></ul></div><VIcon name="chevron"/></a></div></>}
+  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href={portalPath("/customer/orders")}><span className="customer-brand-logo"><img src={portalPath("/logo.png")} alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><span className="mini-avatar">РС</span><p><strong>Сергій Рябенко</strong><small>Замовник</small></p></a></div></aside><section className="customer-workspace"><Header title={titles[view]}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>
+    {view==="create"&&<><div className="create-choice-intro"><span>Нове замовлення</span><h2>Яке перевезення потрібне?</h2></div><div className="transport-types"><a href={portalPath("/customer/create/local")} className="customer-card"><span className="type-icon local"><VIcon name="clock" size={28}/></span><div><h3>Місцеве перевезення</h3><ul><li>Водії запропонують ціну та умови</li><li>Місто та передмістя</li><li>Погодинна оплата</li></ul></div><VIcon name="chevron"/></a><a href={portalPath("/customer/create/long-distance")} className="customer-card"><span className="type-icon long"><VIcon name="trail-sign" size={28}/></span><div><h3>Далеке перевезення</h3><ul><li>Ви пропонуєте ціну або обираєте «Договірна»</li><li>Для маршрутів поза містом</li></ul></div><VIcon name="chevron"/></a></div></>}
     {view==="createLocal"&&<><div className="customer-page-intro"><div><h2>Створити місцеве перевезення</h2></div></div><CreateForm longDistance={false}/></>}
     {view==="createLong"&&<><div className="customer-page-intro"><div><h2>Створити далеке перевезення</h2></div></div><CreateForm longDistance/></>}
-    {view==="orders"&&<><div className="customer-page-intro"><div><h2>Мої замовлення</h2></div><a className="customer-primary" href="/customer/create"><VIcon name="plus" size={19}/>Створити замовлення</a></div><section className="customer-card orders-empty-card"><div className="customer-tabs">{["В роботі","Створено","Історія"].map(i=><button key={i} className={tab===i?"active":""} onClick={()=>setTab(i)}>{i}<span>{i==="Історія"?0:1}</span></button>)}</div>{tab==="Створено"?<a className="created-order-row" href="/customer/orders/130"><div><span className="big-status green">Створено</span><h3>Замовлення № 130</h3><p>Черкаси → Черкаси</p></div><div><span>Водій</span><strong>Ще не призначено</strong></div><div><span>Оновлення</span><strong>1 пропозиція</strong></div><div><span>Сума</span><strong>450 грн</strong></div><VIcon name="chevron"/></a>:tab==="В роботі"?<a className="created-order-row" href="/customer/orders/130/active"><div><span className="big-status blue">Водій в дорозі</span><h3>Замовлення № 130</h3><p>Черкаси → Черкаси</p></div><div><span>Водій</span><strong>Рябенко Сергій</strong></div><div><span>Оновлення</span><strong>Прибуде до 30 хв</strong></div><div><span>Сума</span><strong>450 грн</strong></div><VIcon name="chevron"/></a>:<div className="customer-empty compact"><span className="empty-illustration"><VIcon name="case" size={32}/></span><h3>Історія поки порожня</h3></div>}</section></>}
+    {view==="orders"&&<><div className="customer-page-intro"><div><h2>Мої замовлення</h2></div><a className="customer-primary" href={portalPath("/customer/create")}><VIcon name="plus" size={19}/>Створити замовлення</a></div><section className="customer-card orders-empty-card"><div className="customer-tabs">{["В роботі","Створено","Історія"].map(i=><button key={i} className={tab===i?"active":""} onClick={()=>setTab(i)}>{i}<span>{i==="Історія"?0:1}</span></button>)}</div>{tab==="Створено"?<a className="created-order-row" href={portalPath("/customer/orders/130")}><div><span className="big-status green">Створено</span><h3>Замовлення № 130</h3><p>Черкаси → Черкаси</p></div><div><span>Водій</span><strong>Ще не призначено</strong></div><div><span>Оновлення</span><strong>1 пропозиція</strong></div><div><span>Сума</span><strong>450 грн</strong></div><VIcon name="chevron"/></a>:tab==="В роботі"?<a className="created-order-row" href={portalPath("/customer/orders/130/active")}><div><span className="big-status blue">Водій в дорозі</span><h3>Замовлення № 130</h3><p>Черкаси → Черкаси</p></div><div><span>Водій</span><strong>Рябенко Сергій</strong></div><div><span>Оновлення</span><strong>Прибуде до 30 хв</strong></div><div><span>Сума</span><strong>450 грн</strong></div><VIcon name="chevron"/></a>:<div className="customer-empty compact"><span className="empty-illustration"><VIcon name="case" size={32}/></span><h3>Історія поки порожня</h3></div>}</section></>}
     {view==="reports"&&<Reports/>}
     {view==="orderCreated"&&<OrderDetail active={false}/>} {view==="orderActive"&&<OrderDetail active/>} {view==="orderReport"&&<ReportOrderDetail orderId={orderId}/>} {view==="notifications"&&<Notifications role="customer"/>} {view==="support"&&<Support notify={notify}/>}
-    {view==="settings"&&<><div className="customer-page-intro"><div><h2>Налаштування</h2></div></div><div className="settings-grid"><section className="customer-card profile-summary"><div className="large-avatar">РС</div><div className="profile-name"><h3>Сергій Рябенко</h3><p><span>★</span> 5.0 <b>✓ 4</b></p><small>+380504233382</small></div><a className="profile-edit-link" href="/customer/profile"><VIcon name="edit"/><span><strong>Редагувати профіль</strong><small>Особисті дані та контакти</small></span><VIcon name="chevron"/></a></section><div className="settings-side"><section className="customer-card role-card"><div className="role-icon"><VIcon name="user"/></div><div><strong>Замовник</strong><p>Створюйте та керуйте своїми замовленнями.</p></div></section><section className="customer-card account-mode"><h3>Режим облікового запису</h3><div className="mode-switch"><button className="active"><VIcon name="user"/>Замовник</button><a href="/driver/settings"><VIcon name="car"/>Водій</a></div><p>Після перемикання зміняться доступні сторінки та можливості.</p></section><button className="logout-button" onClick={()=>notify("Вихід із демонстраційного кабінету")}><VIcon name="logout"/>Вийти</button><p className="version">Версія 1.0.18</p></div></div></>}
-    {view==="profile"&&<><a href="/customer/settings" className="back-link"><VIcon name="arrow"/>До налаштувань</a><div className="customer-page-intro"><div><h2>Мій профіль</h2></div></div><form className="customer-card profile-form" onSubmit={submitProfile}><section><div><h3>Особисті дані</h3><p>Ім’я відображається водіям у ваших замовленнях</p></div><div className="profile-form-grid"><label>Прізвище<input defaultValue="Рябенко"/></label><label>Ім’я<input defaultValue="Сергій"/></label><label>По батькові<input placeholder="Не вказано"/></label></div></section><section><div><h3>Контакти</h3><p>Номер використовується для зв’язку</p></div><div className="profile-form-grid one"><label>Номер телефону<input defaultValue="+380504233382"/></label></div></section><section><div><h3>Фото профілю</h3><p>Додайте селфі, щоб вас було простіше впізнати</p></div><div className="photo-actions"><button type="button"><VIcon name="upload"/>Завантажити фото</button><button type="button">Зробити фото</button></div></section><div className="profile-form-actions"><a href="/customer/settings">Скасувати</a><button className="customer-primary">Зберегти зміни</button></div></form></>}
+    {view==="settings"&&<><div className="customer-page-intro"><div><h2>Налаштування</h2></div></div><div className="settings-grid"><section className="customer-card profile-summary"><div className="large-avatar">РС</div><div className="profile-name"><h3>Сергій Рябенко</h3><p><span>★</span> 5.0 <b>✓ 4</b></p><small>+380504233382</small></div><a className="profile-edit-link" href={portalPath("/customer/profile")}><VIcon name="edit"/><span><strong>Редагувати профіль</strong><small>Особисті дані та контакти</small></span><VIcon name="chevron"/></a></section><div className="settings-side"><section className="customer-card role-card"><div className="role-icon"><VIcon name="user"/></div><div><strong>Замовник</strong><p>Створюйте та керуйте своїми замовленнями.</p></div></section><section className="customer-card account-mode"><h3>Режим облікового запису</h3><div className="mode-switch"><button className="active"><VIcon name="user"/>Замовник</button><a href={portalPath("/driver/settings")}><VIcon name="car"/>Водій</a></div><p>Після перемикання зміняться доступні сторінки та можливості.</p></section><button className="logout-button" onClick={()=>notify("Вихід із демонстраційного кабінету")}><VIcon name="logout"/>Вийти</button><p className="version">Версія 1.0.18</p></div></div></>}
+    {view==="profile"&&<><a href={portalPath("/customer/settings")} className="back-link"><VIcon name="arrow"/>До налаштувань</a><div className="customer-page-intro"><div><h2>Мій профіль</h2></div></div><form className="customer-card profile-form" onSubmit={submitProfile}><section><div><h3>Особисті дані</h3><p>Ім’я відображається водіям у ваших замовленнях</p></div><div className="profile-form-grid"><label>Прізвище<input defaultValue="Рябенко"/></label><label>Ім’я<input defaultValue="Сергій"/></label><label>По батькові<input placeholder="Не вказано"/></label></div></section><section><div><h3>Контакти</h3><p>Номер використовується для зв’язку</p></div><div className="profile-form-grid one"><label>Номер телефону<input defaultValue="+380504233382"/></label></div></section><section><div><h3>Фото профілю</h3><p>Додайте селфі, щоб вас було простіше впізнати</p></div><div className="photo-actions"><button type="button"><VIcon name="upload"/>Завантажити фото</button><button type="button">Зробити фото</button></div></section><div className="profile-form-actions"><a href={portalPath("/customer/settings")}>Скасувати</a><button className="customer-primary">Зберегти зміни</button></div></form></>}
   </div><div className="customer-mobile-nav"><CustomerNav view={view}/></div></section>{toast&&<div className="customer-toast"><span>✓</span>{toast}</div>}</main>;
 }

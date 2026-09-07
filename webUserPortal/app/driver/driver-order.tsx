@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState, type CSSProperties } from "react";
 import { FactVisual } from "../customer/fact-visual";
+import { portalPath } from "../portal-path";
 import { VIcon } from "../customer/v-icon";
 import { DriverLayout } from "./driver-portal";
 
@@ -506,7 +507,7 @@ function DriverRatingCard({ order, customer }: { order: DriverOrderData; custome
 
     const token = getToken();
     if (!token) {
-      window.location.href = "/";
+      window.location.href = portalPath("/");
       return;
     }
 
@@ -563,7 +564,7 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
     async function loadOrder(silent = false) {
       const token = getToken();
       if (!token) {
-        window.location.href = "/";
+        window.location.href = portalPath("/");
         return;
       }
       try {
@@ -634,7 +635,7 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
       setFormError("");
       await apiFetch(`/orders/${order.id}/respond`, token, { method: "POST", body: JSON.stringify(body) });
       notify(`Пропозицію на замовлення № ${order.orderNumber || order.id} надіслано`);
-      window.setTimeout(() => { window.location.href = "/driver/orders"; }, 900);
+      window.setTimeout(() => { window.location.href = portalPath("/driver/orders"); }, 900);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Не вдалося надіслати пропозицію");
     } finally {
@@ -735,14 +736,14 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
   }
 
   const currentStage = order ? stage ?? inferStage(order) : stage ?? "available";
-  const backHref = currentStage === "available" ? "/driver/map" : "/driver/orders";
+  const backHref = portalPath(currentStage === "available" ? "/driver/map" : "/driver/orders");
   const backText = currentStage === "available" ? "До пошуку замовлень" : "До моїх замовлень";
 
   if (loading) {
     return <DriverLayout view="map" title="Завантаження" profile={profile}><div className="customer-card customer-live-state">Завантаження замовлення...</div></DriverLayout>;
   }
   if (error || !order) {
-    return <DriverLayout view="map" title="Помилка" profile={profile}><a className="back-link" href="/driver/map"><VIcon name="arrow"/>До пошуку замовлень</a><div className="customer-card customer-live-state error">{error || "Замовлення не знайдено"}</div></DriverLayout>;
+    return <DriverLayout view="map" title="Помилка" profile={profile}><a className="back-link" href={portalPath("/driver/map")}><VIcon name="arrow"/>До пошуку замовлень</a><div className="customer-card customer-live-state error">{error || "Замовлення не знайдено"}</div></DriverLayout>;
   }
 
   const customer = customerName(order);
@@ -763,7 +764,7 @@ export default function DriverOrder({ proposal = false, orderId, stage }: { prop
       {currentStage === "completed" ? <section className="customer-card completed-order-summary"><span><VIcon name="check" size={26}/></span><h3>Замовлення виконано</h3><p>Вантаж передано замовнику, оплату підтверджено.</p></section>
       : currentStage === "active" ? <section className="customer-card distant-order-actions"><div className="proposal-form-head"><span><VIcon name="route"/></span><div><h3>Перевезення в роботі</h3><p>{statusAction ? "Оновіть етап виконання замовлення" : "Очікуємо підтвердження замовника"}</p></div></div>{statusAction ? <button className="customer-primary" onClick={() => setStatusConfirmAction(statusAction)} disabled={statusLoading}>{statusLoading ? "Оновлюємо..." : statusAction.label}</button> : <div className="status-wait-note">Ви повідомили про доставку. Замовник має підтвердити завершення.</div>}{statusError && <p className="customer-form-error">{statusError}</p>}</section>
       : myResponse && !proposal && !isLocal(order) ? <DriverNegotiationPanel key={`${myResponse.status || myResponse.id}-${myResponse.finalPriceOffer || ""}-${myResponse.customerCounterPrice || ""}`} order={order} response={myResponse} loading={negotiationLoading} error={negotiationError} onAccept={acceptCounterOffer} onReject={rejectCounterOffer} onCounter={submitDriverCounterOffer}/>
-      : !proposal ? <section className="customer-card driver-cta"><span><VIcon name="send" size={28}/></span><h3>Готові виконати замовлення?</h3><p>Укажіть свою ставку, мінімальну кількість годин і час прибуття.</p><a className="customer-primary" href={`/driver/orders/${order.id}/proposal`}>Запропонувати ціну</a><small>Замовник отримає пропозицію та підтвердить її</small></section>
+      : !proposal ? <section className="customer-card driver-cta"><span><VIcon name="send" size={28}/></span><h3>Готові виконати замовлення?</h3><p>Укажіть свою ставку, мінімальну кількість годин і час прибуття.</p><a className="customer-primary" href={portalPath(`/driver/orders/${order.id}/proposal`)}>Запропонувати ціну</a><small>Замовник отримає пропозицію та підтвердить її</small></section>
       : <form className="customer-card proposal-form" onSubmit={submitProposal}><div className="proposal-form-head"><span><VIcon name="send"/></span><div><h3>Дані для пропозиції</h3><p>Умови, які побачить замовник</p></div></div>{isLocal(order) ? <><label>Ставка, грн/год<input name="hourlyRate" type="number" min="1" defaultValue="450"/></label><label>Мінімум годин<input name="minHours" type="number" min="1" step="0.5" defaultValue="1"/></label><fieldset><legend>Час прибуття</legend><div className="arrival-options"><label><input name="arrivalEta" value="UP_TO_15_MIN" type="radio"/>до 15 хв</label><label><input name="arrivalEta" value="UP_TO_30_MIN" type="radio" defaultChecked/>до 30 хв</label><label><input name="arrivalEta" value="UP_TO_1_HOUR" type="radio"/>до 1 год</label><label><input name="arrivalEta" value="SEVERAL_HOURS" type="radio"/>кілька годин</label></div></fieldset></> : <><label>Фінальна ціна, грн<input name="finalPrice" type="number" min="100" step="100" defaultValue={numberValue(order.finalPrice ?? order.price) || ""}/></label><label className="checkbox-line"><input name="immediateConfirm" type="checkbox"/> Підтвердити відразу</label></>}<div className="proposal-total"><span>{isLocal(order) ? "Разом за мінімальний час" : "Пропозиція водія"}</span><strong>{isLocal(order) ? "450 грн" : price}</strong></div>{formError && <p className="customer-form-error">{formError}</p>}<button className="customer-primary" disabled={submitting}>{submitting ? "Надсилання..." : "Запропонувати ціну"}</button><small>Замовник отримає пропозицію та підтвердить її</small></form>}
       <OrderReceivedRatingCard rating={order.receivedRating} label="Оцінка від замовника"/>
       <DriverRatingCard order={order} customer={customer}/>

@@ -2,6 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 import { ThemeToggle } from "./customer/customer-portal";
+import { portalPath } from "./portal-path";
 import { VIcon } from "./customer/v-icon";
 
 type Role = "CUSTOMER" | "DRIVER" | "BOTH" | "ADMIN" | "ANALYST";
@@ -543,7 +544,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
     <main className="portal-auth">
       <section className="portal-auth-card">
         <div className="portal-auth-brand">
-          <img src="/logo.png" alt="VanGo" />
+          <img src={portalPath("/logo.png")} alt="VanGo" />
           <div>
             <small>{scope === "admin" ? "Вхід адміністратора" : "Єдиний веб-портал"}</small>
           </div>
@@ -591,7 +592,7 @@ function PortalRoleChoice({ profile, myOrdersCount, completedCount, rating }: { 
         <span>{isUserProfile(profile) ? roleLabel(profile.role) : "Користувач"}</span>
       </section>
       <div className="portal-role-grid">
-        <a className="portal-role-card customer" href="/customer/orders">
+        <a className="portal-role-card customer" href={portalPath("/customer/orders")}>
           <span><VIcon name="user" /></span>
           <div>
             <small>Кабінет замовника</small>
@@ -600,7 +601,7 @@ function PortalRoleChoice({ profile, myOrdersCount, completedCount, rating }: { 
           </div>
           <em><VIcon name="chevron" /></em>
         </a>
-        <a className="portal-role-card driver" href="/driver/map">
+        <a className="portal-role-card driver" href={portalPath("/driver/map")}>
           <span><VIcon name="car" /></span>
           <div>
             <small>Кабінет водія</small>
@@ -1035,7 +1036,7 @@ function AdminSection({
 
   async function switchToLinkedUser() {
     if (session.kind === "user") {
-      window.location.href = "/customer/settings";
+      window.location.href = portalPath("/customer/settings");
       return;
     }
 
@@ -1046,7 +1047,7 @@ function AdminSection({
       window.localStorage.setItem(TOKEN_KEY, result.token);
       window.localStorage.setItem(KIND_KEY, "user");
       onSessionChange({ token: result.token, kind: "user", profile: result.user });
-      window.location.href = "/customer/settings";
+      window.location.href = portalPath("/customer/settings");
     } catch (err) {
       if (isAuthError(err)) {
         onAuthExpired();
@@ -1731,8 +1732,8 @@ function PortalShell({ session, onLogout, onSessionChange }: { session: Session;
   return (
     <main className={`portal-shell ${admin ? "admin-mode" : ""}`}>
       <aside className="portal-sidebar">
-        <a className="portal-brand" href="/">
-          <img src="/logo.png" alt="VanGo" />
+        <a className="portal-brand" href={portalPath("/")}>
+          <img src={portalPath("/logo.png")} alt="VanGo" />
           <strong>VanGo</strong>
         </a>
         <nav className="portal-nav" aria-label="Навігація порталу">
@@ -1744,9 +1745,9 @@ function PortalShell({ session, onLogout, onSessionChange }: { session: Session;
             ))
           ) : (
             <>
-            <a className="active" href="/"><VIcon name="case" />Огляд</a>
-            <a href="/customer"><VIcon name="user" />Кабінет замовника</a>
-            <a href="/driver/map"><VIcon name="car" />Кабінет водія</a>
+            <a className="active" href={portalPath("/")}><VIcon name="case" />Огляд</a>
+            <a href={portalPath("/customer")}><VIcon name="user" />Кабінет замовника</a>
+            <a href={portalPath("/driver/map")}><VIcon name="car" />Кабінет водія</a>
             {analytics && <a href="#analytics"><VIcon name="chart" />Аналітика</a>}
             </>
           )}

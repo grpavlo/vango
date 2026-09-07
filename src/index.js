@@ -4,6 +4,7 @@ dotenv.config({ path: '.env' });
 
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -38,6 +39,100 @@ const PORT = process.env.NODE_ENV === 'production'
     : Number(process.env.PORT ?? 3000)
 
 const app = express();
+const portalProxyTarget = process.env.VANGO_WEB_PORTAL_PROXY_TARGET || 'http://127.0.0.1:5173';
+
+function isPortalProxyEnabled() {
+  return !['0', 'false', 'off', ''].includes(String(portalProxyTarget).trim().toLowerCase());
+}
+
+function createPortalProxyRequest(req, res, next) {
+  if (!isPortalProxyEnabled()) return next();
+
+  let targetUrl;
+  try {
+    targetUrl = new URL(req.originalUrl, portalProxyTarget);
+  } catch {
+    return next();
+  }
+
+  const proxyClient = targetUrl.protocol === 'https:' ? https : http;
+  const headers = {
+    ...req.headers,
+    host: targetUrl.host,
+    'x-forwarded-host': req.headers.host,
+    'x-forwarded-proto': req.protocol,
+    'x-forwarded-for': req.ip,
+  };
+
+  const proxyReq = proxyClient.request(
+    targetUrl,
+    {
+      method: req.method,
+      headers,
+    },
+    (proxyRes) => {
+      res.statusCode = proxyRes.statusCode || 502;
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        if (value !== undefined) res.setHeader(key, value);
+      }
+      proxyRes.pipe(res);
+    }
+  );
+
+  proxyReq.on('error', () => {
+    if (!res.headersSent && ['GET', 'HEAD'].includes(req.method)) return next();
+    if (!res.headersSent) res.status(502).send('New portal is not available');
+  });
+
+  req.pipe(proxyReq);
+}
+
+function proxyPortalUpgrade(req, socket, head) {
+  if (!isPortalProxyEnabled() || !req.url?.startsWith('/portal')) return false;
+
+  let targetUrl;
+  try {
+    targetUrl = new URL(req.url, portalProxyTarget);
+  } catch {
+    return false;
+  }
+
+  req._vangoPortalProxyHandled = true;
+  const proxyClient = targetUrl.protocol === 'https:' ? https : http;
+  const headers = {
+    ...req.headers,
+    host: targetUrl.host,
+    'x-forwarded-host': req.headers.host,
+    'x-forwarded-proto': 'ws',
+  };
+
+  const proxyReq = proxyClient.request({
+    hostname: targetUrl.hostname,
+    port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
+    path: `${targetUrl.pathname}${targetUrl.search}`,
+    method: req.method,
+    headers,
+  });
+
+  proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+    socket.write(
+      `HTTP/${req.httpVersion} ${proxyRes.statusCode} ${proxyRes.statusMessage}\r\n` +
+        Object.entries(proxyRes.headers)
+          .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+          .join('\r\n') +
+        '\r\n\r\n'
+    );
+    if (proxyHead.length) proxySocket.unshift(proxyHead);
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+  });
+
+  proxyReq.on('error', () => socket.destroy());
+  proxyReq.end(head.length ? head : undefined);
+  return true;
+}
+
+app.use('/portal', createPortalProxyRequest);
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/portal', express.static(path.join(__dirname, '../web-portal')));
@@ -169,6 +264,9 @@ async function start() {
     await syncPortalAdminsFromLegacyUsers();
     await ensurePortalAdminFromEnv();
     const server = http.createServer(app);
+    server.on('upgrade', (req, socket, head) => {
+      proxyPortalUpgrade(req, socket, head);
+    });
     setupWebSocket(server);
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     scheduleCleanup();
