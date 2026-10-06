@@ -134,6 +134,10 @@ function proxyPortalUpgrade(req, socket, head) {
 
 app.use('/portal', createPortalProxyRequest);
 app.use(express.json());
+app.get(['/support', '/support/'], (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web-support/index.html'));
+});
+app.use('/support/assets', express.static(path.join(__dirname, '../web-support')));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/portal', express.static(path.join(__dirname, '../web-portal')));
 app.get('/portal/logo.png', (_req, res) => {

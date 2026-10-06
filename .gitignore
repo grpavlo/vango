@@ -25,3 +25,5 @@ mobile-app/*firebase-adminsdk-*.json
 # or even:
 *.service-account.json
 *.firebase-adminsdk-*.json
+
+.dev-postgres-macos/

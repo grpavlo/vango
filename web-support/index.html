@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VanGo — про застосунок та підтримка</title>
+  <meta name="description" content="VanGo для замовників і водіїв: вантажні перевезення, швидкі відповіді, робот підтримки та звернення до команди.">
+  <link rel="stylesheet" href="/support/assets/styles.css">
+  <script src="/support/assets/app.js" defer></script>
+</head>
+<body>
+<header class="header"><a class="brand" href="/support"><img class="brand-logo" src="/support/assets/logo.png" alt="" width="64" height="64">VanGo</a><nav aria-label="Навігація"><a href="#about">Про застосунок</a><a href="#help">Підтримка</a></nav></header>
+<main>
+  <section class="hero" id="about">
+    <div><p class="eyebrow">ВАНТАЖНІ ПЕРЕВЕЗЕННЯ З VANGO</p><h1>Ваш вантаж.<br>Ваш маршрут.<br><span>Ваш VanGo.</span></h1><p class="lead">Застосунок, що поєднує замовників і водіїв. Створюйте заявки, знаходьте перевезення та домовляйтеся про умови в одному місці.</p><a class="button" href="#help">Отримати допомогу</a></div>
+    <div class="roles"><article><span class="step">01 / ЗАМОВНИКАМ</span><h2>Знайдіть водія для свого вантажу</h2><p>Вкажіть маршрут, дату, параметри вантажу та оплату. Перегляньте відгуки водіїв і підтвердьте виконавця.</p></article><article><span class="step">02 / ВОДІЯМ</span><h2>Знайдіть наступне перевезення</h2><p>Переглядайте заявки на мапі або у списку, налаштовуйте пошук та пропонуйте свої умови.</p></article></div>
+  </section>
+  <section class="help" id="help"><p class="eyebrow">МИ ПОРУЧ</p><h2>Підтримка VanGo</h2><p class="lead">Знайдіть готову відповідь, запитайте робота або передайте питання нашій команді.</p>
+    <div class="help-grid">
+      <section class="card faq"><h3>Швидкі питання</h3><div id="faq-list" aria-live="polite">Завантажуємо відповіді…</div><button id="faq-retry" type="button" hidden>Спробувати ще раз</button></section>
+      <div class="support-tools">
+        <section class="card" id="robot"><h3>Запитати робота</h3><p class="muted">Помічник відповідає про роботу VanGo. Для вирішення вашої проблеми зверніться до команди нижче.</p><div id="chat" class="chat" role="log" aria-live="polite" aria-label="Розмова з роботом"><p class="message assistant">Вітаю! Чим допомогти з VanGo?</p></div><form id="chat-form"><label for="chat-input">Ваше питання</label><div class="input-row"><input id="chat-input" required minlength="2" maxlength="800" placeholder="Наприклад: як створити замовлення?"><button type="submit">Запитати</button></div></form><p id="chat-status" role="status"></p><button class="secondary" id="transfer" type="button">Передати у техпідтримку</button></section>
+        <section class="card" id="request"><h3>Написати у техпідтримку</h3><p class="muted">Підтвердьте номер вашого акаунта VanGo, щоб надіслати звернення й отримати відповідь. Якщо акаунта ще немає, його буде створено.</p>
+          <div id="auth">
+            <form id="phone-form"><label for="phone">Номер телефону</label><div class="input-row"><input id="phone" type="tel" autocomplete="tel" required placeholder="+380XXXXXXXXX"><button type="submit">Отримати код</button></div></form>
+            <form id="code-form" hidden><label for="code">Код із SMS</label><div class="input-row"><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="6 цифр"><button type="submit">Підтвердити</button></div></form>
+          </div>
+          <div id="account" hidden><p>Ви увійшли як <strong id="account-phone"></strong></p><button class="secondary" id="logout" type="button">Вийти</button></div>
+          <p id="auth-status" role="status"></p>
+          <form id="request-form"><label for="question">Опишіть питання або проблему</label><textarea id="question" rows="5" minlength="5" maxlength="1200" required placeholder="Що сталося? Яку дію ви виконували?"></textarea><p class="muted small">Не додавайте паролі, SMS-коди або платіжні дані.</p><label for="photos">Фото або скріншоти (до 5)</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple><button id="send-request" type="submit" disabled>Надіслати звернення</button></form><p id="request-status" role="status"></p>
+          <section id="history" hidden><div class="history-heading"><h4>Мої звернення</h4><button id="refresh" class="secondary" type="button">Оновити</button></div><div id="requests" aria-live="polite"></div></section>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+<footer><a class="brand" href="/support">VanGo</a><p>Вантажні перевезення. Зв’язок. Підтримка.</p><a href="#about">Про застосунок</a></footer>
+</body>
+</html>
