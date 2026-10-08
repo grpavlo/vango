@@ -27,6 +27,7 @@ User.init(
       defaultValue: UserRole.BOTH,
     },
     rating: { type: DataTypes.FLOAT, defaultValue: 5 },
+    isDispatcher: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     isAdmin: { type: DataTypes.BOOLEAN, defaultValue: false },
     blocked: { type: DataTypes.BOOLEAN, defaultValue: false },
     groupId: { type: DataTypes.INTEGER.UNSIGNED },

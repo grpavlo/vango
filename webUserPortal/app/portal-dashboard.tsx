@@ -19,6 +19,7 @@ type UserProfile = {
   patronymic?: string;
   role?: Role;
   isAdmin?: boolean;
+  isDispatcher?: boolean;
   blocked?: boolean;
   groupId?: number | null;
   group?: { id: number; name: string } | null;
@@ -945,6 +946,20 @@ function AdminSection({
     await updateUserGroup(userId, "");
   }
 
+  async function toggleDispatcher(user: UserProfile) {
+    setSaving(`dispatcher-${user.id}`);
+    setMessage("");
+    try {
+      await apiFetch(`/admin/users/${user.id}/dispatcher-access`, session.token, {
+        method: "PATCH", body: JSON.stringify({ enabled: !user.isDispatcher }),
+      });
+      setMessage(user.isDispatcher ? "Право диспетчера відкликано" : "Право диспетчера надано");
+      await reloadEverything();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Не вдалося змінити право");
+    } finally { setSaving(""); }
+  }
+
   async function toggleBlocked(user: UserProfile) {
     const action = user.blocked ? "unblock" : "block";
     setSaving(`user-block-${user.id}`);
@@ -1443,7 +1458,7 @@ function AdminSection({
                   <tr key={user.id}>
                     <td><strong>{user.id}</strong></td>
                     <td><span>{displayName(user)}</span><small>{user.phone || user.email || "-"}</small></td>
-                    <td>{user.isAdmin ? `Адмін · ${roleLabel(user.role)}` : roleLabel(user.role)}</td>
+                    <td>{user.isAdmin ? `Адмін · ${roleLabel(user.role)}` : roleLabel(user.role)}{user.isDispatcher && <small>Диспетчер</small>}</td>
                     <td>
                       <select
                         className="portal-table-select"
@@ -1457,6 +1472,7 @@ function AdminSection({
                     </td>
                     <td><b className={`portal-status ${user.blocked ? "danger" : ""}`}>{user.blocked ? "Заблоковано" : "Активний"}</b></td>
                     <td>
+                      {(user.isDispatcher || user.role === "CUSTOMER" || user.role === "BOTH") && <button type="button" className="portal-row-action" onClick={() => toggleDispatcher(user)} disabled={Boolean(saving)}>{user.isDispatcher ? "Відкликати диспетчера" : "Надати диспетчера"}</button>}
                       {canBlockUser(user) && (
                         <button type="button" className={`portal-row-action ${user.blocked ? "" : "danger"}`} onClick={() => toggleBlocked(user)} disabled={saving === `user-block-${user.id}`}>
                           {user.blocked ? "Розблокувати" : "Блокувати"}

@@ -1,0 +1,11 @@
+const { Router } = require('express');
+const { authenticate } = require('../middlewares/auth');
+const { requireDispatcher } = require('../utils/dispatcherAccess');
+const { listOrders, getOrder, orderReport } = require('../controllers/dispatcherController');
+const router = Router();
+router.use(authenticate, requireDispatcher);
+router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+router.get('/orders', listOrders);
+router.get('/orders/:id', getOrder);
+router.get('/analytics/order-report', orderReport);
+module.exports = router;

@@ -476,7 +476,7 @@ function renderUsers() {
             <strong>${escapeHtml(text(user.name))}</strong>
             <span class="muted">${escapeHtml(text(user.phone || user.email))}</span>
           </td>
-          <td>${escapeHtml(roleText)}</td>
+          <td>${escapeHtml(roleText)}${user.isDispatcher ? " · Диспетчер" : ""}</td>
           <td>
             <div class="group-editor">
               <input type="text" value="${escapeHtml(groupName)}" placeholder="Почніть вводити" data-group-combobox="${user.id}" data-original-group-id="${escapeHtml(groupId)}" autocomplete="off" />
@@ -486,6 +486,7 @@ function renderUsers() {
           </td>
           <td>${user.blocked ? badge("Заблоковано", "danger") : badge("Активний", "ok")}</td>
           <td>
+            ${user.isDispatcher || ["CUSTOMER", "BOTH"].includes(user.role) ? `<button class="action-button" data-dispatcher-id="${user.id}" data-enabled="${!user.isDispatcher}">${user.isDispatcher ? "Відкликати диспетчера" : "Надати диспетчера"}</button>` : ""}
             ${
               canBlock
                 ? `<button class="action-button ${user.blocked ? "" : "danger"}" data-user-id="${user.id}" data-action="${user.blocked ? "unblock" : "block"}">${user.blocked ? "Розблокувати" : "Блокувати"}</button>`
@@ -1244,6 +1245,14 @@ function bindAdmin() {
       return;
     }
 
+    const dispatcherButton = event.target.closest("[data-dispatcher-id]");
+    if (dispatcherButton) {
+      dispatcherButton.disabled = true;
+      apiFetch(`/admin/users/${dispatcherButton.dataset.dispatcherId}/dispatcher-access`, {
+        method: "PATCH", body: JSON.stringify({ enabled: dispatcherButton.dataset.enabled === "true" }),
+      }).then(loadAdminData).catch((error) => showToast(error.message, "error")).finally(() => { dispatcherButton.disabled = false; });
+      return;
+    }
     const button = event.target.closest("[data-user-id]");
     if (button) toggleDriverBlock(button);
   });

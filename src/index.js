@@ -183,6 +183,7 @@ app.get('/portal/support', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/dispatcher', require('./routes/dispatcherRoutes'));
 app.use('/api/finance', financialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ratings', ratingRoutes);

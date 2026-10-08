@@ -299,6 +299,7 @@ async function profile(req, res) {
     phone: u.phone,
     role: u.role,
     isAdmin: u.isAdmin,
+    isDispatcher: u.isDispatcher,
     groupId: u.groupId,
     group,
     firstName: u.firstName,

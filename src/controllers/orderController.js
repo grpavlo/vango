@@ -1133,6 +1133,13 @@ async function listMyOrders(req, res) {
   const { Op } = require("sequelize");
 
   const role = req.query.role || req.user.role;
+  const allowedModes = ["CUSTOMER", "DRIVER", "BOTH", "ADMIN"];
+  if (!allowedModes.includes(role)) return res.status(400).send('Invalid role');
+  const admin = isAdminUser(req.user);
+  if (!admin && role !== req.user.role && req.user.role !== "BOTH") {
+    return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
+  }
+  if (!admin && role === "ADMIN") return res.status(403).send(ORDER_UNAVAILABLE_MESSAGE);
 
   const now = new Date();
 

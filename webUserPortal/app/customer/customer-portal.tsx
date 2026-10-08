@@ -17,6 +17,7 @@ type UserProfile = {
   phone?: string;
   role?: "CUSTOMER" | "DRIVER" | "BOTH" | "ADMIN";
   isAdmin?: boolean;
+  isDispatcher?: boolean;
   blocked?: boolean;
   group?: { id: number; name: string } | null;
   firstName?: string;
@@ -505,11 +506,11 @@ export function ThemeToggle() {
 }
 
 function LiveHeader({ title, profile }: { title: string; profile: UserProfile | null }) {
-  return <header className="customer-topbar"><div><small>Кабінет замовника</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href={portalPath("/customer/support")} aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href={portalPath("/customer/notifications")}/><a className="customer-profile-link" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/></a></div></header>;
+  return <header className="customer-topbar"><div><small>{profile?.isDispatcher ? "Кабінет диспетчера" : "Кабінет замовника"}</small><h1>{title}</h1></div><div className="customer-tools"><ThemeToggle/><a href={portalPath("/customer/support")} aria-label="Підтримка"><VIcon name="headset"/></a><NotificationBell href={portalPath("/customer/notifications")}/><a className="customer-profile-link" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/></a></div></header>;
 }
 
 function LiveCustomerShell({ view, title, profile, children }: { view: CustomerView; title: string; profile: UserProfile | null; children: ReactNode }) {
-  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href={portalPath("/customer/orders")}><span className="customer-brand-logo"><img src={portalPath("/logo.png")} alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/><p><strong>{customerDisplayName(profile)}</strong><small>{customerRoleLabel(profile?.role)}</small></p></a></div></aside><section className="customer-workspace"><LiveHeader title={title} profile={profile}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>{children}</div><div className="customer-mobile-nav"><CustomerNav view={view}/></div></section></main>;
+  return <main className="customer-shell"><aside className="customer-sidebar"><a className="customer-brand" href={portalPath("/customer/orders")}><span className="customer-brand-logo"><img src={portalPath("/logo.png")} alt="" /></span><strong>VanGo</strong></a><CustomerNav view={view} isDispatcher={profile?.isDispatcher}/><div className="customer-sidebar-foot"><a className="customer-sidebar-profile" href={portalPath("/customer/settings")} aria-label="Відкрити налаштування профілю"><CustomerAvatar profile={profile} className="mini-avatar"/><p><strong>{customerDisplayName(profile)}</strong><small>{profile?.isDispatcher ? "Диспетчер" : customerRoleLabel(profile?.role)}</small></p></a></div></aside><section className="customer-workspace"><LiveHeader title={title} profile={profile}/><div className={`customer-content ${view==="profile"?"profile-content":""}`}>{children}</div><div className="customer-mobile-nav"><CustomerNav view={view} isDispatcher={profile?.isDispatcher}/></div></section></main>;
 }
 
 function LiveOrdersView({ orders }: { orders: CustomerOrder[] }) {
@@ -1244,7 +1245,7 @@ function LiveSettingsView({ profile, onLogout }: { profile: UserProfile | null; 
           <section className="customer-card role-card">
             <div className="role-icon"><VIcon name="user"/></div>
             <div>
-              <strong>{customerRoleLabel(profile?.role)}</strong>
+              <strong>{profile?.isDispatcher ? "Диспетчер" : customerRoleLabel(profile?.role)}</strong>
               <p>Створюйте та керуйте своїми замовленнями.</p>
             </div>
           </section>
@@ -1323,6 +1324,7 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
         setError("");
       }
       try {
+        setError("");
         let profileResult = await customerApiFetch<UserProfile>("/auth/me", token);
         if (profileResult.role === "DRIVER" || profileResult.role === "BOTH") {
           await customerApiFetch<{ role: string; isAdmin?: boolean }>("/auth/role", token, {
@@ -1331,13 +1333,14 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
           });
           profileResult = await customerApiFetch<UserProfile>("/auth/me", token);
         }
+        setProfile(profileResult);
         const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
         const notificationId = params?.get("notificationId") || "";
         const reminderStep = params?.get("reminderStep") || "";
         const shouldLoadNotification = view === "orderDetail" && Boolean(notificationId || reminderStep);
         const [ordersResult, orderResult, responsesResult, notificationResult] = await Promise.all([
-          customerApiFetch<CustomerOrder[]>("/orders/my?role=CUSTOMER&scope=own", token),
-          view === "orderDetail" && orderId ? customerApiFetch<CustomerOrder>(`/orders/${orderId}`, token) : Promise.resolve(null),
+          customerApiFetch<CustomerOrder[]>(profileResult.isDispatcher ? "/dispatcher/orders" : "/orders/my?role=CUSTOMER&scope=own", token),
+          view === "orderDetail" && orderId ? customerApiFetch<CustomerOrder>(profileResult.isDispatcher ? `/dispatcher/orders/${orderId}` : `/orders/${orderId}`, token) : Promise.resolve(null),
           view === "orderDetail" && orderId ? customerApiFetch<CustomerOrderResponse[]>(`/orders/${orderId}/responses`, token) : Promise.resolve([]),
           shouldLoadNotification ? customerApiFetch<PortalNotification[]>("/notifications", token).catch(() => []) : Promise.resolve([]),
         ]);
@@ -1354,7 +1357,7 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
         setOrderNotification(view === "orderDetail" ? matchedNotification : null);
         setOrderResponses(Array.isArray(responsesResult) ? responsesResult : []);
       } catch (err) {
-        if (silent) return;
+        setOrders([]); setOrder(null); setOrderResponses([]);
         setError(err instanceof Error ? err.message : "Не вдалося завантажити дані");
       } finally {
         if (!silent) setLoading(false);
@@ -1379,15 +1382,15 @@ function LiveCustomerPortal({ view, orderId }: { view: "orders" | "reports" | "s
   }
 
   const title = view === "orders" ? "Мої замовлення" : view === "reports" ? "Звіти" : view === "settings" ? "Налаштування" : view === "profile" ? "Мій профіль" : view === "notifications" ? "Сповіщення" : view === "orderDetail" ? `Замовлення № ${order?.orderNumber || orderId || ""}` : "Створити";
-  return <LiveCustomerShell view={view} title={title} profile={profile}>{loading ? <div className="customer-card customer-live-state">Завантаження...</div> : error ? <div className="customer-card customer-live-state error">{error}</div> : view === "orders" ? <LiveOrdersView orders={orders}/> : view === "reports" ? <LiveReportsView orders={orders}/> : view === "settings" ? <LiveSettingsView profile={profile} onLogout={logout}/> : view === "profile" ? <LiveProfileView profile={profile} onProfileSaved={setProfile}/> : view === "notifications" ? <Notifications role="customer"/> : view === "orderDetail" ? order ? <LiveOrderDetailView order={order} responses={orderResponses} notification={orderNotification} onOrderUpdated={setOrder} onResponsesUpdated={setOrderResponses}/> : <div className="customer-card customer-live-state error">Замовлення не знайдено</div> : <LiveCreateView view={view}/>}</LiveCustomerShell>;
+  return <LiveCustomerShell view={view} title={title} profile={profile}>{loading ? <div className="customer-card customer-live-state">Завантаження...</div> : error ? <div className="customer-card customer-live-state error">{error}</div> : view === "orders" ? <LiveOrdersView orders={orders}/> : view === "reports" ? profile?.isDispatcher ? <Reports token={getStoredUserToken()}/> : <LiveReportsView orders={orders}/> : view === "settings" ? <LiveSettingsView profile={profile} onLogout={logout}/> : view === "profile" ? <LiveProfileView profile={profile} onProfileSaved={setProfile}/> : view === "notifications" ? <Notifications role="customer"/> : view === "orderDetail" ? order ? <LiveOrderDetailView order={order} responses={orderResponses} notification={orderNotification} onOrderUpdated={setOrder} onResponsesUpdated={setOrderResponses}/> : <div className="customer-card customer-live-state error">Замовлення не знайдено</div> : <LiveCreateView view={view}/>}</LiveCustomerShell>;
 }
 
-function CustomerNav({ view }: { view: CustomerView }) {
+function CustomerNav({ view, isDispatcher = false }: { view: CustomerView; isDispatcher?: boolean }) {
   const createActive = view === "create" || view === "createLocal" || view === "createLong";
   return <nav className="customer-nav" aria-label="Навігація кабінету замовника">
     <a href={portalPath("/customer/orders")} className={view === "orders" || view === "orderDetail" || view === "orderCreated" || view === "orderActive" || view === "orderReport" ? "active" : ""}><VIcon name="case"/><span>Мої замовлення</span></a>
     <a href={portalPath("/customer/create")} className={createActive ? "active" : ""}><VIcon name="plus"/><span>Створити</span></a>
-    <a href={portalPath("/customer/reports")} className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>Звіти</span></a>
+    <a href={portalPath("/customer/reports")} className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>{isDispatcher ? "Звіти диспетчера" : "Звіти"}</span></a>
     <a href={portalPath("/customer/settings")} className={view === "settings" || view === "profile" ? "active" : ""}><VIcon name="settings"/><span>Налаштування</span></a>
   </nav>;
 }

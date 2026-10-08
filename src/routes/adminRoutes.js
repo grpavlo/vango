@@ -3,6 +3,7 @@ const { authenticateAdminAccess } = require('../middlewares/adminAuth');
 const { upload } = require('../middlewares/upload');
 const {
   listUsers,
+  updateDispatcherAccess,
   listPortalAdmins,
   createPortalAdmin,
   updatePortalAdmin,
@@ -31,6 +32,7 @@ const router = Router();
 router.use(authenticateAdminAccess);
 
 router.get('/users', listUsers);
+router.patch('/users/:id/dispatcher-access', updateDispatcherAccess);
 router.get('/portal-admins', listPortalAdmins);
 router.post('/portal-admins', createPortalAdmin);
 router.patch('/portal-admins/:id', updatePortalAdmin);
