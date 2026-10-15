@@ -2,6 +2,12 @@ const CODE_TTL_MS = 5 * 60 * 1000; // 5 хвилин
 
 const store = new Map();
 const DEFAULT_DEV_AUTH_CODE = '111111';
+const TEST_AUTH_PHONE = '380000000001';
+const TEST_AUTH_CODE = '111111';
+
+function getTestAuthCode(phone) {
+  return normalizePhone(phone) === TEST_AUTH_PHONE ? TEST_AUTH_CODE : null;
+}
 
 function generateCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -47,6 +53,8 @@ function getDevAuthCode() {
 }
 
 function verifyAndConsumeOrDev(phone, code) {
+  const testCode = getTestAuthCode(phone);
+  if (testCode) return String(code).trim() === testCode;
   if (verifyAndConsume(phone, code)) return true;
   const devCode = getDevAuthCode();
   return Boolean(devCode && String(code).trim() === devCode);
@@ -60,4 +68,5 @@ module.exports = {
   verifyAndConsumeOrDev,
   normalizePhone,
   getDevAuthCode,
+  getTestAuthCode,
 };

@@ -15,6 +15,7 @@ const {
   verifyAndConsumeOrDev,
   normalizePhone,
   getDevAuthCode,
+  getTestAuthCode,
 } = require('../services/authCodes');
 const { normalizePushTokens } = require('../utils/push');
 const { Op, fn, col, where } = require('sequelize');
@@ -163,6 +164,10 @@ async function sendPhoneCode(req, res) {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) {
     return res.status(400).send('Вкажіть коректний номер телефону');
+  }
+  const testCode = getTestAuthCode(phone);
+  if (testCode) {
+    return res.json({ sent: true, smsSkipped: true, devCode: testCode });
   }
   const devCode = getDevAuthCode();
   const skipSms = shouldSkipSmsInDev();
