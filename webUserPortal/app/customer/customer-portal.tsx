@@ -5,6 +5,7 @@ import { GooglePlacePicker, type GooglePoint } from "../google-maps";
 import { portalPath } from "../portal-path";
 import { FactVisual } from "./fact-visual";
 import Reports from "./reports/reports";
+import { buildOrderSchedule, scheduleDefaults } from "./order-schedule";
 import { VIcon } from "./v-icon";
 export { VIcon } from "./v-icon";
 
@@ -973,7 +974,7 @@ function OrderEditForm({ order, onSaved, onCancel }: { order: CustomerOrder; onS
     fd.append("payment", payment);
     fd.append("insurance", "false");
     fd.append("agreedPrice", !isLocalOrder && agreedPrice ? "true" : "false");
-    if (!isLocalOrder && !agreedPrice) appendText(fd, "price", raw.get("price"));
+    if (!isLocalOrder) appendText(fd, "price", raw.get("price"));
 
     setSaving(true);
     setError("");
@@ -1032,7 +1033,7 @@ function OrderEditForm({ order, onSaved, onCancel }: { order: CustomerOrder; onS
         <section className="order-edit-section order-edit-payment-section">
           <div className="order-edit-section-head"><span><VIcon name="case"/></span><div><h4>Оплата</h4><p>Ціна і спосіб оплати</p></div></div>
           {isLocalOrder ? <p className="order-edit-price-note">Для тарифу «місцеве перевезення» ціну вказує водій у своїй пропозиції.</p> : <div className="order-edit-two">
-            <label>Ціна, грн<input name="price" defaultValue={order.price || order.finalPrice || ""} disabled={agreedPrice}/></label>
+            <label>Ціна, грн<input name="price" defaultValue={order.price || order.finalPrice || ""}/></label>
           </div>}
           <div className="order-edit-options">
             {!isLocalOrder && <label><input type="checkbox" checked={agreedPrice} onChange={(event) => setAgreedPrice(event.target.checked)}/><span>Договірна ціна</span></label>}
@@ -1069,7 +1070,7 @@ function LiveOrderDetailView({ order, responses, notification, onOrderUpdated, o
   const [confirmDeliveryOpen, setConfirmDeliveryOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const driver = order.driver || order.candidateDriver || order.reservedDriver || null;
-  const priceText = order.agreedPrice ? "Договірна" : customerMoney(order.finalPrice ?? order.price);
+  const priceText = order.agreedPrice ? (Number(order.price) > 0 ? `${customerMoney(order.price)} · Договірна` : "Договірна") : customerMoney(order.finalPrice ?? order.price);
   const createdAt = order.createdAt || order.updatedAt;
   const timelineEntries = customerTimelineEntries(order, createdAt);
   const photoSections = orderPhotoSections(order);
@@ -1390,7 +1391,7 @@ function CustomerNav({ view, isDispatcher = false }: { view: CustomerView; isDis
   return <nav className="customer-nav" aria-label="Навігація кабінету замовника">
     <a href={portalPath("/customer/orders")} className={view === "orders" || view === "orderDetail" || view === "orderCreated" || view === "orderActive" || view === "orderReport" ? "active" : ""}><VIcon name="case"/><span>Мої замовлення</span></a>
     <a href={portalPath("/customer/create")} className={createActive ? "active" : ""}><VIcon name="plus"/><span>Створити</span></a>
-    <a href={portalPath("/customer/reports")} className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>{isDispatcher ? "Звіти диспетчера" : "Звіти"}</span></a>
+    <a href={portalPath("/customer/reports")} className={view === "reports" ? "active" : ""}><VIcon name="chart"/><span>Звіти</span></a>
     <a href={portalPath("/customer/settings")} className={view === "settings" || view === "profile" ? "active" : ""}><VIcon name="settings"/><span>Налаштування</span></a>
   </nav>;
 }
@@ -1541,6 +1542,9 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const planned = longDistance || arrival === "planned";
+  const effectiveFreeDate = planned && freeDate;
+  const [defaultDates] = useState(() => scheduleDefaults());
 
   function normalizedNumber(value: FormDataEntryValue | null) {
     return String(value || "").trim().replace(/\s+/g, "").replace(",", ".");
@@ -1549,14 +1553,6 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
   function appendText(fd: FormData, name: string, value: FormDataEntryValue | null) {
     const text = String(value || "").trim();
     if (text) fd.append(name, text);
-  }
-
-  function dateTimeIso(dateValue: FormDataEntryValue | null, timeValue: FormDataEntryValue | null, fallback: Date) {
-    const date = String(dateValue || "").trim();
-    const time = String(timeValue || "").trim();
-    if (!date) return fallback.toISOString();
-    const parsed = new Date(`${date}T${time || "09:00"}:00`);
-    return Number.isNaN(parsed.getTime()) ? fallback.toISOString() : parsed.toISOString();
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1581,6 +1577,14 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
       return;
     }
 
+    let schedule;
+    try {
+      schedule = buildOrderSchedule(raw, planned, effectiveFreeDate, arrival === "hour");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Перевірте дату та час");
+      return;
+    }
+
     const fd = new FormData();
     ["pickupLocation", "dropoffLocation", "pickupCity", "pickupAddress", "pickupLat", "pickupLon", "dropoffCity", "dropoffAddress", "dropoffLat", "dropoffLon", "cargoType"].forEach((name) => appendText(fd, name, raw.get(name)));
     ["cargoLength", "cargoWidth", "cargoHeight", "cargoWeight"].forEach((name) => {
@@ -1599,31 +1603,21 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
     if (distance) fd.append("distance", distance);
     fd.append("requestedOrderType", longDistance ? "LONG_DISTANCE" : "LOCAL");
     fd.append("timingOption", longDistance ? "" : arrival === "hour" ? "WITHIN_1_HOUR" : arrival === "planned" ? "SCHEDULED" : "ASAP");
-    fd.append("freeDate", freeDate ? "true" : "false");
+    fd.append("freeDate", effectiveFreeDate ? "true" : "false");
     fd.append("loadHelp", raw.get("loadHelp") ? "true" : "false");
     fd.append("unloadHelp", raw.get("unloadHelp") ? "true" : "false");
     fd.append("payment", String(raw.get("payment") || "cash"));
     fd.append("insurance", "false");
     fd.append("agreedPrice", negotiable ? "true" : "false");
-    if (longDistance && !negotiable) {
+    if (longDistance) {
       appendText(fd, "price", raw.get("price"));
     }
 
-    const now = new Date();
-    const loadStart = longDistance
-      ? new Date(dateTimeIso(raw.get("loadDate"), raw.get("loadTimeFrom"), now))
-      : new Date(now.getTime() + (arrival === "hour" ? 60 * 60 * 1000 : 0));
-    const loadEnd = longDistance
-      ? new Date(dateTimeIso(raw.get("loadDate"), raw.get("loadTimeTo"), new Date(loadStart.getTime() + 60 * 60 * 1000)))
-      : new Date(loadStart.getTime() + 60 * 60 * 1000);
-    const unloadStart = longDistance
-      ? new Date(dateTimeIso(raw.get("unloadDate"), raw.get("loadTimeTo"), new Date(loadEnd.getTime() + 60 * 60 * 1000)))
-      : new Date(loadEnd);
-    const unloadEnd = new Date(unloadStart.getTime() + 60 * 60 * 1000);
-    fd.append("loadFrom", loadStart.toISOString());
-    fd.append("loadTo", loadEnd.toISOString());
-    fd.append("unloadFrom", unloadStart.toISOString());
-    fd.append("unloadTo", unloadEnd.toISOString());
+    fd.append("loadFrom", schedule.loadFrom.toISOString());
+    fd.append("loadTo", schedule.loadTo.toISOString());
+    fd.append("unloadFrom", schedule.unloadFrom.toISOString());
+    fd.append("unloadTo", schedule.unloadTo.toISOString());
+    if (schedule.freeDateUntil) fd.append("freeDateUntil", schedule.freeDateUntil.toISOString());
 
     photoFiles.forEach((file) => {
       if (file instanceof File && file.size > 0) fd.append("photos", file);
@@ -1644,11 +1638,29 @@ function CreateForm({ longDistance }: { longDistance: boolean }) {
   return <form className="create-order-form" onSubmit={submit}>
     <section className="customer-card form-section route-form"><div className="order-type-line"><div><small>Тип замовлення</small><strong>{longDistance ? "Далеке перевезення" : "Місцеве перевезення"}</strong></div><a href={portalPath("/customer/create")}>Змінити</a></div>{longDistance && <p className="orange-notice">Маршрут понад 70 км, тому замовлення буде оформлене як далеке.</p>}<AddressFields/></section>
     <div className="create-form-columns"><div>
-      <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="clock"/></span><div><h3>{longDistance ? "Дата та час" : "Коли потрібне авто"}</h3><p>{longDistance ? "Вікно завантаження і розвантаження" : "Оберіть швидкість подачі автомобіля"}</p></div></div>{longDistance ? <><label className="toggle-row"><span><strong>Вільна дата</strong><small>Водій погодить день і час із вами</small></span><input type="checkbox" checked={freeDate} onChange={(event) => setFreeDate(event.target.checked)}/><i aria-hidden="true"/></label><div className="schedule-grid"><label>Завантаження<input name="loadDate" type="date" disabled={freeDate}/></label><label>Час від<input name="loadTimeFrom" type="time" disabled={freeDate}/></label><label>Час до<input name="loadTimeTo" type="time" disabled={freeDate}/></label><label>Розвантаження<input name="unloadDate" type="date" disabled={freeDate}/></label></div></> : <div className="choice-pills" role="group" aria-label="Час подачі автомобіля"><button type="button" className={arrival === "now" ? "active" : ""} aria-pressed={arrival === "now"} onClick={() => setArrival("now")}>Якнайшвидше</button><button type="button" className={arrival === "hour" ? "active" : ""} aria-pressed={arrival === "hour"} onClick={() => setArrival("hour")}>До 1 год</button><button type="button" className={arrival === "planned" ? "active" : ""} aria-pressed={arrival === "planned"} onClick={() => setArrival("planned")}>Запланувати</button></div>}</section>
+      <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="clock"/></span><div><h3>{longDistance ? "Дата та час" : "Коли потрібне авто"}</h3><p>{longDistance ? "Вікно завантаження і розвантаження" : "Оберіть швидкість подачі автомобіля"}</p></div></div>{!longDistance && <div className="choice-pills" role="group" aria-label="Час подачі автомобіля"><button type="button" className={arrival === "now" ? "active" : ""} aria-pressed={arrival === "now"} onClick={() => setArrival("now")}>Якнайшвидше</button><button type="button" className={arrival === "hour" ? "active" : ""} aria-pressed={arrival === "hour"} onClick={() => setArrival("hour")}>До 1 год</button><button type="button" className={arrival === "planned" ? "active" : ""} aria-pressed={arrival === "planned"} onClick={() => setArrival("planned")}>Запланувати</button></div>}
+        {planned && <div className="create-schedule-fields">
+          <label className="toggle-row"><span><strong>Вільна дата</strong><small>Водій погодить день і час із вами</small></span><input type="checkbox" checked={freeDate} onChange={(event) => setFreeDate(event.target.checked)}/><i aria-hidden="true"/></label>
+          {freeDate ? <p className="form-hint">Замовлення буде актуальним 7 днів і показуватиметься водіям у вибраному місті завантаження.</p> : <>
+            <h4>Завантаження</h4>
+            <div className="schedule-grid create-schedule-grid">
+              <label>Дата завантаження<input name="loadDate" type="date" defaultValue={defaultDates.loadDate} required/></label>
+              <label>Час від<input name="loadTimeFrom" type="time" defaultValue="09:00" required/></label>
+              <label>Час до<input name="loadTimeTo" type="time" defaultValue="18:00" required/></label>
+            </div>
+            <h4>Розвантаження</h4>
+            <div className="schedule-grid create-schedule-grid">
+              <label>Дата розвантаження<input name="unloadDate" type="date" defaultValue={defaultDates.unloadDate} required/></label>
+              <label>Час від<input name="unloadTimeFrom" type="time" defaultValue="09:00" required/></label>
+              <label>Час до<input name="unloadTimeTo" type="time" defaultValue="18:00" required/></label>
+            </div>
+          </>}
+        </div>}
+      </section>
       <section className="customer-card"><CargoFields/></section>
     </div><div>
       <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="edit"/></span><div><h3>Опис вантажу</h3><p>Додайте деталі, важливі для водія</p></div></div><textarea name="cargoType" placeholder="Наприклад: меблі, коробки, побутова техніка"/><CargoPhotoUpload onFilesChange={setPhotoFiles}/></section>
-      {longDistance && <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="case"/></span><div><h3>Вартість перевезення</h3><p>Запропонуйте ціну або залиште її договірною</p></div></div><div className="price-row"><label>Ціна, грн<input name="price" placeholder="0" disabled={negotiable}/></label><label className="toggle-row compact"><span><strong>Договірна</strong><small>Ціну погодите з водієм</small></span><input type="checkbox" checked={negotiable} onChange={(event) => setNegotiable(event.target.checked)}/><i aria-hidden="true"/></label></div></section>}
+      {longDistance && <section className="customer-card form-section"><div className="section-heading"><span><VIcon name="case"/></span><div><h3>Вартість перевезення</h3><p>Запропонуйте ціну або залиште її договірною</p></div></div><div className="price-row"><label>Ціна, грн<input name="price" placeholder="0"/></label><label className="toggle-row compact"><span><strong>Договірна</strong><small>Ціну погодите з водієм</small></span><input type="checkbox" checked={negotiable} onChange={(event) => setNegotiable(event.target.checked)}/><i aria-hidden="true"/></label></div></section>}
       {!longDistance && <div className="info-banner">Водії надішлють пропозиції з погодинною оплатою</div>}
       {submitError && <div className="customer-form-error">{submitError}</div>}
       <button className="customer-primary submit-order" type="submit" disabled={submitting}>{submitting ? "Створюємо..." : "Створити замовлення"}</button>

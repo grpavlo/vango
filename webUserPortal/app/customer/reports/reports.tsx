@@ -87,7 +87,7 @@ export default function Reports({ token = "" }: { token?: string }) {
   }, [token, range.from, range.to, driverId, page, refresh, requestKey]);
 
   return <div className="reports-page portal-panel">
-    <div className="portal-panel-head"><div><h2>Звіти диспетчера</h2><p>Лише ваші замовлення. Дати й час — UTC.</p></div><button className="customer-primary" onClick={() => setRefresh((v) => v + 1)}>Оновити</button></div>
+    <div className="portal-panel-head"><div><h2>Звіти</h2><p>Лише ваші замовлення. Дати й час — UTC.</p></div><button className="customer-primary" onClick={() => setRefresh((v) => v + 1)}>Оновити</button></div>
     <section className="portal-report-filter-card">
       <div className="portal-report-filter-title"><span aria-hidden="true"><VIcon name="chart" /></span><div><h3>Параметри звіту</h3><p>Дані перебудовуються після зміни фільтрів</p></div></div>
       <label><span>Водії</span><select value={driverId} onChange={(event) => { setDriverId(event.target.value); setPage(1); }}><option value="">Усі водії</option>{(report?.drivers || []).map((driver) => <option key={driver.id} value={driver.id}>{driver.name}</option>)}{driverId && !report?.drivers.some((driver) => String(driver.id) === driverId) && <option value={driverId}>Обраний водій</option>}</select></label>

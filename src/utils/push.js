@@ -64,6 +64,7 @@ async function storeNotifications(tokens, title, body, data) {
 
 async function sendPush(to, title, body, data = {}) {
   const tokens = normalizePushTokens(to);
+  await storeNotifications(tokens, title, body, data);
   const validTokens = tokens.filter((token) => Expo.isExpoPushToken(token));
   const invalidTokens = tokens.filter((token) => !Expo.isExpoPushToken(token));
   if (invalidTokens.length > 0) {
@@ -75,7 +76,6 @@ async function sendPush(to, title, body, data = {}) {
   }
   try {
     console.log('Sending push', { to: validTokens, title, body, data });
-    await storeNotifications(validTokens, title, body, data);
     const messages = validTokens.map((token) => ({
       to: token,
       title,
@@ -92,4 +92,12 @@ async function sendPush(to, title, body, data = {}) {
   }
 }
 
-module.exports = { sendPush, normalizePushTokens };
+async function sendUserNotification(user, title, body, data = {}) {
+  if (!user?.id) return;
+  return sendPush(user.pushConsent ? user.pushToken : null, title, body, {
+    ...data,
+    recipientUserId: user.id,
+  });
+}
+
+module.exports = { sendPush, sendUserNotification, normalizePushTokens };

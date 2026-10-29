@@ -2,7 +2,7 @@ const { fn, col } = require('sequelize');
 const Rating = require('../models/rating');
 const Order = require('../models/order');
 const User = require('../models/user');
-const { sendPush } = require('../utils/push');
+const { sendUserNotification } = require('../utils/push');
 
 function getActorRoleLabel(order, userId) {
   if (order?.driverId === userId) return 'Водій';
@@ -84,11 +84,11 @@ async function rateUser(req, res) {
     }
 
     const toUser = await User.findByPk(normalizedToUserId);
-    if (toUser?.pushToken && toUser.pushConsent) {
+    if (toUser) {
       const actorLabel = getActorRoleLabel(order, req.user.id);
       const orderDisplayNumber = getOrderDisplayNumber(order);
-      sendPush(
-        toUser.pushToken,
+      sendUserNotification(
+        toUser,
         `${actorLabel} залишив оцінку за замовлення №${orderDisplayNumber}`,
         `Оцінка: ${normalizedRating}${cleanComment ? '. Є коментар' : ''}`,
         {

@@ -14,7 +14,7 @@ const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
 const { SERVICE_FEE_PERCENT } = require("../config");
 
 const { broadcastOrder, broadcastDelete } = require("../ws");
-const { sendPush } = require("../utils/push");
+const { sendUserNotification } = require("../utils/push");
 const { getCompletedOrderCounts, getRoleRatings } = require("../utils/ratingStats");
 const {
   getOrderLifecycle,
@@ -685,14 +685,14 @@ async function notifyDriversAboutSavedSearchMatch(order, options = {}) {
     if (!orderMatchesSavedSearch(order, savedSearch)) continue;
 
     const driver = savedSearch.driver;
-    if (!driver?.pushToken || !driver.pushConsent) continue;
+    if (!driver) continue;
     if (driver.groupId && Number(driver.groupId) !== Number(customerGroupId)) continue;
     if (excludedDriverIds.has(String(driver.id))) continue;
     if (notifiedDriverIds.has(driver.id)) continue;
     notifiedDriverIds.add(driver.id);
 
-    sendPush(
-      driver.pushToken,
+    sendUserNotification(
+      driver,
       "\u041d\u043e\u0432\u0435 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0437\u0430 \u0432\u0430\u0448\u0438\u043c \u043a\u0440\u0438\u0442\u0435\u0440\u0456\u0454\u043c",
       `${order.pickupCity || "\u041c\u0456\u0441\u0442\u043e \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f"} - ${Math.round(
         Number(savedSearch.radius)
@@ -840,12 +840,12 @@ async function createOrder(req, res) {
       systemPrice = effectiveDistanceKm * 50;
     }
 
-    if (intraCity || isAgreedPrice) {
+    if (intraCity) {
       price = 0;
     } else if (Number.isFinite(submittedPrice) && submittedPrice > 0) {
       price = submittedPrice;
     } else {
-      price = systemPrice;
+      price = isAgreedPrice ? 0 : systemPrice;
     }
 
     const isFreeDate = normalizeBoolean(freeDate);
@@ -1447,19 +1447,15 @@ async function reserveOrder(req, res) {
 
     if (
 
-      order.customer &&
-
-      order.customer.pushToken &&
-
-      order.customer.pushConsent
+      order.customer
 
     ) {
 
-      const { sendPush } = require("../utils/push");
+      const { sendUserNotification } = require("../utils/push");
 
-      sendPush(
+      sendUserNotification(
 
-        order.customer.pushToken,
+        order.customer,
 
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0443 \u0440\u0435\u0437\u0435\u0440\u0432\u0456",
 
@@ -1797,19 +1793,15 @@ async function acceptOrder(req, res) {
 
     if (
 
-      updated.customer &&
-
-      updated.customer.pushToken &&
-
-      updated.customer.pushConsent
+      updated.customer
 
     ) {
 
-      const { sendPush } = require("../utils/push");
+      const { sendUserNotification } = require("../utils/push");
 
-      sendPush(
+      sendUserNotification(
 
-        updated.customer.pushToken,
+        updated.customer,
 
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0440\u0438\u0439\u043d\u044f\u0442\u043e",
 
@@ -1937,19 +1929,15 @@ async function confirmDriver(req, res) {
 
     if (
 
-      updated.driver &&
-
-      updated.driver.pushToken &&
-
-      updated.driver.pushConsent
+      updated.driver
 
     ) {
 
-      const { sendPush } = require("../utils/push");
+      const { sendUserNotification } = require("../utils/push");
 
-      sendPush(
+      sendUserNotification(
 
-        updated.driver.pushToken,
+        updated.driver,
 
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
 
@@ -2027,13 +2015,13 @@ async function rejectDriver(req, res) {
 
     broadcastOrder(updated);
 
-    if (driver && driver.pushToken && driver.pushConsent) {
+    if (driver) {
 
-      const { sendPush } = require("../utils/push");
+      const { sendUserNotification } = require("../utils/push");
 
-      sendPush(
+      sendUserNotification(
 
-        driver.pushToken,
+        driver,
 
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u0432\u0456\u0434\u0445\u0438\u043b\u0435\u043d\u043e",
 
@@ -2146,9 +2134,9 @@ async function cancelConfirmedDriver(req, res) {
       excludeDriverIds: [previousDriverId],
     });
 
-    if (previousDriver?.pushToken && previousDriver.pushConsent) {
-      sendPush(
-        previousDriver.pushToken,
+    if (previousDriver) {
+      sendUserNotification(
+        previousDriver,
         "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0432 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043d\u044f",
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + " \u0437\u043d\u043e\u0432\u0443 \u0432 \u043f\u043e\u0448\u0443\u043a\u0443 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f.",
         { orderId: order.id, navigateTo: "driverOrders" }
@@ -2264,13 +2252,13 @@ async function updateStatus(req, res) {
 
       const customer = await User.findByPk(order.customerId);
 
-      if (customer && customer.pushToken && customer.pushConsent) {
+      if (customer) {
 
-        const { sendPush } = require("../utils/push");
+        const { sendUserNotification } = require("../utils/push");
 
-        sendPush(
+        sendUserNotification(
 
-          customer.pushToken,
+          customer,
 
           "\u0412\u043e\u0434\u0456\u0439 \u043e\u0442\u0440\u0438\u043c\u0430\u0432 \u0432\u0430\u043d\u0442\u0430\u0436",
 
@@ -2288,13 +2276,13 @@ async function updateStatus(req, res) {
 
       const customer = await User.findByPk(order.customerId);
 
-      if (customer && customer.pushToken && customer.pushConsent) {
+      if (customer) {
 
-        const { sendPush } = require("../utils/push");
+        const { sendUserNotification } = require("../utils/push");
 
-        sendPush(
+        sendUserNotification(
 
-          customer.pushToken,
+          customer,
 
           "\u0414\u043e\u0441\u0442\u0430\u0432\u043a\u0443 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e",
 
@@ -2834,9 +2822,9 @@ async function notifyRejectedResponseDrivers(orderId, selectedResponseId, order)
 
   for (const rr of rejectedResponses) {
     const rejDriver = await User.findByPk(rr.driverId);
-    if (rejDriver?.pushToken && rejDriver.pushConsent) {
-      sendPush(
-        rejDriver.pushToken,
+    if (rejDriver) {
+      sendUserNotification(
+        rejDriver,
         "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043e\u0431\u0440\u0430\u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f",
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
         { orderId: order.id }
@@ -2884,9 +2872,9 @@ async function finalizeOrderFromResponse({
   await rejectOtherResponses(order.id, response.id);
 
   const driver = await User.findByPk(response.driverId);
-  if (driver?.pushToken && driver.pushConsent) {
-    sendPush(
-      driver.pushToken,
+  if (driver) {
+    sendUserNotification(
+      driver,
       acceptedPushTitle,
       acceptedPushBody || ("\u0412\u0438 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + ". \u041a\u043e\u043d\u0442\u0430\u043a\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043d\u0438\u043a\u0430 \u0432\u0436\u0435 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456."),
       { orderId: order.id, navigateTo: "orderDetail" }
@@ -3028,8 +3016,8 @@ async function respondToOrder(req, res) {
       finalPriceOffer,
     });
 
-    if (order.customer && order.customer.pushToken && order.customer.pushConsent) {
-      const { sendPush } = require("../utils/push");
+    if (order.customer) {
+      const { sendUserNotification } = require("../utils/push");
       const driverUser = await User.findByPk(req.user.id);
       const pushTitle = isImmediate
         ? "\u0412\u043e\u0434\u0456\u0439 \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f"
@@ -3037,8 +3025,8 @@ async function respondToOrder(req, res) {
       const pushBody = isImmediate
         ? `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0445\u043e\u0447\u0435 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`
         : `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0437\u0430\u0446\u0456\u043a\u0430\u0432\u043b\u0435\u043d\u0438\u0439 \u0443 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u0456 \u2116${order.id}`;
-      sendPush(
-        order.customer.pushToken,
+      sendUserNotification(
+        order.customer,
         isIntraCity ? "\u041d\u043e\u0432\u0430 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044f \u0432\u0456\u0434 \u0432\u043e\u0434\u0456\u044f" : pushTitle,
         isIntraCity
           ? `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0432 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e \u043d\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`
@@ -3142,11 +3130,11 @@ async function responseResult(req, res) {
       response.expiresAt = new Date(Date.now() + CONFIRM_TIMEOUT_MS);
       await response.save();
 
-      if (order?.customer?.pushToken && order.customer.pushConsent) {
-        const { sendPush } = require("../utils/push");
+      if (order?.customer) {
+        const { sendUserNotification } = require("../utils/push");
         const driverUser = await User.findByPk(req.user.id);
-        sendPush(
-          order.customer.pushToken,
+        sendUserNotification(
+          order.customer,
           "\u0412\u043e\u0434\u0456\u0439 \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f",
           `\u0412\u043e\u0434\u0456\u0439 ${driverUser?.name || ""} \u0433\u043e\u0442\u043e\u0432\u0438\u0439 \u0432\u0438\u043a\u043e\u043d\u0430\u0442\u0438 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}. \u041f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0456\u0442\u044c.`,
           { orderId: order.id, navigateTo: "orderDetail" }
@@ -3227,10 +3215,10 @@ async function responseConfirm(req, res) {
     );
 
     const driver = await User.findByPk(response.driverId);
-    if (driver?.pushToken && driver.pushConsent) {
-      const { sendPush } = require("../utils/push");
-      sendPush(
-        driver.pushToken,
+    if (driver) {
+      const { sendUserNotification } = require("../utils/push");
+      sendUserNotification(
+        driver,
         "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0432!",
         `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id} \u0437\u0430 \u0432\u0430\u043c\u0438.`,
         { orderId: order.id, navigateTo: "orderDetail" }
@@ -3242,9 +3230,9 @@ async function responseConfirm(req, res) {
     });
     for (const rr of rejectedResponses) {
       const rejDriver = await User.findByPk(rr.driverId);
-      if (rejDriver?.pushToken && rejDriver.pushConsent) {
-        const { sendPush } = require("../utils/push");
-        sendPush(rejDriver.pushToken, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043e\u0431\u0440\u0430\u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
+      if (rejDriver) {
+        const { sendUserNotification } = require("../utils/push");
+        sendUserNotification(rejDriver, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043e\u0431\u0440\u0430\u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u0432\u043e\u0434\u0456\u044f", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
       }
     }
 
@@ -3335,9 +3323,9 @@ async function customerCounterOffer(req, res) {
       await response.save();
 
       const driver = await User.findByPk(response.driverId);
-      if (driver?.pushToken && driver.pushConsent) {
-        sendPush(
-          driver.pushToken,
+      if (driver) {
+        sendUserNotification(
+          driver,
           "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
           "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
           { orderId: order.id, navigateTo: "orderDetail" }
@@ -3361,9 +3349,9 @@ async function customerCounterOffer(req, res) {
       await response.save();
 
       const customer = await User.findByPk(order.customerId);
-      if (customer?.pushToken && customer.pushConsent) {
-        sendPush(
-          customer.pushToken,
+      if (customer) {
+        sendUserNotification(
+          customer,
           "\u0412\u043e\u0434\u0456\u0439 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 \u0456\u043d\u0448\u0443 \u0446\u0456\u043d\u0443",
           "\u0412\u043e\u0434\u0456\u0439 \u043f\u0440\u043e\u043f\u043e\u043d\u0443\u0454 " + normalized + " \u0433\u0440\u043d \u0437\u0430 \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
           { orderId: order.id, navigateTo: "orderDetail" }
@@ -3414,9 +3402,9 @@ async function responseCounterDecision(req, res) {
       response.customerCounterPrice = null;
       await response.save();
 
-      if (order.customer?.pushToken && order.customer.pushConsent) {
-        sendPush(
-          order.customer.pushToken,
+      if (order.customer) {
+        sendUserNotification(
+          order.customer,
           "\u0412\u043e\u0434\u0456\u0439 \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e",
           "\u0412\u043e\u0434\u0456\u0439 \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043a\u043e\u043d\u0442\u0440\u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e \u0434\u043b\u044f \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id,
           { orderId: order.id, navigateTo: "orderDetail" }
@@ -3447,9 +3435,9 @@ async function responseCounterDecision(req, res) {
       return res.status(400).send(result.error);
     }
 
-    if (order.customer?.pushToken && order.customer.pushConsent) {
-      sendPush(
-        order.customer.pushToken,
+    if (order.customer) {
+      sendUserNotification(
+        order.customer,
         "\u0412\u043e\u0434\u0456\u0439 \u043f\u043e\u0433\u043e\u0434\u0438\u0432\u0441\u044f \u043d\u0430 \u0432\u0430\u0448\u0443 \u0446\u0456\u043d\u0443",
         "\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116" + order.id + " \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u043e \u0437\u0430 \u0446\u0456\u043d\u043e\u044e " + counterPrice + " \u0433\u0440\u043d.",
         { orderId: order.id, navigateTo: "orderDetail" }
@@ -3479,9 +3467,9 @@ async function responseReject(req, res) {
     await response.save();
 
     const driver = await User.findByPk(response.driverId);
-    if (driver?.pushToken && driver.pushConsent) {
-      const { sendPush } = require("../utils/push");
-      sendPush(driver.pushToken, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
+    if (driver) {
+      const { sendUserNotification } = require("../utils/push");
+      sendUserNotification(driver, "\u0417\u0430\u043c\u043e\u0432\u043d\u0438\u043a \u0432\u0456\u0434\u0445\u0438\u043b\u0438\u0432 \u0432\u0430\u0448\u0443 \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u044e", `\u0417\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u043d\u044f \u2116${order.id}`, { orderId: order.id });
     }
 
     broadcastOrder(order);

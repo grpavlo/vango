@@ -1017,3 +1017,29 @@ html.customer-dark .saved-search-message{background:#10231c;border-color:#2e5f47
 .support-chat-screen .support-chat-input{grid-template-columns:minmax(0,1fr) 56px}
 .support-chat-screen .support-chat-input:before{content:none!important;display:none!important}
 @media(max-width:720px){.support-chat-screen .support-chat-input{grid-template-columns:minmax(0,1fr) 48px}}
+
+.create-schedule-fields{margin-top:18px}
+.create-schedule-fields h4{margin:16px 0 10px;font-size:14px}
+.create-schedule-grid{grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr))}
+@media(max-width:720px){.create-schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.create-schedule-grid>label:first-child{grid-column:1/-1}}
+
+.proposal-form>label.checkbox-line{display:flex;align-items:center;gap:10px;min-height:32px;margin-bottom:16px;color:#354943;font-size:13px;line-height:1.4;cursor:pointer}
+.proposal-form>.checkbox-line input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;margin:0;padding:0;border-radius:4px;accent-color:#16a452;cursor:pointer}
+.proposal-form>.checkbox-line input[type="checkbox"]:focus-visible{outline:2px solid #16a452;outline-offset:3px}
+html.customer-dark .proposal-form>label.checkbox-line{color:#dcece5}
+html.customer-dark .proposal-form>.checkbox-line input[type="checkbox"]{color-scheme:dark}
+
+html.customer-dark .proposal-form>label,
+html.customer-dark .proposal-form legend{color:#dcece5}
+html.customer-dark .proposal-form input[type="number"]{background:#0b1913;border-color:#496458;color:#f2fff8;color-scheme:dark}
+html.customer-dark .proposal-form input[type="number"]::placeholder{color:#a8bbb3}
+html.customer-dark .proposal-form input[type="number"]:focus{border-color:#65efa0;outline:2px solid #65efa0;outline-offset:2px}
+html.customer-dark .proposal-form .proposal-total{background:#163b28;border:1px solid #315c43;color:#dcece5}
+html.customer-dark .proposal-form .proposal-total strong{color:#73f3a8}
+html.customer-dark .proposal-form .arrival-options label{background:#10231c;border-color:#496458;color:#dcece5}
+html.customer-dark .proposal-form .arrival-options label:has(input:checked){background:#163b28;border-color:#65efa0;color:#73f3a8}
+
+.proposal-form input[readonly]{background:#eef2ef;color:#354943;cursor:default}
+.proposal-form p.proposal-price-hint{margin:-5px 0 14px;font-size:11px;line-height:1.4;color:#556b60}
+html.customer-dark .proposal-form input[readonly]{background:#17271f;border-color:#3d5448;color:#dcece5}
+html.customer-dark .proposal-form p.proposal-price-hint{color:#a8bbb3}

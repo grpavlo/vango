@@ -3,7 +3,7 @@ const Order = require("../models/order");
 const { OrderStatus } = require("../models/order");
 const User = require("../models/user");
 const OrderRouteSearchEvent = require("../models/orderRouteSearchEvent");
-const { sendPush } = require("../utils/push");
+const { sendUserNotification } = require("../utils/push");
 const { broadcastOrder } = require("../ws");
 const {
   REMINDER_PLAN,
@@ -81,7 +81,7 @@ async function getTodayRouteSearchCount(orderId, now = new Date()) {
 }
 
 async function sendReminder(order, stepKey, now = new Date()) {
-  if (!order?.customer?.pushToken || !order?.customer?.pushConsent) return false;
+  if (!order?.customer) return false;
 
   let searchedToday = 0;
   if (stepKey === "D6" || stepKey === "D9") {
@@ -90,7 +90,7 @@ async function sendReminder(order, stepKey, now = new Date()) {
   const payload = buildReminderText(stepKey, order, searchedToday);
   if (!payload) return false;
 
-  await sendPush(order.customer.pushToken, payload.title, payload.body, {
+  await sendUserNotification(order.customer, payload.title, payload.body, {
     orderId: order.id,
     navigateTo: "orderDetail",
     reminderStep: stepKey,
@@ -111,9 +111,9 @@ async function autoCloseOrder(order, now = new Date()) {
   await order.save();
   broadcastOrder(order);
 
-  if (order?.customer?.pushToken && order?.customer?.pushConsent) {
-    await sendPush(
-      order.customer.pushToken,
+  if (order?.customer) {
+    await sendUserNotification(
+      order.customer,
       "Замовлення автоматично закрито",
       "Ми закрили замовлення, бо дати не були оновлені протягом 14 днів після завершення актуальності.",
       { orderId: order.id, navigateTo: "orderDetail", reason: "autoCloseByDates" }

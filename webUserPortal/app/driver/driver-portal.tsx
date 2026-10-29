@@ -166,14 +166,14 @@ async function geocodeDriverSearchPoint(query: string) {
 }
 
 function driverMoney(value: unknown, agreedPrice?: boolean) {
-  if (agreedPrice) return "Договірна";
   const number = driverNumber(value);
+  if (agreedPrice) return number != null && number > 0 ? `${number.toLocaleString("uk-UA")} грн · Договірна` : "Договірна";
   if (number == null || number <= 0) return "Договірна";
   return `${number.toLocaleString("uk-UA")} грн`;
 }
 
 function driverShortPrice(order: DriverAvailableOrder) {
-  if (order.agreedPrice) return "Дог.";
+  if (order.agreedPrice) return driverMoney(order.price, true);
   const number = driverNumber(order.finalPrice ?? order.price);
   if (number == null || number <= 0) return "Дог.";
   if (number >= 1000) return `${Math.round(number / 1000)}к грн`;

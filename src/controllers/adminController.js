@@ -12,7 +12,7 @@ const { SupportQuestionStatus } = require("../models/supportQuestion");
 const PortalAdmin = require("../models/portalAdmin");
 const { setServiceFee } = require("../config");
 const { pathToUploadUrl } = require("../utils/uploadFiles");
-const { sendPush } = require("../utils/push");
+const { sendUserNotification } = require("../utils/push");
 const { normalizePhone } = require("../services/authCodes");
 
 const { buildOrderAnalyticsReport, toMoneyValue } = require("../services/orderAnalyticsReport");
@@ -801,9 +801,9 @@ async function updateSupportQuestion(req, res) {
 
   if (answer && !hadAnswer) {
     const user = await User.findByPk(item.userId);
-    if (user?.pushToken && user.pushConsent) {
-      sendPush(
-        user.pushToken,
+    if (user) {
+      sendUserNotification(
+        user,
         "Відповідь від підтримки VanGo",
         "Розробники відповіли на ваше питання. Відкрийте звернення в застосунку.",
         { navigateTo: "SupportRequest", supportQuestionId: item.id, recipientUserId: item.userId }
