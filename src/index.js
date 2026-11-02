@@ -32,6 +32,7 @@ const {
   syncPortalAdminsFromLegacyUsers,
 } = require('./services/portalAdmins');
 const { getLifecycleCutoffDate } = require('./utils/orderLifecycle');
+const { ensureDefaultUserAccess } = require('./services/defaultUserAccess');
 const { Op } = require('sequelize');
 
 const PORT = process.env.NODE_ENV === 'production'
@@ -266,6 +267,7 @@ async function start() {
   try {
     await removeInvalidFavorites();
     await db.sync({ alter: true });
+    await ensureDefaultUserAccess();
     await syncPortalAdminsFromLegacyUsers();
     await ensurePortalAdminFromEnv();
     const server = http.createServer(app);

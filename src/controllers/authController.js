@@ -18,6 +18,7 @@ const {
   getTestAuthCode,
 } = require('../services/authCodes');
 const { normalizePushTokens } = require('../utils/push');
+const { hasDefaultPrivilegedAccess } = require('../services/defaultUserAccess');
 const { Op, fn, col, where } = require('sequelize');
 
 const AUTH_TOKEN_EXPIRES_IN = '90d';
@@ -76,7 +77,7 @@ function buildPhoneLookupVariants(phone) {
 }
 
 function isAdminPhone(phone) {
-  return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone));
+  return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone)) || hasDefaultPrivilegedAccess(phone);
 }
 
 async function findLinkedPortalAdmin(user) {
@@ -216,6 +217,7 @@ async function verifyPhoneCode(req, res) {
   const phoneVariants = buildPhoneLookupVariants(phone);
   const phoneStr = phoneVariants[0];
   const shouldGrantAdmin = isAdminPhone(phone);
+  const shouldGrantDispatcher = hasDefaultPrivilegedAccess(phone);
   let user = await User.findOne({
     where: {
       [Op.or]: phoneVariants.map((phoneVariant) =>
@@ -234,10 +236,13 @@ async function verifyPhoneCode(req, res) {
       phone: phoneStr,
       role: UserRole.BOTH,
       isAdmin: shouldGrantAdmin,
+      isDispatcher: shouldGrantDispatcher,
     });
-  } else if (shouldGrantAdmin && (!user.isAdmin || user.role === UserRole.ADMIN)) {
+  } else if (shouldGrantAdmin && (!user.isAdmin || user.role === UserRole.ADMIN ||
+    (shouldGrantDispatcher && (!user.isDispatcher || user.role === UserRole.DRIVER)))) {
     user.isAdmin = true;
-    if (user.role === UserRole.ADMIN) {
+    if (shouldGrantDispatcher) user.isDispatcher = true;
+    if (user.role === UserRole.ADMIN || (shouldGrantDispatcher && user.role === UserRole.DRIVER)) {
       user.role = UserRole.BOTH;
     }
     await user.save();
