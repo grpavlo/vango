@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-function harness({failDelivery = false} = {}) {
+function harness({failDelivery = false, currentUser = {pushConsent: false}} = {}) {
   const rows = [], deliveries = [];
   class Expo {
     static isExpoPushToken(value) { return value.startsWith('ExponentPushToken['); }
@@ -13,7 +13,7 @@ function harness({failDelivery = false} = {}) {
     module, exports: module.exports, console: {log() {}, error() {}},
     require(id) {
       if (id === 'expo-server-sdk') return {Expo};
-      if (id === '../models/user') return {findAll: async ({where}) => [{id: where.id, pushConsent: false}]};
+      if (id === '../models/user') return {findAll: async ({where}) => [{id: where.id, ...currentUser}]};
       if (id === '../models/notification') return {bulkCreate: async entries => rows.push(...entries)};
       throw Error(id);
     },
@@ -35,7 +35,7 @@ test('mobile consent is respected even with a valid token', async () => {
   assert.equal(h.deliveries.length, 0);
 });
 test('push failure does not lose or duplicate inbox notification', async () => {
-  const h = harness({failDelivery: true});
+  const h = harness({failDelivery: true, currentUser: {pushConsent: true, pushToken: 'ExponentPushToken[test]'}});
   await h.sendUserNotification({id: 7, pushConsent: true, pushToken: 'ExponentPushToken[test]'}, 'Title', 'Body', {recipientUserId: 9});
   assert.equal(h.rows.length, 1);
   assert.equal(h.rows[0].userId, 7);
@@ -45,5 +45,12 @@ test('invalid mobile token still allows web notification', async () => {
   const h = harness();
   await h.sendUserNotification({id: 7, pushConsent: true, pushToken: 'invalid'}, 'Title', 'Body');
   assert.equal(h.rows.length, 1);
+  assert.equal(h.deliveries.length, 0);
+});
+
+test('a stale user object cannot deliver push or restore inbox after account deletion', async () => {
+  const h = harness({currentUser: {deletedAt: new Date(), pushConsent: false}});
+  await h.sendUserNotification({id: 7, pushConsent: true, pushToken: 'ExponentPushToken[test]'}, 'Title', 'Body');
+  assert.equal(h.rows.length, 0);
   assert.equal(h.deliveries.length, 0);
 });

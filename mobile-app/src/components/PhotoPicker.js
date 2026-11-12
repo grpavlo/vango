@@ -13,6 +13,7 @@ import { useToast } from "./Toast";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "./Colors";
+import { ensurePhotoPermission } from "../photoPermissions";
 
 export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
   // нормалізуємо у масив рядків-URL
@@ -64,16 +65,7 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
       toast.show(`Максимум ${maxCount} фотографій`);
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== "granted") {
-      toast.show("Надайте доступ до галереї");
-      return;
-    }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.5,
-    });
-    if (!res.canceled) onChange(makeNextPhotos(res.assets[0].uri));
+    await pickPhoto('library');
   }
 
   async function takePhoto() {
@@ -81,15 +73,27 @@ export default function PhotoPicker({ photos, onChange, maxCount = 10 }) {
       toast.show(`Максимум ${maxCount} фотографій`);
       return;
     }
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (perm.status !== "granted") {
-      toast.show("Надайте доступ до камери");
-      return;
+    await pickPhoto('camera');
+  }
+
+  const pickingRef = useRef(false);
+
+  async function pickPhoto(source) {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
+    try {
+      if (!(await ensurePhotoPermission(source))) return;
+      const options = { mediaTypes: ['images'], quality: 0.5 };
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      const uri = result.assets?.[0]?.uri;
+      if (!result.canceled && uri) onChange(makeNextPhotos(uri));
+    } catch {
+      toast.show('Не вдалося додати фото. Спробуйте ще раз.');
+    } finally {
+      pickingRef.current = false;
     }
-    const res = await ImagePicker.launchCameraAsync({
-      quality: 0.5,
-    });
-    if (!res.canceled) onChange(makeNextPhotos(res.assets[0].uri));
   }
 
   return (

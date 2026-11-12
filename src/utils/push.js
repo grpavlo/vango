@@ -35,6 +35,7 @@ async function storeNotifications(tokens, title, body, data) {
     const recipientIds = new Set();
 
     for (const user of users) {
+      if (user.deletedAt || user.blocked) continue;
       if (normalizedRecipientId) {
         recipientIds.add(user.id);
         continue;
@@ -57,14 +58,24 @@ async function storeNotifications(tokens, title, body, data) {
       receivedAt: new Date(),
     }));
     if (rows.length > 0) await Notification.bulkCreate(rows);
+    return true;
   } catch (err) {
-    console.error('Failed to store notification', err);
+    console.error('Failed to store notification');
+    return false;
   }
 }
 
 async function sendPush(to, title, body, data = {}) {
+  // Re-read recipients: background jobs can hold a stale pre-deletion User object.
+  const recipientId = Number(data?.recipientUserId);
+  if (Number.isInteger(recipientId) && recipientId > 0) {
+    const User = require('../models/user');
+    const [current] = await User.findAll({ where: { id: recipientId } });
+    if (!current || current.deletedAt || current.blocked) return;
+    to = current.pushConsent ? current.pushToken : null;
+  }
   const tokens = normalizePushTokens(to);
-  await storeNotifications(tokens, title, body, data);
+  if (!(await storeNotifications(tokens, title, body, data))) return;
   const validTokens = tokens.filter((token) => Expo.isExpoPushToken(token));
   const invalidTokens = tokens.filter((token) => !Expo.isExpoPushToken(token));
   if (invalidTokens.length > 0) {

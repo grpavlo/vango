@@ -7,7 +7,12 @@ import { Host } from 'react-native-portalize';
 import { ToastProvider } from './src/components/Toast';
 import StartupAnimation from './src/components/StartupAnimation';
 import { AuthProvider, useAuth } from './src/AuthContext';
+import TestAccountNotice from './src/components/TestAccountNotice';
 import PhoneAuthScreen from './src/screens/PhoneAuthScreen';
+import DeleteAccountScreen from './src/screens/DeleteAccountScreen';
+import { isDeletionLocked } from './src/accountDeletionFlow';
+import { isAccountDeletionInProgress } from './src/api';
+import { subscribeSessionReset } from './src/callbackRegistry';
 import RoleScreen from './src/screens/RoleScreen';
 import RoleProfileWrapper from './src/screens/RoleProfileWrapper';
 import MainTabs from './src/screens/MainTabs';
@@ -26,13 +31,13 @@ import RateUserScreen from './src/screens/RateUserScreen';
 import RatingDetailScreen from './src/screens/RatingDetailScreen';
 import { navigationRef } from './src/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { addStoredNotification } from './src/notificationCenter';
+import { addStoredNotification, canReceivePersonalNotifications } from './src/notificationCenter';
 import { emitOrderChange } from './src/orderChangeEvents';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,   // ← вмикаємо звук
+    shouldShowAlert: canReceivePersonalNotifications(),
+    shouldPlaySound: canReceivePersonalNotifications(),   // ← вмикаємо звук
     shouldSetBadge: false,
   }),
 });
@@ -41,7 +46,7 @@ const Stack = createNativeStackNavigator();
 const DEFAULT_NOTIFICATION_TITLE = 'Сповіщення';
 
 function RootNavigator({ introComplete, onIntroComplete }) {
-  const { token, role, needsProfileSetup, loading } = useAuth();
+  const { token, role, needsProfileSetup, loading, accountDeletion } = useAuth();
 
   if (!introComplete || loading) {
     return (
@@ -53,8 +58,13 @@ function RootNavigator({ introComplete, onIntroComplete }) {
     );
   }
 
+  if (isDeletionLocked(accountDeletion)) {
+    return <Stack.Navigator key="deletion" screenOptions={{headerShown: true, title: 'Видалення акаунта', gestureEnabled: false, headerBackVisible: false}}>
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+    </Stack.Navigator>;
+  }
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator key={token ? 'authenticated' : 'signed-out'} initialRouteName={accountDeletion?.phase === 'blocked' ? 'DeleteAccount' : undefined} screenOptions={{ headerShown: false }}>
       {token == null ? (
         <>
           <Stack.Screen name="Login" component={PhoneAuthScreen} />
@@ -85,7 +95,7 @@ function RootNavigator({ introComplete, onIntroComplete }) {
         <>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="MapSelect" component={MapSelectScreen} />
-          <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+
           <Stack.Screen name="EditOrder" component={EditOrderScreen} />
           <Stack.Screen name="ProfileScreen" component={EditProfile} />
           <Stack.Screen name="CustomerProfileScreen" component={EditCustomerProfileScreen} />
@@ -166,6 +176,10 @@ function RootNavigator({ introComplete, onIntroComplete }) {
           />
         </>
       )}
+      {token != null && <>
+        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{headerShown: true, title: 'Видалення акаунта'}} />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+      </>}
     </Stack.Navigator>
   );
 }
@@ -175,7 +189,13 @@ export default function App() {
   const shownInAppNotificationIdsRef = useRef(new Set());
   const [introComplete, setIntroComplete] = useState(false);
 
+  useEffect(() => subscribeSessionReset(() => {
+    pendingNavigationActionRef.current = null;
+    handledNotificationIdsRef.current.clear();
+    shownInAppNotificationIdsRef.current.clear();
+  }), []);
   const executeNavigationAction = useCallback((action) => {
+    if (isAccountDeletionInProgress()) return;
     if (!action) {
       return;
     }
@@ -361,6 +381,7 @@ export default function App() {
   );
 
   const handleNavigationReady = useCallback(() => {
+    if (isAccountDeletionInProgress()) { pendingNavigationActionRef.current = null; return; }
     if (pendingNavigationActionRef.current) {
       executeNavigationAction(pendingNavigationActionRef.current);
       pendingNavigationActionRef.current = null;
@@ -418,10 +439,12 @@ export default function App() {
         <ToastProvider>
           <AuthProvider>
             <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
+              <TestAccountNotice>
               <RootNavigator
                 introComplete={introComplete}
                 onIntroComplete={() => setIntroComplete(true)}
               />
+              </TestAccountNotice>
             </NavigationContainer>
           </AuthProvider>
         </ToastProvider>

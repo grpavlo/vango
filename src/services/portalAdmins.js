@@ -2,7 +2,8 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const PortalAdmin = require('../models/portalAdmin');
 const User = require('../models/user');
-const { normalizePhone } = require('./authCodes');
+const { normalizePhone, isTestAccountPhone } = require('./authCodes');
+const { isTestPortalAdmin } = require('./testAccount');
 
 async function ensurePortalAdminFromEnv() {
   const email = String(process.env.PORTAL_ADMIN_EMAIL || '').trim().toLowerCase();
@@ -11,7 +12,7 @@ async function ensurePortalAdminFromEnv() {
   const phoneRaw = String(process.env.PORTAL_ADMIN_PHONE || '').trim();
   const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
 
-  if (!email || !password) {
+  if (!email || !password || await isTestPortalAdmin({ email, phone })) {
     return null;
   }
 const existing = await PortalAdmin.findOne({
@@ -43,6 +44,7 @@ async function syncPortalAdminsFromLegacyUsers() {
   });
 
   for (const user of legacyAdmins) {
+    if (isTestAccountPhone(user.phone)) continue;
     const email = String(user.email || '').trim().toLowerCase();
     if (!email || !user.password) continue;
 

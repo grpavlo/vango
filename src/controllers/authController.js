@@ -18,7 +18,8 @@ const {
   getTestAuthCode,
 } = require('../services/authCodes');
 const { normalizePushTokens } = require('../utils/push');
-const { hasDefaultPrivilegedAccess } = require('../services/defaultUserAccess');
+const { isTestAccountPhone } = require('../services/authCodes');
+const { prepareTestAccount, testAccountMetadata, identityChangeError } = require('../services/testAccount');
 const { Op, fn, col, where } = require('sequelize');
 
 const AUTH_TOKEN_EXPIRES_IN = '90d';
@@ -77,10 +78,11 @@ function buildPhoneLookupVariants(phone) {
 }
 
 function isAdminPhone(phone) {
-  return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone)) || hasDefaultPrivilegedAccess(phone);
+  return ADMIN_PHONE_NUMBERS.has(normalizePhone(phone));
 }
 
 async function findLinkedPortalAdmin(user) {
+  if (isTestAccountPhone(user.phone)) return null;
   const conditions = [];
   const email = String(user.email || '').trim().toLowerCase();
 
@@ -217,7 +219,6 @@ async function verifyPhoneCode(req, res) {
   const phoneVariants = buildPhoneLookupVariants(phone);
   const phoneStr = phoneVariants[0];
   const shouldGrantAdmin = isAdminPhone(phone);
-  const shouldGrantDispatcher = hasDefaultPrivilegedAccess(phone);
   let user = await User.findOne({
     where: {
       [Op.or]: phoneVariants.map((phoneVariant) =>
@@ -236,23 +237,24 @@ async function verifyPhoneCode(req, res) {
       phone: phoneStr,
       role: UserRole.BOTH,
       isAdmin: shouldGrantAdmin,
-      isDispatcher: shouldGrantDispatcher,
+      isDispatcher: false,
     });
-  } else if (shouldGrantAdmin && (!user.isAdmin || user.role === UserRole.ADMIN ||
-    (shouldGrantDispatcher && (!user.isDispatcher || user.role === UserRole.DRIVER)))) {
+  } else if (shouldGrantAdmin && (!user.isAdmin || user.role === UserRole.ADMIN)) {
     user.isAdmin = true;
-    if (shouldGrantDispatcher) user.isDispatcher = true;
-    if (user.role === UserRole.ADMIN || (shouldGrantDispatcher && user.role === UserRole.DRIVER)) {
+    if (user.role === UserRole.ADMIN) {
       user.role = UserRole.BOTH;
     }
     await user.save();
   }
+  if (user.deletedAt || user.blocked) return res.status(403).send('Акаунт недоступний');
+  const demo = await prepareTestAccount(user);
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-  res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin });
+  res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin, ...testAccountMetadata(user, demo) });
 }
 
 async function register(req, res) {
   const { name, email, password, city, phone } = req.body;
+  if (isTestAccountPhone(phone)) return res.status(400).send('Для тестового номера використайте вхід за телефоном');
   try {
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, password: hashed, city, phone });
@@ -278,8 +280,10 @@ async function login(req, res) {
 
       return;
     }
+    if (user.deletedAt || user.blocked) return res.status(403).send('Акаунт недоступний');
+    const demo = await prepareTestAccount(user);
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: AUTH_TOKEN_EXPIRES_IN });
-    res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin });
+    res.json({ token, id: user.id, role: user.role, isAdmin: user.isAdmin, ...testAccountMetadata(user, demo) });
   } catch (err) {
     res.status(400).send('Помилка входу');
 
@@ -288,6 +292,7 @@ async function login(req, res) {
 
 async function profile(req, res) {
   const u = req.user;
+  const demo = await prepareTestAccount(u);
   const group = u.groupId ? await Group.findByPk(u.groupId) : null;
   const [
     driverRating,
@@ -303,6 +308,7 @@ async function profile(req, res) {
     findLinkedPortalAdmin(u),
   ]);
   res.json({
+    ...testAccountMetadata(u, demo),
     id: u.id,
     name: u.name,
     email: u.email,
@@ -372,6 +378,8 @@ async function updateProfile(req, res) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
   const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const identityError = identityChangeError(req.user, phone, email);
+  if (identityError) return res.status(400).send(identityError);
 
   if (!name) {
     return res.status(400).send('Вкажіть ПІБ');
@@ -421,6 +429,8 @@ async function updateCustomerProfile(req, res) {
   const patronymic = typeof body.patronymic === 'string' ? body.patronymic.trim() : '';
   const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
   const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const identityError = identityChangeError(req.user, phone, email);
+  if (identityError) return res.status(400).send(identityError);
 
   const fullName = [lastName, firstName, patronymic].filter(Boolean).join(' ');
   if (!fullName && !req.user.name) {
@@ -490,9 +500,10 @@ async function updateRole(req, res) {
 
     return;
   }
+  const demo = await prepareTestAccount(req.user);
   req.user.role = role;
   await req.user.save();
-  res.json({ role: req.user.role, isAdmin: req.user.isAdmin });
+  res.json({ role: req.user.role, isAdmin: req.user.isAdmin, ...testAccountMetadata(req.user, demo) });
 }
 
 async function updatePushToken(req, res) {

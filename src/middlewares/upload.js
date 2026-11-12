@@ -7,15 +7,34 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname || ".jpg");
-    cb(null, unique + ext);
+const { randomUUID } = require('node:crypto');
+const { pipeline } = require('node:stream');
+const { beginUploadWriter } = require('../services/uploadWriter');
+const storage = {
+  async _handleFile(req, file, cb) {
+    const filename = `${randomUUID()}${path.extname(file.originalname || '.jpg')}`;
+    const filePath = path.join(uploadDir, filename);
+    let writer;
+    try {
+      if (req.user?.id) writer = await beginUploadWriter(req.user.id, `/uploads/${filename}`);
+    } catch (error) { cb(error); return; }
+    const output = fs.createWriteStream(filePath);
+    const abortFile = () => output.destroy(new Error('Upload request aborted'));
+    req.once('aborted', abortFile);
+    pipeline(file.stream, output, async error => {
+      req.removeListener('aborted', abortFile);
+      try {
+        // pipeline is finished/closed before unlocking, including aborted requests.
+        if (writer) await writer.finish();
+        if (error) { cb(error); return; }
+        cb(null, {destination: uploadDir, filename, path: filePath, size: output.bytesWritten});
+      } catch (finishError) { cb(finishError); }
+    });
+    if (writer) writer.setAbort(error => output.destroy(error));
+    if (req.aborted) abortFile();
   },
-});
-
+  _removeFile(_req, file, cb) { fs.unlink(file.path, cb); },
+};
 const upload = multer({ storage });
 
 /**

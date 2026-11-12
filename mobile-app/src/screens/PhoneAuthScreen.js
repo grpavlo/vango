@@ -34,7 +34,7 @@ function extractCodeFromText(text) {
 
 export default function PhoneAuthScreen({ navigation }) {
   const toast = useToast();
-  const { login } = useAuth();
+  const { login, deletionNotice } = useAuth();
   const [phone, setPhone] = useState(formatUaPhoneInput(''));
   const [code, setCode] = useState('');
   const [step, setStep] = useState('phone'); // 'phone' | 'code'
@@ -122,7 +122,7 @@ export default function PhoneAuthScreen({ navigation }) {
         method: 'POST',
         body: JSON.stringify({ phone: phoneStr, code: trimmed }),
       });
-      await login(data.token, data.role);
+      await login(data.token, data.role, data);
       toast.show('Вхід виконано');
     } catch (err) {
       toast.show(err.message || 'Невірний код');
@@ -223,6 +223,7 @@ export default function PhoneAuthScreen({ navigation }) {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View>
           <AppText style={styles.title}>VanGo</AppText>
+          {deletionNotice ? <AppText accessibilityLiveRegion="polite" style={{padding: 14, marginBottom: 20, backgroundColor: colors.primary100, borderRadius: 12}}>{deletionNotice}</AppText> : null}
           {step === 'phone' ? (
             <>
               <AppText style={styles.label}>Номер телефону</AppText>

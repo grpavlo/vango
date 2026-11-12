@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "../personalStorage";
 import * as Location from "expo-location";
 
 import AppText from "../components/AppText";
@@ -232,7 +232,7 @@ export default function CreateOrderScreen({ navigation }) {
           latitude: loc?.coords?.latitude,
           longitude: loc?.coords?.longitude,
         });
-        if (!coords) return;
+        if (!coords || !mounted) return;
 
         await storeLocationCoords(coords);
         if (mounted) {

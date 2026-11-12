@@ -18,3 +18,13 @@ export function unregisterCallback(id) {
   registry.delete(String(id));
 }
 
+
+const resetListeners = new Set();
+export function subscribeSessionReset(listener) {
+  resetListeners.add(listener);
+  return () => resetListeners.delete(listener);
+}
+export function clearCallbacks() {
+  registry.clear();
+  resetListeners.forEach(listener => listener());
+}

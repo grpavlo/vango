@@ -3,7 +3,7 @@ import { Platform, View, TouchableOpacity, StyleSheet, ActivityIndicator, Animat
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../personalStorage';
 
 // Wrapper to keep map behavior consistent across the app.
 // Adds a floating "locate" button that centers the map on the user's location.
@@ -17,6 +17,8 @@ const AppMap = forwardRef(({
   ...rest
 }, ref) => {
   const mapRef = useRef(null);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useImperativeHandle(ref, () => mapRef.current);
   const [loading, setLoading] = useState(false);
   const [userLocationVisible, setUserLocationVisible] = useState(Boolean(showsUserLocation));
@@ -127,6 +129,7 @@ const AppMap = forwardRef(({
         return null;
       }
       const loc = await Location.getCurrentPositionAsync({});
+      if (!mountedRef.current) return null;
       const coords = {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,

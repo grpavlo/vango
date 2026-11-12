@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
 const User = require('../models/user');
+const { isTestAccountPhone } = require('../services/authCodes');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -9,8 +10,14 @@ async function authenticate(req, res, next) {
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     const user = await User.findByPk(payload.id);
-    if (!user) return res.status(401).send('Недійсний токен');
+    if (!user || user.deletedAt) return res.status(401).send('Недійсний токен');
     if (user.blocked) return res.status(403).send('Користувача заблоковано');
+    // Old sessions must not retain demo privileges in controllers that inspect flags directly.
+    if (isTestAccountPhone(user.phone)) {
+      user.isAdmin = false;
+      user.isDispatcher = false;
+      if (user.role === 'ADMIN') user.role = 'BOTH';
+    }
     req.user = user;
     next();
   } catch (err) {
@@ -26,10 +33,14 @@ function authorize(roles) {
     }
     const allowedRoles = roles.map((role) => String(role || '').trim().toUpperCase());
     const userRole = String(req.user.role || '').trim().toUpperCase();
-    if (allowedRoles.includes(userRole)) {
+    if (isTestAccountPhone(req.user.phone) && allowedRoles.includes('ADMIN') &&
+        !allowedRoles.some(role => ['DRIVER', 'CUSTOMER', 'BOTH'].includes(role))) {
+      return res.status(403).send('Доступ заборонено');
+    }
+    if (allowedRoles.includes(userRole) && !(userRole === 'ADMIN' && isTestAccountPhone(req.user.phone))) {
       return next();
     }
-    if (allowedRoles.includes('ADMIN') && (req.user.isAdmin || userRole === 'ADMIN')) {
+    if (!isTestAccountPhone(req.user.phone) && allowedRoles.includes('ADMIN') && (req.user.isAdmin || userRole === 'ADMIN')) {
       return next();
     }
     if (

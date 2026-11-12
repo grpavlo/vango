@@ -5,8 +5,12 @@ const DEFAULT_DEV_AUTH_CODE = '111111';
 const TEST_AUTH_PHONE = '380000000001';
 const TEST_AUTH_CODE = '111111';
 
+function isTestAccountPhone(phone) {
+  return typeof phone === 'string' && normalizePhone(phone) === TEST_AUTH_PHONE;
+}
+
 function getTestAuthCode(phone) {
-  return normalizePhone(phone) === TEST_AUTH_PHONE ? TEST_AUTH_CODE : null;
+  return isTestAccountPhone(phone) ? TEST_AUTH_CODE : null;
 }
 
 function generateCode() {
@@ -61,6 +65,7 @@ function verifyAndConsumeOrDev(phone, code) {
 }
 
 module.exports = {
+  clear: (phone) => store.delete(normalizePhone(phone)),
   generateCode,
   set,
   get,
@@ -69,4 +74,5 @@ module.exports = {
   normalizePhone,
   getDevAuthCode,
   getTestAuthCode,
+  isTestAccountPhone,
 };

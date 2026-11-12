@@ -17,12 +17,15 @@ import {
   Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensurePhotoPermission } from '../photoPermissions';
+import AsyncStorage from '../personalStorage';
 import AppButton from '../components/AppButton';
+import AccountAvatar from '../components/AccountAvatar';
 import AppInput from '../components/AppInput';
 import { Ionicons } from '@expo/vector-icons';
 import {
   apiFetch,
+  isAccountSessionUnavailable,
   HOST_URL,
   respondToOrder,
   markCallMade,
@@ -1061,6 +1064,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
 
       const resp = await respondToOrder(order.id, token, payload);
+      if (isAccountSessionUnavailable(token)) return;
       setMyResponse(resp);
       if (isCityOrder && cityTemplateStorageKey) {
         try {
@@ -1099,6 +1103,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       }
       payload.finalPrice = String(Math.round(finalPriceNumber));
       const resp = await respondToOrder(order.id, token, payload);
+      if (isAccountSessionUnavailable(token)) return;
       setMyResponse(resp);
       setRespondLoading(false);
     } catch (err) {
@@ -1286,6 +1291,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       setCustomerName(data.name);
       try {
         const stored = await AsyncStorage.getItem('reservedPhones');
+        if (isAccountSessionUnavailable(token)) return;
         const map = stored ? JSON.parse(stored) : {};
         if (data.phone) {
           map[order.id] = { phone: data.phone, name: data.name };
@@ -1312,6 +1318,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       setTimeLeft(null);
       try {
         const stored = await AsyncStorage.getItem('reservedPhones');
+        if (isAccountSessionUnavailable(token)) return;
         const map = stored ? JSON.parse(stored) : {};
         if (map[order.id]) {
           delete map[order.id];
@@ -1407,15 +1414,11 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   async function captureStatusPhotos() {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Доступ до камери', 'Надайте доступ до камери, щоб додати фото.');
-        return [];
-      }
+      if (!(await ensurePhotoPermission('camera'))) return [];
       const collected = [];
       let keepCapturing = true;
       while (keepCapturing) {
-        const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.5 });
         if (result.canceled) break;
         const uri = result.assets?.[0]?.uri;
         if (!uri) break;
@@ -2279,7 +2282,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {role === 'DRIVER' && order.customer && !(showContact && contactPhone) && (
         <View style={styles.driverCard}>
           <View style={styles.driverRow}>
-            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <AccountAvatar account={order.customer} size={36} />
             <View style={{ marginLeft: 8, flex: 1 }}>
               <Text style={{ fontWeight: '700' }}>{order.customer.name || 'Замовник'}</Text>
               <RatingSummary
@@ -2300,7 +2303,7 @@ export default function OrderDetailScreen({ route, navigation }) {
       {role === 'DRIVER' && showContact && contactPhone && (
         <View style={styles.driverCard}>
           <View style={styles.driverRow}>
-            <Ionicons name="person-circle" size={36} color={colors.green} />
+            <AccountAvatar account={order.customer} size={36} />
             <View style={{ marginLeft: 8, flex: 1 }}>
               <Text>{contactName || 'Замовник'}</Text>
               <RatingSummary
@@ -2329,14 +2332,7 @@ export default function OrderDetailScreen({ route, navigation }) {
               onPress={openDriverProfile}
               activeOpacity={0.8}
             >
-              {driverPhotoUri ? (
-                <Image
-                  source={{ uri: driverPhotoUri }}
-                  style={{ width: 48, height: 48, borderRadius: 24 }}
-                />
-              ) : (
-                <Ionicons name="person-circle" size={48} color={colors.green} />
-              )}
+              <AccountAvatar account={assignedDriver} photoUri={driverPhotoUri} size={48} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text>{assignedDriver.name}</Text>

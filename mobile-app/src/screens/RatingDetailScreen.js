@@ -1,4 +1,5 @@
 import React from 'react';
+import { isDeletedAccount } from '../accountIdentity';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../components/Colors';
@@ -12,7 +13,8 @@ export default function RatingDetailScreen({ route, navigation }) {
   const orderNumber = params.orderNumber || params.orderId;
   const fromRoleLabel = params.fromRoleLabel || 'Користувач';
   const fromUserName = params.fromUserName || fromRoleLabel;
-  const comment = typeof params.comment === 'string' ? params.comment.trim() : '';
+  const deletedAuthor = isDeletedAccount({name: fromUserName});
+  const comment = !deletedAuthor && typeof params.comment === 'string' ? params.comment.trim() : '';
 
   function goToOrder() {
     if (!params.orderId) return;
@@ -28,12 +30,12 @@ export default function RatingDetailScreen({ route, navigation }) {
 
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <Ionicons name="star" size={36} color="#F59E0B" />
+            <Ionicons name={deletedAuthor ? "ban-outline" : "star"} size={36} color={deletedAuthor ? colors.gray500 : "#F59E0B"} />
           </View>
 
           <Text style={styles.title}>Оцінка за замовлення №{orderNumber}</Text>
           <Text style={styles.subtitle}>
-            {fromRoleLabel} {fromUserName} залишив оцінку
+            {deletedAuthor ? 'Акаунт видалено' : `${fromRoleLabel} ${fromUserName} залишив оцінку`}
           </Text>
 
           <View style={styles.ratingRow}>

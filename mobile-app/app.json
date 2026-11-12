@@ -2,7 +2,7 @@
   "expo": {
     "name": "VanGo",
     "slug": "mobile",
-    "version": "1.0.20",
+    "version": "1.0.22",
     "orientation": "portrait",
     "icon": "./assets/Frame1.png",
     "userInterfaceStyle": "light",
@@ -19,13 +19,13 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "20",
+      "buildNumber": "22",
       "config": {
         "googleMapsApiKey": "AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc"
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "Доступ до камери потрібен для додавання фото",
-        "NSPhotoLibraryUsageDescription": "Доступ до фото потрібен для вибору з галереї",
+        "NSCameraUsageDescription": "VanGo використовує камеру, щоб ви могли фотографувати вантаж для замовлення та під час доставки, додавати фото профілю, документів і автомобіля водія або фото до звернення в підтримку. Наприклад, зробіть фото вантажу під час завантаження.",
+        "NSPhotoLibraryUsageDescription": "VanGo надає змогу вибирати фото з фотобібліотеки для замовлень, профілю, документів і автомобіля водія та звернень у підтримку. Наприклад, виберіть фото вантажу, щоб додати його до замовлення.",
         "NSLocationWhenInUseUsageDescription": "Доступ до геолокації потрібен, щоб показати ваше місце на карті та підібрати адреси поруч",
         "GMSApiKey": "AIzaSyAy2PBVzeFza_-MnitqOWmzPVB6RzaGTYc",
         "ITSAppUsesNonExemptEncryption": false,
@@ -37,7 +37,7 @@
       "bundleIdentifier": "com.pashagr.mobile"
     },
     "android": {
-      "versionCode": 20,
+      "versionCode": 22,
       "usesCleartextTraffic": true,
       "defaultChannel": "orders_v2",
       "config": {
@@ -50,7 +50,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.pashagr.mobile",
       "googleServicesFile": "./google-services.json",
       "permissions": [

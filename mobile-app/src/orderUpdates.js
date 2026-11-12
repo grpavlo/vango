@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage, { getPersonalStorageGeneration } from "./personalStorage";
 
 const STORAGE_PREFIX = "order-updates:v3";
 const listeners = new Set();
@@ -121,24 +121,26 @@ export function buildOrderUpdateSnapshot(order, viewerRole) {
 }
 
 async function readState(role, token) {
+  const generation = getPersonalStorageGeneration();
   const key = buildStorageKey(role, token);
   const raw = await AsyncStorage.getItem(key);
-  if (!raw) return { key, state: { orders: {} } };
+  if (!raw) return { generation, key, state: { orders: {} } };
   try {
     const parsed = JSON.parse(raw);
     return {
-      key,
+      generation, key,
       state:
         parsed && typeof parsed === "object" && parsed.orders
           ? parsed
           : { orders: {} },
     };
   } catch {
-    return { key, state: { orders: {} } };
+    return { generation, key, state: { orders: {} } };
   }
 }
 
-async function writeState(key, state) {
+async function writeState(key, state, generation) {
+  if (generation !== getPersonalStorageGeneration()) return;
   await AsyncStorage.setItem(key, JSON.stringify(state));
 }
 
@@ -166,7 +168,7 @@ export async function reconcileOrderUpdates(role, token, orders) {
   if (!role || !token) return { unreadByOrder: {}, hasUnreadAny: false };
 
   const list = Array.isArray(orders) ? orders : [];
-  const { key, state } = await readState(role, token);
+  const { key, state, generation } = await readState(role, token);
   const nextOrdersState = { ...(state.orders || {}) };
   let changed = false;
   const currentOrderIds = new Set();
@@ -218,7 +220,7 @@ export async function reconcileOrderUpdates(role, token, orders) {
   const result = buildUnreadByOrder(scopedState);
 
   if (changed) {
-    await writeState(key, { orders: nextOrdersState });
+    await writeState(key, { orders: nextOrdersState }, generation);
     emitOrderUpdatesChange();
   }
 
@@ -228,7 +230,7 @@ export async function reconcileOrderUpdates(role, token, orders) {
 export async function markOrderUpdatesSeen(role, token, order) {
   if (!role || !token || !order?.id) return;
 
-  const { key, state } = await readState(role, token);
+  const { key, state, generation } = await readState(role, token);
   const orderId = String(order.id);
   const current = (state.orders || {})[orderId] || {};
   const snapshot = buildOrderUpdateSnapshot(order, role);
@@ -265,7 +267,7 @@ export async function markOrderUpdatesSeen(role, token, order) {
     },
   };
 
-  await writeState(key, nextState);
+  await writeState(key, nextState, generation);
   emitOrderUpdatesChange();
 }
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { View, Image, StyleSheet, ScrollView } from "react-native";
+import { View, Image, StyleSheet, ScrollView, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../components/AppButton";
@@ -90,8 +90,8 @@ export default function SettingsScreen({ navigation }) {
   async function handleChange(r) {
     if (r !== role) {
       setLoadingProfile(true);
-      await selectRole(r, false); // перемикання ролі — не показувати профіль
       try {
+        await selectRole(r, false);
         const [me, driverProfile] = await Promise.all([
           apiFetch("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
           apiFetch("/driver-profile/me", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
@@ -100,8 +100,11 @@ export default function SettingsScreen({ navigation }) {
           me.selfiePhoto = driverProfile.selfiePhoto;
         }
         setUser(me);
-      } catch {}
-      setLoadingProfile(false);
+      } catch (error) {
+        Alert.alert('Не вдалося змінити роль', error.message || 'Спробуйте ще раз');
+      } finally {
+        setLoadingProfile(false);
+      }
     }
   }
 
@@ -251,6 +254,8 @@ export default function SettingsScreen({ navigation }) {
           <RoleSwitch value={role} onChange={handleChange} />
         </ListItem>
       </View> */}
+      <ListItem title="Видалити акаунт" icon="trash-outline"
+        onPress={() => navigation.navigate('DeleteAccount')} />
       {appVersion ? (
         <AppText style={styles.versionText}>v{appVersion}</AppText>
       ) : null}

@@ -1,4 +1,3 @@
-const DEFAULT_SUPPORT_MODEL = process.env.SUPPORT_BOT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const SUPPORT_BOT_TIMEOUT_MS = Number(process.env.SUPPORT_BOT_TIMEOUT_MS || 10000);
 
 const KNOWLEDGE_BASE = [
@@ -307,7 +306,15 @@ function buildAiInput(question, history = []) {
 }
 
 async function askConfiguredAi({ question, role, history = [] }) {
-  const apiKey = process.env.SUPPORT_BOT_API_KEY || process.env.OPENAI_API_KEY;
+  const provider = process.env.SUPPORT_BOT_PROVIDER || 'openai';
+  if (provider !== 'openai' && provider !== 'anthropic') return null;
+
+  const isAnthropic = provider === 'anthropic';
+  const apiKey = process.env.SUPPORT_BOT_API_KEY ||
+    (isAnthropic ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY);
+  const model = process.env.SUPPORT_BOT_MODEL || (isAnthropic
+    ? process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5'
+    : process.env.OPENAI_MODEL || 'gpt-4o-mini');
   if (!apiKey || typeof fetch !== 'function') {
     return null;
   }
@@ -316,18 +323,29 @@ async function askConfiguredAi({ question, role, history = [] }) {
   const timeout = setTimeout(() => controller.abort(), SUPPORT_BOT_TIMEOUT_MS);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const url = isAnthropic
+      ? 'https://api.anthropic.com/v1/messages'
+      : 'https://api.openai.com/v1/responses';
+    const body = isAnthropic ? {
+      model,
+      system: `${buildInstructions(role)}\nВідповідай стисло: до 150 слів, без Markdown-розмітки. Завжди завершуй думку та речення.`,
+      messages: [...normalizeChatHistory(history), { role: 'user', content: question }],
+      max_tokens: 1024,
+    } : {
+      model,
+      instructions: buildInstructions(role),
+      input: buildAiInput(question, history),
+      max_output_tokens: 220,
+    };
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        ...(isAnthropic
+          ? { 'x-api-key': apiKey, 'anthropic-version': '2026-10-21' }
+          : { Authorization: `Bearer ${apiKey}` }),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: DEFAULT_SUPPORT_MODEL,
-        instructions: buildInstructions(role),
-        input: buildAiInput(question, history),
-        max_output_tokens: 220,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -336,6 +354,14 @@ async function askConfiguredAi({ question, role, history = [] }) {
     }
 
     const data = await response.json();
+    if (isAnthropic) {
+      // Never show a partial answer when the provider exhausts its output budget.
+      if (data?.stop_reason === 'max_tokens') return null;
+      return (Array.isArray(data?.content) ? data.content : [])
+        .filter((block) => block?.type === 'text' && typeof block.text === 'string')
+        .map((block) => block.text)
+        .join('\n').trim() || null;
+    }
     return extractAiText(data) || null;
   } catch {
     return null;

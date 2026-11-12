@@ -139,6 +139,7 @@ app.get(['/support', '/support/'], (_req, res) => {
   res.sendFile(path.join(__dirname, '../web-support/index.html'));
 });
 app.use('/support/assets', express.static(path.join(__dirname, '../web-support')));
+app.use('/demo-assets', express.static(path.join(__dirname, '../assets/demo-account')));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/portal', express.static(path.join(__dirname, '../web-portal')));
 app.get('/portal/logo.png', (_req, res) => {
@@ -266,7 +267,9 @@ async function removeInvalidFavorites() {
 async function start() {
   try {
     await removeInvalidFavorites();
-    await db.sync({ alter: true });
+    // Existing columns are managed by explicit migrations. Automatic ALTER TYPE
+    // conflicts with the account-deletion triggers even when the type is unchanged.
+    await db.sync();
     await ensureDefaultUserAccess();
     await syncPortalAdminsFromLegacyUsers();
     await ensurePortalAdminFromEnv();
@@ -278,6 +281,12 @@ async function start() {
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     scheduleCleanup();
     startOrderLifecycleScheduler();
+    const { retryPendingDeletions } = require('./services/accountDeletion');
+    const retryDeletionCleanup = () => retryPendingDeletions().catch(() => {
+      console.error('Account deletion cleanup will retry');
+    });
+    retryDeletionCleanup();
+    setInterval(retryDeletionCleanup, 60 * 1000).unref();
   } catch (err) {
     console.error('Failed to start server', err);
   }

@@ -13,7 +13,7 @@ import {
 import { Marker } from 'react-native-maps';
 import AppMap from '../components/AppMap';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../personalStorage';
 import * as Location from 'expo-location';
 import AppButton from '../components/AppButton';
 import CheckBox from '../components/CheckBox';
@@ -268,7 +268,7 @@ export default function MapSelectScreen({ navigation, route }) {
 
         const loc = await Location.getCurrentPositionAsync({});
         const coords = toCoords(loc?.coords?.latitude, loc?.coords?.longitude);
-        if (!coords) return;
+        if (!coords || !mounted) return;
 
         await storeUserCoords(coords);
         if (mounted) {

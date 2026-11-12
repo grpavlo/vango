@@ -1,3 +1,5 @@
+const { isTestAccountPhone } = require('../services/authCodes');
+
 function badQuery(message) {
   const error = new Error(message);
   error.status = 400;
@@ -39,7 +41,7 @@ function ownOrderWhere(user, id) {
   return where;
 }
 function requireDispatcher(req, res, next) {
-  if (!req.user?.isDispatcher) return res.status(403).send('Потрібне право диспетчера');
+  if (!req.user?.isDispatcher || isTestAccountPhone(req.user.phone)) return res.status(403).send('Потрібне право диспетчера');
   return next();
 }
 module.exports = { parseDispatcherQuery, ownOrderWhere, requireDispatcher, positiveInteger };

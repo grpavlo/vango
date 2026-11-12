@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
 const PortalAdmin = require('../models/portalAdmin');
 const User = require('../models/user');
+const { isTestAccountPhone } = require('../services/authCodes');
+const { isTestPortalAdmin } = require('../services/testAccount');
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
@@ -19,7 +21,7 @@ async function authenticateAdminAccess(req, res, next) {
 
     if (payload?.type === 'portal-admin' || payload?.portalAdminId) {
       const admin = await PortalAdmin.findByPk(payload.portalAdminId);
-      if (!admin || !admin.active) {
+      if (!admin || !admin.active || await isTestPortalAdmin(admin)) {
         return res.status(401).send('Недійсний токен адміністратора');
       }
       req.portalAdmin = admin;
@@ -29,9 +31,9 @@ async function authenticateAdminAccess(req, res, next) {
 
     if (payload?.id) {
       const user = await User.findByPk(payload.id);
-      if (!user) return res.status(401).send('Недійсний токен');
+      if (!user || user.deletedAt) return res.status(401).send('Недійсний токен');
       if (user.blocked) return res.status(403).send('Користувача заблоковано');
-      if (user.isAdmin || user.role === 'ADMIN') {
+      if (!isTestAccountPhone(user.phone) && (user.isAdmin || user.role === 'ADMIN')) {
         req.user = user;
         req.adminActor = { type: 'user', id: user.id };
         return next();
@@ -51,7 +53,7 @@ async function authenticatePortalAdmin(req, res, next) {
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     const admin = await PortalAdmin.findByPk(payload.portalAdminId);
-    if (!admin || !admin.active || payload.type !== 'portal-admin') {
+    if (!admin || !admin.active || payload.type !== 'portal-admin' || await isTestPortalAdmin(admin)) {
       return res.status(401).send('Недійсний токен адміністратора');
     }
     req.portalAdmin = admin;

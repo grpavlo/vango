@@ -234,7 +234,7 @@ function setupWebSocket(server) {
       const token = auth.split(' ')[1];
       const payload = jwt.verify(token, JWT_SECRET);
       const user = await User.findByPk(payload.id);
-      if (!user || user.blocked) return ws.close();
+      if (!user || user.deletedAt || user.blocked) return ws.close();
       req.user = user;
       ws.userId = user.id;
       ws.userRole = user.role;
@@ -250,6 +250,8 @@ function setupWebSocket(server) {
       where: filterWhere,
       include: [{ model: User, as: 'customer' }],
     });
+    const currentUser = await User.findByPk(ws.userId);
+    if (!currentUser || currentUser.deletedAt || currentUser.blocked) return ws.close(4001, 'Account unavailable');
     for (const o of orders) {
       const orderJson = typeof o?.toJSON === 'function' ? o.toJSON() : o;
       ws.send(JSON.stringify(sanitizeOrderForClient(orderJson, ws)));
@@ -257,22 +259,27 @@ function setupWebSocket(server) {
 
     let lastCheck = new Date();
     const interval = setInterval(async () => {
-      const updated = await Order.findAll({
-        where: {
-          ...updateWhere,
-          updatedAt: { [Op.gt]: lastCheck },
-        },
-        include: [{ model: User, as: 'customer' }],
-      });
-      lastCheck = new Date();
-      updated.forEach((o) => {
-        const orderJson = typeof o?.toJSON === 'function' ? o.toJSON() : o;
-        ws.send(JSON.stringify(sanitizeOrderForClient(orderJson, ws)));
-      });
+      try {
+        const activeUser = await User.findByPk(ws.userId);
+        if (!activeUser || activeUser.deletedAt || activeUser.blocked) return ws.close(4001, 'Account unavailable');
+        const updated = await Order.findAll({
+          where: {
+            ...updateWhere,
+            updatedAt: { [Op.gt]: lastCheck },
+          },
+          include: [{ model: User, as: 'customer' }],
+        });
+        lastCheck = new Date();
+        updated.forEach((o) => {
+          const orderJson = typeof o?.toJSON === 'function' ? o.toJSON() : o;
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(sanitizeOrderForClient(orderJson, ws)));
+        });
+      } catch { ws.close(1011, 'Stream unavailable'); }
     }, 5000);
 
     ws.on('close', () => clearInterval(interval));
   });
+  return wss;
 }
 
 function broadcastOrder(order) {
@@ -301,4 +308,10 @@ function broadcastDelete(id) {
   });
 }
 
-module.exports = { setupWebSocket, broadcastOrder, broadcastDelete };
+function disconnectUser(userId) {
+  if (!wssInstance) return;
+  for (const client of wssInstance.clients) {
+    if (Number(client.userId) === Number(userId)) client.close(4001, 'Account deleted');
+  }
+}
+module.exports = { setupWebSocket, broadcastOrder, broadcastDelete, disconnectUser };

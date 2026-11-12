@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from './personalStorage';
 
 const STORAGE_KEY = 'notification-center:v1';
 const MAX_ITEMS = 80;
@@ -6,6 +6,11 @@ const DEFAULT_TITLE = '\u0421\u043f\u043e\u0432\u0456\u0449\u0435\u043d\u043d\u0
 const LEGACY_DEFAULT_TITLE = 'РЎРїРѕРІС–С‰РµРЅРЅСЏ';
 const listeners = new Set();
 let activeUserId = null;
+let storagePaused = false;
+let generation = 0;
+export function pauseNotificationStorage(value) { if (value && !storagePaused) generation++; storagePaused = value; }
+export function canReceivePersonalNotifications() { return !storagePaused && Boolean(activeUserId); }
+export function resetNotificationCenter() { generation++; activeUserId = null; notifyListeners([]); }
 
 function normalizeUserId(value) {
   const normalized = value == null ? '' : String(value).trim();
@@ -17,12 +22,13 @@ function getStorageKey() {
 }
 
 async function ensureActiveUser() {
+  if (storagePaused) return null;
   if (activeUserId) return activeUserId;
+  const expectedGeneration = generation;
   try {
-    activeUserId = normalizeUserId(await AsyncStorage.getItem('userId'));
-  } catch {
-    activeUserId = null;
-  }
+    const saved = await AsyncStorage.getItem('userId');
+    if (expectedGeneration === generation && !storagePaused && !activeUserId) activeUserId = normalizeUserId(saved);
+  } catch {}
   return activeUserId;
 }
 
@@ -103,13 +109,15 @@ async function readRawItems() {
   }
 }
 
-async function writeItems(items) {
+async function writeItems(items, expectedGeneration = generation) {
+  if (storagePaused || expectedGeneration !== generation) return;
   const filteredItems = (items || []).filter((item) => !isDefaultOnlyNotification(item));
   await AsyncStorage.setItem(getStorageKey(), JSON.stringify(filteredItems.slice(0, MAX_ITEMS)));
   notifyListeners(filteredItems);
 }
 
 function notifyListeners(items) {
+  if (storagePaused) items = [];
   listeners.forEach((listener) => {
     try {
       listener(items);
@@ -122,17 +130,21 @@ export async function getStoredNotifications() {
 }
 
 export async function setNotificationCenterUser(userId) {
+  if (activeUserId !== normalizeUserId(userId)) generation++;
   activeUserId = normalizeUserId(userId);
+  const expectedGeneration = generation;
   const items = await readRawItems();
-  notifyListeners(items);
+  if (expectedGeneration === generation) notifyListeners(items);
 }
 
 export async function addStoredNotification(input) {
+  if (storagePaused) return null;
   await ensureActiveUser();
-  if (!activeUserId) {
+  if (storagePaused || !activeUserId) {
     return null;
   }
 
+  const expectedGeneration = generation;
   const nextItem = normalizeNotification(input);
   if (!nextItem) {
     console.info('[notificationCenter] skipped empty notification', {
@@ -159,23 +171,26 @@ export async function addStoredNotification(input) {
     nextItems = [nextItem, ...items];
   }
 
-  await writeItems(nextItems);
-  return nextItem;
+  if (storagePaused || expectedGeneration !== generation) return null;
+  await writeItems(nextItems, expectedGeneration);
+  return storagePaused || expectedGeneration !== generation ? null : nextItem;
 }
 
 export async function markNotificationRead(id) {
+  const expectedGeneration = generation;
   if (!id) return;
   const items = await readRawItems();
   const nextItems = items.map((item) =>
     item.id === id ? { ...item, read: true } : item
   );
-  await writeItems(nextItems);
+  await writeItems(nextItems, expectedGeneration);
 }
 
 export async function markAllNotificationsRead() {
+  const expectedGeneration = generation;
   const items = await readRawItems();
   const nextItems = items.map((item) => ({ ...item, read: true }));
-  await writeItems(nextItems);
+  await writeItems(nextItems, expectedGeneration);
 }
 
 export function subscribeNotifications(listener) {

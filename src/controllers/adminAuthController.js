@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { Op, fn, col, where } = require('sequelize');
 const PortalAdmin = require('../models/portalAdmin');
 const User = require('../models/user');
+const { isTestPortalAdmin } = require('../services/testAccount');
 const { JWT_SECRET } = require('../config');
 const { sendSms } = require('../services/turbosms');
 const {
@@ -128,7 +129,7 @@ async function loginPortalAdmin(req, res) {
   }
 
   const admin = await PortalAdmin.findOne({ where: { email } });
-  if (!admin || !admin.active) {
+  if (!admin || !admin.active || await isTestPortalAdmin(admin)) {
     return res.status(400).send('Невірна електронна пошта або пароль');
   }
 
@@ -152,7 +153,7 @@ async function sendPortalAdminCode(req, res) {
 
   const normalizedPhone = normalizePhone(phone);
   const admin = await PortalAdmin.findOne({ where: { phone: normalizedPhone } });
-  if (!admin || !admin.active) {
+  if (!admin || !admin.active || await isTestPortalAdmin(admin)) {
     return res.status(400).send('Адміністратора з таким номером не знайдено');
   }
 
@@ -192,7 +193,7 @@ async function verifyPortalAdminCode(req, res) {
   }
 
   const admin = await PortalAdmin.findOne({ where: { phone: normalizedPhone } });
-  if (!admin || !admin.active) {
+  if (!admin || !admin.active || await isTestPortalAdmin(admin)) {
     return res.status(400).send('Адміністратора з таким номером не знайдено');
   }
 

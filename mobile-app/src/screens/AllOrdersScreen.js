@@ -14,7 +14,7 @@ import { Host } from "react-native-portalize";
 import { Marker, Circle, Polygon } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import AppMap from "../components/AppMap";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "../personalStorage";
 import * as Location from "expo-location";
 import { useAuth } from "../AuthContext";
 import { apiFetch, HOST_URL } from "../api";
@@ -167,11 +167,13 @@ export default function AllOrdersScreen({ navigation }) {
   }, [hasOrigin, hasDropoff, originPoint, dropoffPointRad]);
 
   useEffect(() => {
+    let mounted = true;
     async function detectCity() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
           const loc = await Location.getCurrentPositionAsync({});
+          if (!mounted) return;
           const locObj = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
@@ -183,6 +185,7 @@ export default function AllOrdersScreen({ navigation }) {
             { headers: { "User-Agent": "vango-app" } }
           );
           const data = await res.json();
+          if (!mounted) return;
           const addr = data.address || {};
           const city =
             addr.city || addr.town || addr.village || addr.state || "";
@@ -212,6 +215,7 @@ export default function AllOrdersScreen({ navigation }) {
     }
 
     init();
+    return () => { mounted = false; };
   }, []);
 
   fetchOrdersRef.current = fetchOrders;

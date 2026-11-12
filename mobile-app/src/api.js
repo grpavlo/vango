@@ -1,4 +1,4 @@
-//export const HOST_URL = 'http://192.168.0.247:9999';
+//export const HOST_URL = 'http://192.168.1.114:9999';
 export const HOST_URL = 'https://app.vango.com.ua:1000';
 export const API_URL = `${HOST_URL}/api`;
 
@@ -127,12 +127,24 @@ async function readErrorMessage(res) {
 
 // Глобальний обробник для 401 (наприклад, вихід з акаунта + редірект)
 let unauthorizedHandler = null;
+let accountDeletionToken = null;
+const retiredDeletionTokens = new Set();
+export function retireAccountDeletionToken(token) { if (token) retiredDeletionTokens.add(String(token).slice(-32)); }
+export function setAccountDeletionToken(token) { accountDeletionToken = token; }
+export function isAccountSessionUnavailable(token) {
+  return (accountDeletionToken && token === accountDeletionToken) || retiredDeletionTokens.has(String(token || '').slice(-32));
+}
+export function isAccountDeletionInProgress() { return Boolean(accountDeletionToken); }
 export function setUnauthorizedHandler(handler) {
   unauthorizedHandler = handler;
 }
 
 export async function apiFetch(path, options = {}) {
   const headers = options.headers || {};
+  const requestToken = String(headers.Authorization || headers.authorization || '').replace(/^Bearer /, '');
+  if ((accountDeletionToken && requestToken === accountDeletionToken) || retiredDeletionTokens.has(requestToken.slice(-32))) {
+    throw Object.assign(new Error('Триває видалення акаунта.'), {code: 'ACCOUNT_DELETION_IN_PROGRESS'});
+  }
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
@@ -170,7 +182,7 @@ export async function apiFetch(path, options = {}) {
     }
     if (res.status === 401) {
       try {
-        if (typeof unauthorizedHandler === 'function') {
+        if (!accountDeletionToken && !retiredDeletionTokens.has(requestToken.slice(-32)) && typeof unauthorizedHandler === 'function') {
           await unauthorizedHandler();
         }
       } catch {}

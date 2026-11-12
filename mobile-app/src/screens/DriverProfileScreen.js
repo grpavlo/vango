@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
+import { isDeletedAccount } from "../accountIdentity";
 import { colors } from "../components/Colors";
 import { HOST_URL } from "../api";
 
@@ -80,7 +81,7 @@ export default function DriverProfileScreen({ navigation, route }) {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Водій</Text>
           <View style={styles.row}>
-            {driverPhotoUri ? (
+            {driverPhotoUri && !isDeletedAccount(driver || {name}) ? (
               <Image
                 source={{ uri: driverPhotoUri }}
                 style={styles.avatar}
@@ -88,7 +89,7 @@ export default function DriverProfileScreen({ navigation, route }) {
               />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
-                <Ionicons name="person" size={40} color="#fff" />
+                <Ionicons name={isDeletedAccount(driver || {name}) ? "ban-outline" : "person"} size={40} color="#fff" />
               </View>
             )}
             <View style={styles.infoBlock}>

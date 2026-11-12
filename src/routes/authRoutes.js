@@ -21,6 +21,8 @@ router.post('/login', login);
 router.post('/send-code', sendPhoneCode);
 router.post('/verify-code', verifyPhoneCode);
 router.get('/me', authenticate, profile);
+const { authenticateDeletion, deleteAccount } = require('../controllers/accountDeletionController');
+router.delete('/me', authenticateDeletion, deleteAccount);
 router.post('/switch-to-admin', authenticate, switchToPortalAdmin);
 router.put('/profile', authenticate, updateProfile);
 router.post('/customer-profile', authenticate, profileSelfieOnly, updateCustomerProfile);

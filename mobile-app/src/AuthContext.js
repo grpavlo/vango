@@ -1,22 +1,55 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch, setUnauthorizedHandler } from './api';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import AsyncStorage, { pausePersonalStorage } from './personalStorage';
+import RawAsyncStorage from '@react-native-async-storage/async-storage';
+import { createAccountDeletionFlow, isDeletionLocked } from './accountDeletionFlow';
+import { requestAccountDeletion } from './accountDeletionApi';
+import { clearPersonalData } from './clearPersonalData';
+import { clearCallbacks } from './callbackRegistry';
+import { apiFetch, setUnauthorizedHandler, setAccountDeletionToken, isAccountDeletionInProgress, retireAccountDeletionToken, isAccountSessionUnavailable } from './api';
 import { getPushToken } from './notifications';
-import { setNotificationCenterUser } from './notificationCenter';
+import { setNotificationCenterUser, pauseNotificationStorage } from './notificationCenter';
 
 const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
+  const [isTestAccount, setIsTestAccount] = useState(false);
+  const roleRequestRef = useRef(false);
   const [role, setRole] = useState(null);
   const [userId, setUserId] = useState(null);
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [accountDeletion, setAccountDeletion] = useState(null);
+  const [deletionNotice, setDeletionNotice] = useState('');
+  const deletionFlowRef = useRef(null);
+  const deletionCompletedRef = useRef(false);
+  if (!deletionFlowRef.current) {
+    deletionFlowRef.current = createAccountDeletionFlow({
+      storage: RawAsyncStorage, request: requestAccountDeletion, cleanup: clearPersonalData,
+      onSession: deletionToken => {
+        setAccountDeletionToken(deletionToken);
+        pausePersonalStorage(Boolean(deletionToken) || deletionCompletedRef.current);
+        pauseNotificationStorage(Boolean(deletionToken) || deletionCompletedRef.current);
+        if (deletionToken) clearCallbacks();
+      },
+      onComplete: notice => {
+        deletionCompletedRef.current = true;
+        retireAccountDeletionToken(deletionFlowRef.current.getState()?.token);
+        setIsTestAccount(false);
+        setToken(null); setRole(null); setUserId(null); setNeedsProfileSetup(false);
+        setDeletionNotice(notice);
+      },
+    });
+  }
+  useEffect(() => deletionFlowRef.current.subscribe(setAccountDeletion), []);
 
-  const applyUserId = useCallback(async (nextUserId) => {
+
+  const applyUserId = useCallback(async (nextUserId, expectedToken) => {
+    if (expectedToken && isAccountSessionUnavailable(expectedToken)) return;
     const normalizedUserId = nextUserId == null ? null : String(nextUserId);
     setUserId(normalizedUserId);
     await setNotificationCenterUser(normalizedUserId);
+    if (expectedToken && isAccountSessionUnavailable(expectedToken)) return;
     if (normalizedUserId) {
       await AsyncStorage.setItem('userId', normalizedUserId);
     } else {
@@ -25,7 +58,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const forceLogout = useCallback(async () => {
-    await AsyncStorage.multiRemove(['token', 'role', 'userId']);
+    if (isDeletionLocked(deletionFlowRef.current.getState())) return;
+    deletionFlowRef.current.dismissBlocked();
+    await AsyncStorage.multiRemove(['token', 'role', 'userId', 'isTestAccount']);
+    setIsTestAccount(false);
     setToken(null);
     setRole(null);
     setUserId(null);
@@ -41,6 +77,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function load() {
       try {
+        await deletionFlowRef.current.restore();
+        const restoredDeletion = deletionFlowRef.current.getState();
+        if (restoredDeletion) { setToken(restoredDeletion.token); return; }
         const storedToken = await AsyncStorage.getItem('token');
         const storedUserId = await AsyncStorage.getItem('userId');
         if (storedUserId) {
@@ -49,15 +88,20 @@ export function AuthProvider({ children }) {
         }
         if (storedToken) {
           setToken(storedToken);
+          setIsTestAccount((await AsyncStorage.getItem('isTestAccount')) === 'true');
           try {
             const me = await apiFetch('/auth/me', {
               headers: { Authorization: `Bearer ${storedToken}` },
             });
-            await applyUserId(me.id);
+            if (isAccountSessionUnavailable(storedToken)) return;
+            setIsTestAccount(me.isTestAccount === true);
+            await AsyncStorage.setItem('isTestAccount', String(me.isTestAccount === true));
+            await applyUserId(me.id, storedToken);
             const r = me.role === 'BOTH' ? null : me.role;
             setRole(r);
             if (r) {
-              await AsyncStorage.setItem('role', r);
+              if (isAccountSessionUnavailable(token)) return;
+    await AsyncStorage.setItem('role', r);
             } else {
               await AsyncStorage.removeItem('role');
             }
@@ -74,7 +118,12 @@ export function AuthProvider({ children }) {
   }, [applyUserId]);
 
 
-  const login = async (tok, r) => {
+  const login = async (tok, r, metadata = {}) => {
+    deletionCompletedRef.current = false;
+    pausePersonalStorage(false); pauseNotificationStorage(false);
+    setIsTestAccount(metadata.isTestAccount === true);
+    await AsyncStorage.setItem('isTestAccount', String(metadata.isTestAccount === true));
+    setDeletionNotice('');
     await AsyncStorage.setItem('token', tok);
     setToken(tok);
     let profile = null;
@@ -82,8 +131,12 @@ export function AuthProvider({ children }) {
       profile = await apiFetch('/auth/me', {
         headers: { Authorization: `Bearer ${tok}` },
       });
-      await applyUserId(profile.id);
+      if (isAccountSessionUnavailable(tok)) return;
+      setIsTestAccount(profile.isTestAccount === true);
+      await AsyncStorage.setItem('isTestAccount', String(profile.isTestAccount === true));
+      await applyUserId(profile.id, tok);
     } catch {}
+    if (isAccountSessionUnavailable(tok)) return;
 
     if (r) {
       const roleValue = profile?.role || r;
@@ -99,7 +152,8 @@ export function AuthProvider({ children }) {
         const me = profile || await apiFetch('/auth/me', {
           headers: { Authorization: `Bearer ${tok}` },
         });
-        await applyUserId(me.id);
+        if (isAccountSessionUnavailable(tok)) return;
+        await applyUserId(me.id, tok);
         const roleVal = me.role === 'BOTH' ? null : me.role;
         if (roleVal) {
           await AsyncStorage.setItem('role', roleVal);
@@ -114,10 +168,12 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || isDeletionLocked(accountDeletion)) return;
+    let cancelled = false;
     async function register() {
       try {
         const expoToken = await getPushToken();
+        if (cancelled || isAccountDeletionInProgress()) return;
         if (expoToken) {
           await apiFetch('/auth/push-token', {
             method: 'PUT',
@@ -136,27 +192,33 @@ export function AuthProvider({ children }) {
       }
     }
     register();
-  }, [token]);
+    return () => { cancelled = true; };
+  }, [token, accountDeletion]);
 
   const logout = useCallback(async () => {
     await forceLogout();
   }, [forceLogout]);
 
   const selectRole = async (r, fromRegistration = false) => {
-    if (!token) return;
+    if (!token || roleRequestRef.current) return;
+    roleRequestRef.current = true;
     try {
-      await apiFetch('/auth/role', {
+      const result = await apiFetch('/auth/role', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ role: r }),
       });
-    } catch (e) {
-      console.log('selectRole error', e.message);
-    }
-    await AsyncStorage.setItem('role', r);
-    setRole(r);
-    if (fromRegistration) {
-      setNeedsProfileSetup(true);
+      if (isAccountSessionUnavailable(token)) return;
+      await AsyncStorage.setItem('role', r);
+      if (isAccountSessionUnavailable(token)) return;
+      await AsyncStorage.setItem('isTestAccount', String(result.isTestAccount === true));
+      if (isAccountSessionUnavailable(token)) return;
+      setIsTestAccount(result.isTestAccount === true);
+      setNeedsProfileSetup(fromRegistration && !(r === 'DRIVER' &&
+        result.isTestAccount === true && result.demoDriverProfileReady === true));
+      setRole(r);
+    } finally {
+      roleRequestRef.current = false;
     }
   };
 
@@ -165,7 +227,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, role, userId, needsProfileSetup, loading, login, logout, selectRole, clearNeedsProfileSetup }}>
+    <AuthContext.Provider value={{ token, role, isTestAccount, userId, needsProfileSetup, loading, login, logout, selectRole, clearNeedsProfileSetup,
+      accountDeletion, deletionNotice,
+      beginAccountDeletion: () => deletionFlowRef.current.begin(token),
+      retryAccountDeletion: () => deletionFlowRef.current.retry(),
+      exitUnconfirmedDeletion: () => deletionFlowRef.current.exitUnconfirmed(),
+      dismissBlockedDeletion: () => deletionFlowRef.current.dismissBlocked(),
+    }}>
       {children}
     </AuthContext.Provider>
   );

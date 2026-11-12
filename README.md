@@ -2,6 +2,23 @@
 
 Backend API for a logistics service mobile app using Node.js, Express and PostgreSQL.
 
+## Тестовий акаунт App Review
+
+Номер `380000000001` має демонстраційну анкету водія з явно позначеними
+синтетичними зображеннями (`assets/demo-account/` → `/demo-assets/`). Профіль
+доповнюється при старті сервера, вході або читанні `/api/auth/me`; статус
+`DRAFT` не означає перевірку справжніх документів. Наявні поля не перезаписуються.
+
+Admin/dispatcher права цього номера відкликаються; старі токени й пов’язаний
+PortalAdmin також не дають привілейованого доступу. Звичайні API профілю не
+дозволяють привласнити або змінити зарезервований номер. Мобільний застосунок
+показує банер «Тестовий акаунт» і пропускає первинну анкету водія лише за
+серверним підтвердженням готового демопрофілю. Це не ізольована пісочниця:
+видимі замовлення можуть належати поточному середовищу.
+
+Зміни в репозиторії набудуть чинності для рев’юера після окремого
+розгортання backend і встановлення відповідної мобільної збірки.
+
 ## Setup
 
 1. Install dependencies:
@@ -93,3 +110,48 @@ node --test webUserPortal/tests/dispatcher-report.test.mjs
 
 Інтеграційний тест створює схему заново **лише в ізольованій тестовій БД**
 `vango_dispatcher_test`. Не підключайте його до бази з потрібними даними.
+
+## AI бот підтримки
+
+Без `SUPPORT_BOT_PROVIDER` бот використовує OpenAI (сумісна попередня поведінка).
+Для Claude задайте в оточенні процесу backend:
+
+```dotenv
+SUPPORT_BOT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=<YOUR_ANTHROPIC_API_KEY>
+ANTHROPIC_MODEL=claude-haiku-5-5
+SUPPORT_BOT_TIMEOUT_MS=10000
+```
+
+Пріоритет налаштувань:
+
+| Провайдер | Ключ | Модель |
+| --- | --- | --- |
+| `openai` (типово) | `SUPPORT_BOT_API_KEY`, потім `OPENAI_API_KEY` | `SUPPORT_BOT_MODEL`, потім `OPENAI_MODEL`, потім `gpt-4o-mini` |
+| `anthropic` | `SUPPORT_BOT_API_KEY`, потім `ANTHROPIC_API_KEY` | `SUPPORT_BOT_MODEL`, потім `ANTHROPIC_MODEL`, потім `claude-haiku-5-5` |
+
+Якщо раніше задані `SUPPORT_BOT_API_KEY` або `SUPPORT_BOT_MODEL`, оператор має
+прибрати їх або замінити значеннями для Claude: вони мають найвищий пріоритет.
+`OPENAI_API_KEY` і `OPENAI_MODEL` не використовуються для Anthropic, і навпаки.
+Невідомий провайдер, відсутній ключ, помилка API або порожня відповідь переводять
+бота на локальні відповіді. Таймаут скасовує запит; `publicMode` завжди працює
+локально. Контракт відповіді залишається `{ answer, source }`.
+
+Anthropic використовує `POST https://api.anthropic.com/v1/messages`, заголовки
+`x-api-key` та `anthropic-version: 2026-10-21`, поле `system`, історію `messages`
+(до восьми попередніх повідомлень) і `max_tokens: 1024`. З відповіді беруться лише
+блоки `content` з типом `text`. Якщо Anthropic повертає `stop_reason: max_tokens`,
+бот використовує локальну відповідь замість обірваного тексту.
+Формат перевірено за [офіційною документацією Messages API](https://platform.claude.com/docs/en/api/http/messages/create),
+модель — за [переліком моделей Anthropic](https://platform.claude.com/docs/en/models/overview).
+
+Для увімкнення на сервері оператор має встановити ці змінні через чинний механізм
+керування секретами/оточенням і перезапустити backend з оновленим оточенням.
+Не записуйте справжні ключі в репозиторій. Для повернення до OpenAI задайте
+`SUPPORT_BOT_PROVIDER=openai` та відповідні ключ і модель.
+
+Перевірки без мережевих запитів, платних API, `.env` або БД:
+
+```bash
+node --test tests/support-bot.test.js
+```

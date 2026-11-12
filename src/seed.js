@@ -13,8 +13,8 @@ async function seed() {
     role: UserRole.BOTH,
     city: 'NYC',
     phone: '380000000001',
-    isAdmin: true,
-    isDispatcher: true,
+    isAdmin: false,
+    isDispatcher: false,
     pushConsent: true,
   });
   const driver = await User.create({

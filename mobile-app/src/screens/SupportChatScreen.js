@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { colors } from '../components/Colors';
 import { useAuth } from '../AuthContext';
 import { apiFetch } from '../api';
@@ -19,6 +20,7 @@ import { apiFetch } from '../api';
 export default function SupportChatScreen({ route }) {
   const { token } = useAuth();
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const publicMode = Boolean(route?.params?.publicMode);
   const scrollRef = useRef(null);
   const [questionText, setQuestionText] = useState('');
@@ -93,7 +95,8 @@ export default function SupportChatScreen({ route }) {
       <KeyboardAvoidingView
         style={styles.keyboard}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : undefined}
+        enabled={Platform.OS === 'ios'}
+        keyboardVerticalOffset={headerHeight}
       >
         <ScrollView
           ref={scrollRef}
@@ -101,6 +104,9 @@ export default function SupportChatScreen({ route }) {
             styles.messagesContent,
             { paddingBottom: Math.max(insets.bottom, 0) + 22 },
           ]}
+          style={styles.messageList}
+          onLayout={scrollToBottom}
+          onContentSizeChange={scrollToBottom}
           keyboardShouldPersistTaps="handled"
         >
           {!hasConversation && (
@@ -180,6 +186,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   keyboard: {
+    flex: 1,
+  },
+  messageList: {
     flex: 1,
   },
   messagesContent: {
